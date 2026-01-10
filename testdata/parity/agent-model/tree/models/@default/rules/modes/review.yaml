@@ -1,0 +1,10 @@
+apiVersion: ai.enterprise/v1
+kind: operating-mode
+metadata:
+  id: urn:ordin:default:rules:modes:review
+  name: Review
+  version: 1.0.0
+  owner: engineering-enablement
+entry: urn:ordin:default:rules:modes:review
+permissions:
+  write: false

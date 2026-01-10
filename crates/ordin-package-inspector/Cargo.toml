@@ -1,0 +1,14 @@
+[package]
+name = "ordin-package-inspector"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-format-plugins = { workspace = true }
+ordin-agent-model = { workspace = true }
+saphyr = { workspace = true }
+tracing = { workspace = true }

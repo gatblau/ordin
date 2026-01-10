@@ -1,0 +1,82 @@
+[package]
+name = "ordin-server"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ordin-server"
+path = "src/main.rs"
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-agent-model = { workspace = true }
+ordin-agent-configuration = { workspace = true }
+ordin-telemetry = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-localisation = { workspace = true }
+ordin-agent-folders = { workspace = true }
+ordin-format-plugins = { workspace = true }
+ordin-resolver = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-knowledge-query-client = { workspace = true }
+ordin-hosted-agent-adapter = { workspace = true }
+ordin-slack-thread-adapter = { workspace = true }
+ordin-nats = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-run-queue = { workspace = true }
+ordin-model-policy = { workspace = true }
+ordin-caller-auth = { workspace = true }
+ordin-settings-store = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-checker = { workspace = true }
+ordin-installers = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-duty-timer = { workspace = true }
+ordin-remote-api = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-package-inspector = { workspace = true }
+ordin-files = { workspace = true }
+ordin-hook-relay = { workspace = true }
+ordin-crew-orchestrator = { workspace = true }
+ordin-sandbox = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-claude-adapter = { workspace = true }
+ordin-copilot-adapter = { workspace = true }
+ordin-connection-binder = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-catalogue = { workspace = true }
+ordin-push = { workspace = true }
+ordin-agent-loader = { workspace = true }
+ordin-knowledge-query-server = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-mail = { workspace = true }
+ordin-slack-service = { workspace = true }
+ordin-package-catalogue = { workspace = true }
+ordin-release-builder = { workspace = true }
+ordin-host = { workspace = true }
+ordin-team-knowledge = { workspace = true }
+ordin-knowledge-reader = { workspace = true }
+ordin-home-search = { workspace = true }
+ordin-setup = { workspace = true }
+ordin-retention = { workspace = true }
+ordin-authoring = { workspace = true }
+ordin-channel-gateway = { workspace = true }
+ordin-handover = { workspace = true }
+ordin-job-runner = { workspace = true }
+ordin-caller-api = { workspace = true }
+ordin-telegram-adapter = { workspace = true }
+ordin-slack-channel-adapter = { workspace = true }
+ordin-triggers = { workspace = true }
+ordin-telegram-service = { workspace = true }
+clap = { workspace = true }
+rpassword = { workspace = true }
+tracing = { workspace = true }

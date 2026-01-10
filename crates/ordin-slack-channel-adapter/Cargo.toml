@@ -1,0 +1,22 @@
+[package]
+name = "ordin-slack-channel-adapter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-channel-gateway = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+async-trait = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }

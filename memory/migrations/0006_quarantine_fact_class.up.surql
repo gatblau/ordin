@@ -1,0 +1,14 @@
+-- Storing the asserted fact class on a held write (RFC 05, SA-AUTHZ-09).
+--
+-- `quarantine` is SCHEMAFULL, so a write carrying an undeclared key is rejected outright. Without
+-- this field a mid-band write carrying a class would fail *entirely* — losing the held record, not
+-- merely its label — so this DDL is what keeps the quarantine path working once C4 sets the field.
+--
+-- Additive and forward-only. Nothing is backfilled and no bi-temporal history is collapsed. Rows
+-- written before this migration read back with the field NULL, indistinguishable from a write that
+-- asserted no class.
+--
+-- No `ASSERT`: the vocabulary belongs to the caller and `memory` validates it against nothing.
+-- The sibling `fact` table needs no migration at all — it is SCHEMALESS, so `fact_to_object` simply
+-- writes one more key.
+DEFINE FIELD IF NOT EXISTS fact_class ON quarantine TYPE option<string>;

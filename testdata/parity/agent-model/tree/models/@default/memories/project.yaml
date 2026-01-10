@@ -1,0 +1,17 @@
+apiVersion: ai.enterprise/v1
+kind: memory
+metadata:
+  id: urn:ordin:default:memories:project
+  name: Project memory
+  version: 1.0.0
+  owner: engineering-enablement
+excludes:
+  - secrets
+retains:
+  - decisions
+  - open-questions
+retention:
+  maxAgeDays: 90
+store:
+  location: remote
+  memoryService: urn:ordin:default:tool-bindings:mail

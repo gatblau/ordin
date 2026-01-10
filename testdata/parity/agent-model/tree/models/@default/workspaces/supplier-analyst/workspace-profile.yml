@@ -1,0 +1,19 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:supplier-analyst
+  name: Supplier analyst
+  version: 1.1.0-rc.1
+  owner: procurement
+  status: draft
+fixedPracticePacks:
+  - urn:ordin:default:practice-packs:stack:go
+  - ask:
+      class: testing
+  - ask:
+      ids:
+        - urn:ordin:default:practice-packs:stack:go
+governanceMetadata:
+  brandOverlays:
+    - urn:ordin:default:overlays:brand:house
+skills: [urn:ordin:default:skills:quality:codegen]

@@ -1,0 +1,13 @@
+[package]
+name = "ordin-resolver"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-agent-model = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+tracing = { workspace = true }

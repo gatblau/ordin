@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sandboxd Windows installer (windows-deployment phase 5, ADR-031). A PER-USER .msi (no admin,
+  no UAC elevation — RISK-004): it installs the binary under %LOCALAPPDATA%\sandboxd, registers
+  a per-user logon autostart (HKCU ...\Run), and merges the MCP front door into the user's
+  Claude config post-install (sandboxd install-mcp-config — idempotent, no clobber), mirroring
+  the macOS .pkg postinstall. Authenticode signing is optional/off by default (build-msi.ps1).
+
+  Build: wix build sandboxd.wxs -bindpath bin=<dir-containing-sandboxd.exe> -o sandboxd.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="sandboxd"
+           Manufacturer="sandbox"
+           Version="0.1.0"
+           UpgradeCode="7C3A1E20-9B4D-4F6A-8E21-1A2B3C4D5E6F"
+           Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of sandboxd is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="sandboxd">
+        <Component Id="MainExe">
+          <File Id="sandboxdExe" Name="sandboxd.exe"
+                Source="!(bindpath.bin)\sandboxd.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="Autostart">
+          <!-- Per-user always-on autostart so `mcp-stdio` always finds the daemon. HKCU Run
+               needs no admin (RISK-004); removed automatically on uninstall. -->
+          <RegistryValue Root="HKCU"
+                         Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                         Name="sandboxd" Type="string"
+                         Value="&quot;[INSTALLFOLDER]sandboxd.exe&quot;" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="sandboxd">
+      <ComponentRef Id="MainExe" />
+      <ComponentRef Id="Autostart" />
+    </Feature>
+
+    <!-- Post-install: register the MCP front door in the user's Claude config. Runs the
+         installed binary as the installing user; merge is idempotent and never clobbers
+         other servers. Best-effort (Return="ignore") so a config quirk never fails install. -->
+    <CustomAction Id="InstallMcpConfig" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]sandboxd.exe&quot; install-mcp-config"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="InstallMcpConfig" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

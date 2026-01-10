@@ -1,0 +1,115 @@
+# Local deployment wiring for memory's two edges (Phase 2, plan 03 — FU-001).
+#
+# Brings up BOTH externally-reachable surfaces of recall from the ONE image built in Phase 1:
+#   - `recall`     — the REST API edge   (port 8080)
+#   - `memory-mcp` — the MCP edge        (port 8081)
+# selected purely by the container command. They are "two manifestations of one service".
+#
+# TOPOLOGY — why a shared REMOTE store, not two embedded ones:
+#   memory's embedded SurrealKV store writes to a local file; two containers cannot share one file,
+#   so two embedded stores would give the edges DISJOINT memory (a `remember` over REST would be
+#   invisible over MCP). To make them genuinely one service they must share ONE store, so this stack
+#   runs a single SurrealDB server and points both edges at it via `MEMORY_STORE_REMOTE_URL`
+#   (`ws://...`). `Store::connect` resolves the `ws://` scheme to the remote engine (src/store/mod.rs),
+#   so the edges open the SAME database.
+#
+#   The SurrealDB server runs AUTHENTICATED (root creds). memory's `Store::connect` signs in to the
+#   remote when `MEMORY_STORE_REMOTE_USER`/`MEMORY_STORE_REMOTE_PASS` are set (FU-019, closed), so the
+#   edges authenticate to the secured store. The credentials default to `root`/`root` for a local
+#   stack and are overridable via a `.env` file (`MEMORY_STORE_REMOTE_USER`/`_PASS`); the same pair
+#   feeds both the `surreal start` command and the edges, so they cannot drift. For production, supply
+#   strong creds and use `wss://` (TLS) to the store.
+#
+# BOOT ORDERING — memory fail-fasts with NO retry:
+#   `build_state` constructs the C3 Authenticator (OIDC discovery + JWKS fetch) and opens the store,
+#   and exits non-zero if either the OIDC issuer OR the store is unreachable — there is no internal
+#   retry. The edges may therefore start before Dex/SurrealDB are ready. `depends_on` only orders
+#   start, it does not wait for readiness, so each edge carries `restart: on-failure`: it dies fast
+#   if a dependency is not yet up and compose restarts it until boot succeeds. (Healthcheck-gated
+#   `condition: service_healthy` is an alternative but the Dex image ships no curl/wget; the
+#   restart-loop is the robust choice.)
+#
+# IMAGE: this stack references the locally-built `memory:ci` (Phase 1: `docker build -t memory:ci .`).
+# A published release would instead reference `ghcr.io/gatblau/memory:<tag>` (Phase 3).
+
+services:
+  # --- OIDC issuer (local) -----------------------------------------------------
+  dex:
+    image: dexidp/dex:v2.41.1
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./deploy/dex.yaml:/etc/dex/config.yaml:ro
+    ports:
+      # Host access so an operator can mint a token (ROPC) for manual REST/MCP calls.
+      - "35357:5556"
+
+  # --- Shared store (AUTHENTICATED — memory signs in, FU-019) ------------------
+  surrealdb:
+    image: surrealdb/surrealdb:v3.1.5
+    # Authenticated root creds (default root/root for local; override via .env). memory's
+    # Store::connect signs in with the matching MEMORY_STORE_REMOTE_USER/_PASS below. `memory` keeps
+    # the store ephemeral — a fresh store every `up`; swap to a surrealkv:// path + a named volume for
+    # persistence if needed.
+    command:
+      - "start"
+      - "--user"
+      - "${MEMORY_STORE_REMOTE_USER:-root}"
+      - "--pass"
+      - "${MEMORY_STORE_REMOTE_PASS:-root}"
+      - "--bind"
+      - "0.0.0.0:8000"
+      - "memory"
+    ports:
+      - "8000:8000"
+
+  # --- REST edge ---------------------------------------------------------------
+  memory:
+    image: memory:ci   # release: ghcr.io/gatblau/memory:<tag>
+    command: ["memory"]
+    ports:
+      - "8080:8080"
+    environment:
+      # OIDC: the in-network Dex name, so the edge resolves discovery AND the token `iss` validates.
+      MEMORY_OIDC_ISSUER: "http://dex:5556/dex"
+      MEMORY_OIDC_AUDIENCE: "memory-test"
+      # Shared remote store — BOTH edges point here so they share one database.
+      MEMORY_STORE_REMOTE_URL: "ws://surrealdb:8000"
+      # Sign in to the secured store (FU-019). Same pair as the surrealdb service; override via .env.
+      MEMORY_STORE_REMOTE_USER: "${MEMORY_STORE_REMOTE_USER:-root}"
+      MEMORY_STORE_REMOTE_PASS: "${MEMORY_STORE_REMOTE_PASS:-root}"
+      # Embedding / reranker providers are OPERATOR-SUPPLIED. The placeholders below let the edge
+      # boot and serve discovery/health, but recall/remember will not fully work until real provider
+      # endpoints (and their API keys) are set. Replace these with your real provider URLs + keys.
+      MEMORY_EMBED_URL: "http://embed.invalid"
+      MEMORY_EMBED_API_KEY: "placeholder-embed-key"
+      MEMORY_RERANK_URL: "http://rerank.invalid"
+      MEMORY_RERANK_API_KEY: "placeholder-rerank-key"
+      # Must match the embedding model's output dimension once a real provider is wired.
+      MEMORY_EMBED_DIM: "1024"
+    depends_on:
+      - dex
+      - surrealdb
+    restart: on-failure
+
+  # --- MCP edge ----------------------------------------------------------------
+  memory-mcp:
+    image: memory:ci   # release: ghcr.io/gatblau/memory:<tag>
+    command: ["memory-mcp"]
+    ports:
+      - "8081:8081"
+    environment:
+      MEMORY_OIDC_ISSUER: "http://dex:5556/dex"
+      MEMORY_OIDC_AUDIENCE: "memory-test"
+      MEMORY_STORE_REMOTE_URL: "ws://surrealdb:8000"
+      # Sign in to the secured store (FU-019). Same pair as the surrealdb service; override via .env.
+      MEMORY_STORE_REMOTE_USER: "${MEMORY_STORE_REMOTE_USER:-root}"
+      MEMORY_STORE_REMOTE_PASS: "${MEMORY_STORE_REMOTE_PASS:-root}"
+      MEMORY_EMBED_URL: "http://embed.invalid"
+      MEMORY_EMBED_API_KEY: "placeholder-embed-key"
+      MEMORY_RERANK_URL: "http://rerank.invalid"
+      MEMORY_RERANK_API_KEY: "placeholder-rerank-key"
+      MEMORY_EMBED_DIM: "1024"
+    depends_on:
+      - dex
+      - surrealdb
+    restart: on-failure

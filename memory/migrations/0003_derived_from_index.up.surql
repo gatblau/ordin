@@ -1,0 +1,18 @@
+-- 0003 — Index the lineage array so hard_delete's derived-collection query stops scanning the table.
+--
+-- `hard_delete` collects every consolidated insight whose `derived_from` contains the fact being
+-- erased. With no index over `derived_from`, EXPLAIN reported no index at all and the query planned a
+-- full scan of `fact` — on an erasure path, where the caller is exercising a data-subject right and
+-- the work is proportional to the whole namespace rather than to the lineage.
+--
+-- `derived_from.*` indexes each element, for the same reason `fact_ent` had to be corrected in 0002:
+-- an index over the array as a whole value cannot serve element matching in SurrealDB 3.1.5. Unlike
+-- the graph leg this query needs no `WITH INDEX` hint — it carries no bi-temporal predicate, so there
+-- is no `fact_valid` for the planner to prefer.
+--
+-- Write cost is close to nil: `derived_from` is empty for every fact except a consolidated insight,
+-- and an empty array contributes no index entries.
+--
+-- Rollback: 0003.down removes the index. Neither direction reads or writes fact data, and the query
+-- returns identical rows with or without the index — only the scan changes.
+DEFINE INDEX IF NOT EXISTS fact_derived ON fact FIELDS derived_from.*;

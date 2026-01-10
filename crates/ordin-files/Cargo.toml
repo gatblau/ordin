@@ -1,0 +1,29 @@
+[package]
+name = "ordin-files"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-agent-folders = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-journal = { workspace = true }
+base64 = { workspace = true }
+bytes = { workspace = true }
+notify = { workspace = true }
+lopdf = { workspace = true }
+pulldown-cmark = { workspace = true }
+quick-xml = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+trash = { workspace = true }
+uuid = { workspace = true }
+zip = { workspace = true }

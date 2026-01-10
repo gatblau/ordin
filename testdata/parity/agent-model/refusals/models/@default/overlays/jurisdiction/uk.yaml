@@ -1,0 +1,7 @@
+apiVersion: ai.enterprise/v1
+kind: jurisdiction-overlay
+metadata:
+  id: urn:ordin:default:overlays:jurisdiction:uk
+  name: United Kingdom
+  version: 1.0.0
+  owner: legal

@@ -1,0 +1,34 @@
+[package]
+name = "ordin-types"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# JSON Schema for every type (SharedTypes.md Public Interface); turned on by ordin-service-api.
+schema = ["dep:schemars"]
+
+[dependencies]
+base64 = { workspace = true }
+chrono = { workspace = true }
+icu = { workspace = true }
+# The YAML event parser behind `yaml.rs` (SharedTypes.md Internal Logic 10 names `saphyr_parser::Parser`;
+# `saphyr` itself does not re-export it).
+saphyr-parser = { workspace = true }
+schemars = { workspace = true, optional = true, features = ["uuid1", "chrono04", "url2"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The argument digest of module `log` (Logging.md Shared Context, `sha2` 0.10).
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+
+[[bench]]
+name = "parse"
+harness = false

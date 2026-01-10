@@ -1,0 +1,20 @@
+[package]
+name = "ordin-release-builder"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-agent-configuration = { workspace = true }
+ordin-checker = { workspace = true }
+ordin-resolver = { workspace = true }
+ordin-agent-loader = { workspace = true }
+regex = { workspace = true }
+saphyr = { workspace = true }
+serde_json = { workspace = true }
+serde_path_to_error = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

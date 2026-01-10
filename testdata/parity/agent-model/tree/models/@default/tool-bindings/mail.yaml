@@ -1,0 +1,24 @@
+apiVersion: ai.enterprise/v1
+kind: tool-binding
+metadata:
+  id: urn:ordin:default:tool-bindings:mail
+  name: Mail
+  version: 1.0.0
+  owner: platform
+bindings:
+  - argumentPaths:
+      - "/to/[]/address"
+      - "/attachments/*"
+    coverageFloor: 0.75
+    envRef: MAIL_TOKEN
+    forbiddenFlags:
+      - "--bcc-all"
+    name: email_send
+    permission: write
+    scope: user
+    serverType: http
+    transport: streamable-http
+    type: mcp
+  - name: git
+    permission: read
+    type: cli

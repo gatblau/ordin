@@ -1,0 +1,29 @@
+# Local validation harness for the sandboxd developer-machine demo (Plan 04 Phase 4).
+# Brings up an OIDC provider (Dex) and a dummy REST API (go-httpbin) so you can drive the
+# full chain from Claude Code: python_sandbox → mcp-stdio → daemon → broker → dummy API,
+# with a real browser sign-in against Dex. Not shipped — a dev convenience only.
+services:
+  dex:
+    image: dexidp/dex:v2.45.1
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./dex-config.yaml:/etc/dex/config.yaml:ro
+
+  # A stand-in "corporate API" the sandbox calls through the broker. go-httpbin returns
+  # deterministic JSON (GET /json) and echoes requests (GET /anything/...).
+  dummy-api:
+    image: mccutchen/go-httpbin:v2.15.0
+    ports:
+      - "8080:8080"
+
+  # A downstream MCP server the sandbox calls through the broker (ADR-034). The reference
+  # "everything" server in streamable-HTTP mode exposes simple tools (echo, add, …) at
+  # http://127.0.0.1:3001/mcp — the `tools` capability in pysandbox.policy.json points here.
+  # Confirm the port/path on first run (the image's streamable-HTTP default is :3001/mcp).
+  mcp-everything:
+    image: mcp/everything
+    command: ["streamableHttp"]
+    ports:
+      - "3001:3001"

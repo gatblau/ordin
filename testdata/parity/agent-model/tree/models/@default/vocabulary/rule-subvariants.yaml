@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:default:vocabulary:rule-subvariants
+  name: Rule sub-variants
+  version: 1.0.0
+  owner: engineering-enablement
+axis: rule-subvariant
+terms:
+  - code: rule-layer
+    description: A rule that layers on top of a mode.
+    label: Layer rule
+  - code: rule-orchestrator
+    description: A rule that orders other rules.
+    label: Orchestrator rule

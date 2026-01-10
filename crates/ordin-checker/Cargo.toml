@@ -1,0 +1,15 @@
+[package]
+name = "ordin-checker"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-agent-model = { workspace = true }
+ordin-resolver = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-journal = { workspace = true }
+regex = { workspace = true }
+tracing = { workspace = true }

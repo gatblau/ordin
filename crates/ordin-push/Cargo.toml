@@ -1,0 +1,17 @@
+[package]
+name = "ordin-push"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-confluence = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+ordin-files = { workspace = true }
+ordin-journal = { workspace = true }
+git2 = { workspace = true }

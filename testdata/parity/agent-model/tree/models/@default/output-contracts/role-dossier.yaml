@@ -1,0 +1,18 @@
+apiVersion: ai.enterprise/v1
+kind: output-contract
+metadata:
+  id: urn:ordin:default:output-contracts:role-dossier
+  name: Role dossier
+  version: 1.0.0
+  owner: engineering-enablement
+sections:
+  - evidenceThreshold: 1
+    meaning: Who the agent is.
+    name: role-identity
+    required: true
+  - meaning: What the agent does.
+    name: responsibilities
+    required: true
+  - derived: true
+    evidenceThreshold: 0
+    name: evidence-index

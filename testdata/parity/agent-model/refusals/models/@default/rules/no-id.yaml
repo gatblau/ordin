@@ -1,0 +1,4 @@
+apiVersion: ai.enterprise/v1
+kind: rule
+metadata:
+  name: No identifier

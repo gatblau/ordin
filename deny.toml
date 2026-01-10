@@ -1,0 +1,55 @@
+[graph]
+all-features = true            # every feature combination the programs build (desktop, server, extra-guests)
+
+[licenses]
+# OSI-approved licences named in HLD 05 and Phase 1A for crates ordin builds. A licence found
+# that is not listed fails the build until it is added here with its reason (SA-LIC-01).
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  # Added at the licence gate (LicenceCheck.md Internal Logic 8.2): each is OSI-approved.
+  "0BSD",                           # quoted_printable (through mail-parser)
+  "Apache-2.0 WITH LLVM-exception", # the cranelift crates behind wasmtime (the sandbox), and others of the Wasmtime family
+  "MPL-2.0",                        # cssparser, cssparser-macros, dtoa-short, option-ext, selectors (through Tauri 2)
+  "Zlib",                           # const_format, konst, foldhash, zlib-rs (through Tauri 2, tokio and flate2)
+]
+confidence-threshold = 0.93
+
+# E1 — libgit2 (OQ-67 / OQ-GIT-LICENCE): the crate that bundles libgit2 only.
+# E3 — notify 8.2.0 (OQ-68): CC0-1.0.
+exceptions = [
+  { crate = "libgit2-sys", allow = ["GPL-2.0"] },   # narrowed at the licence gate to the SPDX expression cargo-deny reports (Internal Logic step 8)
+  { crate = "notify", allow = ["CC0-1.0"] },
+  # E4 — tiny-keccak (CC0-1.0, a public-domain dedication the OSI does not list): reached only on Linux,
+  #      through tauri-plugin-deep-link, rust-ini and const-random. The user's decision of January 2026.
+  { crate = "tiny-keccak", allow = ["CC0-1.0"] },
+  # E5 — webpki-root-certs (CDLA-Permissive-2.0, a data licence the OSI does not list): the root
+  #      certificate list that rustls-platform-verifier carries. The user's decision of January 2026.
+  { crate = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+]
+
+[advisories]
+# An ignored advisory needs an entry here with its RUSTSEC id and reason.
+# The four below are notices about crates that sit in Cargo.lock only because Tauri's Linux desktop
+# stack (GTK, D-Bus) is locked for every platform. ordin ships the desktop for macOS and Windows only and
+# the server for Linux, and `cargo tree --target <triple> -i <crate>` finds none of them for
+# x86_64-unknown-linux-gnu, aarch64-apple-darwin or x86_64-pc-windows-msvc: no ordin build contains them.
+# They are unmaintained notices, not vulnerabilities. Remove each when Tauri's dependency leaves the lock.
+ignore = [
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: in the lock through Tauri's GTK macros; built on no shipped target" },
+  { id = "RUSTSEC-2026-0370", reason = "zvariant: in the lock through Tauri's Linux D-Bus plugins; built on no shipped target" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names: in the lock through Tauri's Linux D-Bus plugins; built on no shipped target" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: in the lock through Tauri's Linux D-Bus plugins; built on no shipped target" },
+  # Accepted by the user, January 2026: a compile-time macro only, so none of its code ships. Every released
+  # tokenizers version uses it, and fastembed needs tokenizers; the 1.0 pre-release swaps it for the
+  # unmaintained fxhash, which is compiled into the program. Remove when tokenizers drops paste.
+  { id = "RUSTSEC-2024-0436", reason = "paste: build-time macro inside tokenizers (through fastembed); no maintained alternative" },
+]
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

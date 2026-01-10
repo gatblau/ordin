@@ -1,0 +1,15 @@
+[package]
+name = "ordin-brand"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-localisation = { workspace = true }
+ordin-journal = { workspace = true }
+reqwest = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+tracing = { workspace = true }

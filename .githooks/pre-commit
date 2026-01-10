@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the whole gate before every commit and refuses the commit when it fails.
+# Activate once per clone with `make hooks`.
+exec make check

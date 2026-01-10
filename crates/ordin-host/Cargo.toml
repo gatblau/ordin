@@ -1,0 +1,27 @@
+[package]
+name = "ordin-host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-checker = { workspace = true }
+ordin-files = { workspace = true }
+ordin-package-inspector = { workspace = true }
+ordin-package-catalogue = { workspace = true }
+ordin-crew-orchestrator = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-push = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-journal = { workspace = true }
+saphyr = { workspace = true }
+tracing = { workspace = true }

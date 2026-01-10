@@ -1,0 +1,10 @@
+apiVersion: ai.enterprise/v1
+kind: guideline
+metadata:
+  id: urn:ordin:default:guidelines:writing
+  name: Writing guide
+  version: 1.0.0
+  owner: engineering-enablement
+points:
+  - Lead with the answer.
+  - One idea per paragraph.

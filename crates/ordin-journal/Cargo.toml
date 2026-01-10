@@ -1,0 +1,26 @@
+[package]
+name = "ordin-journal"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The checksum of each migration step (DatabaseMigrations.md Internal Logic 3).
+sha2 = { workspace = true }
+# TLS to PostgreSQL through sqlx's rustls feature (JournalAndArtefactStore.md Internal Logic 1.2),
+# trusting the operating system's roots.
+sqlx = { workspace = true, features = ["tls-rustls-ring-native-roots"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+# PostgreSQL 18 in tests (plan, "PostgreSQL 18 in tests"); the helper is tests/support/pg.rs.
+testcontainers = { workspace = true }

@@ -1,0 +1,78 @@
+[package]
+name = "ordin-desktop"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ordin"
+path = "src/main.rs"
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-agent-model = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-localisation = { workspace = true }
+ordin-agent-folders = { workspace = true }
+ordin-format-plugins = { workspace = true }
+ordin-resolver = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-jira = { workspace = true }
+ordin-knowledge-query-client = { workspace = true }
+ordin-hosted-agent-adapter = { workspace = true }
+ordin-slack-thread-adapter = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-server-connector = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-brand = { workspace = true }
+ordin-dictation = { workspace = true }
+ordin-checker = { workspace = true }
+ordin-installers = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-command-bridge = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-package-inspector = { workspace = true }
+ordin-files = { workspace = true }
+ordin-hook-relay = { workspace = true }
+ordin-crew-orchestrator = { workspace = true }
+ordin-sandbox = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+ordin-confluence = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-claude-adapter = { workspace = true }
+ordin-copilot-adapter = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-catalogue = { workspace = true }
+ordin-push = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-mail = { workspace = true }
+ordin-slack-service = { workspace = true }
+ordin-package-catalogue = { workspace = true }
+ordin-host = { workspace = true }
+ordin-team-knowledge = { workspace = true }
+ordin-home-search = { workspace = true }
+ordin-setup = { workspace = true }
+ordin-authoring = { workspace = true }
+ordin-handover = { workspace = true }
+ordin-telegram-adapter = { workspace = true }
+ordin-telegram-service = { workspace = true }
+http = { workspace = true }
+tracing = { workspace = true }
+
+# The desktop program ships for macOS and Windows only (HLD 05, Deployment substrate), so Tauri is not
+# built, and its Linux-only dependencies are not locked into this program, on any other target.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tauri = { workspace = true }
+tauri-plugin-deep-link = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+tauri-plugin-single-instance = { workspace = true }
+tauri-plugin-updater = { workspace = true }

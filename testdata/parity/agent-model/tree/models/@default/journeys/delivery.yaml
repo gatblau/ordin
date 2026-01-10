@@ -1,0 +1,39 @@
+apiVersion: ai.enterprise/v1
+kind: journey
+metadata:
+  id: urn:ordin:default:journeys:delivery
+  name: Delivery
+  version: 1.0.0
+  owner: engineering-enablement
+stages:
+  - agent: urn:ordin:default:workspaces:cspa-431
+    answerWithinDays: 5
+    handoverPlace:
+      target: designs
+      type: folder
+    id: design
+    name: Design
+    next:
+      - stage: build
+        when: approved
+      - stage: design
+        when: changes asked for
+    produces: urn:ordin:default:output-contracts:role-dossier
+    role: designer
+    sendsBackTo: []
+    slackChannel:
+      id: C04ABCDEF12
+      name: design-reviews
+    together: false
+  - handoverPlace:
+      target: releases
+      type: folder
+    id: build
+    name: Build
+    next: []
+    role: builder
+    sendsBackTo:
+      - maxRounds: 2
+        stage: design
+        when: the design is unclear
+    together: true

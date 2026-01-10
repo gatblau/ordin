@@ -1,0 +1,17 @@
+listSchema: ordin.withdrawn/v1
+entries:
+  - part:
+      kind: Skill
+      id: urn:ordin:default:skills:rate-compare
+      version: 1.2.0
+      contentHash: 9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
+    reason: Gave wrong totals for multi-currency quotes.
+    withdrawnAt: 2026-01-10T09:00:00.000Z
+    replacement:
+      id: urn:ordin:default:skills:rate-compare
+      version: 1.2.1
+  - part:
+      kind: Rule
+      id: urn:ordin:default:rules:old-tone
+    reason: Replaced by the tone rule.
+    withdrawnAt: 2026-01-10T12:30:00.000Z

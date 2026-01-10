@@ -1,0 +1,16 @@
+[package]
+name = "ordin-crew-orchestrator"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-journal = { workspace = true }

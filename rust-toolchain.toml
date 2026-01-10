@@ -1,0 +1,4 @@
+[toolchain]
+# The current stable release at the time of Step 0 (Playbook P7, decision 81).
+channel = "1.96.0"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]

@@ -1,0 +1,23 @@
+[package]
+name = "ordin-localisation"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-journal = { workspace = true }
+fluent-bundle = { workspace = true }
+icu = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Plan 01 Phase 1 behavioural check: the phase-1 table owners register together. No phase-1 crate
+# may hold a dev edge to another (same build phase), so the test lives in this phase-2 crate.
+ordin-identity = { workspace = true }
+sqlx = { workspace = true }
+testcontainers = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }

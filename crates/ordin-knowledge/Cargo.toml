@@ -1,0 +1,20 @@
+[package]
+name = "ordin-knowledge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-files = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-push = { workspace = true }
+ordin-journal = { workspace = true }
+bytes = { workspace = true }
+regex = { workspace = true }
+saphyr = { workspace = true }
+tracing = { workspace = true }

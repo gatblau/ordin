@@ -1,0 +1,38 @@
+[package]
+name = "ordin-identity"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+# `ServerSecrets` and `DesktopKeyStore` are `#[async_trait::async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# Standard base64 in the secrets file, base64url for PKCE, `state` and the ID token's payload.
+base64 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+# Calendar dates: a pasted GitLab token's `expires_at` day and a certificate's `notAfter` (H.11, H.12).
+chrono = { workspace = true }
+# Random bytes from the operating system: PKCE verifier, `state`, nonces, keys (H.7, H.9).
+getrandom = { workspace = true }
+keyring = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# PKCE S256, the account-label hash of the log lines, and the client-certificate secret name.
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+# Constant-time comparison of the relayed sign-in's `state` (Security).
+subtle = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+wiremock = { workspace = true }

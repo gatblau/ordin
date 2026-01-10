@@ -1,0 +1,15 @@
+[package]
+name = "ordin-copilot-adapter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-hook-relay = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-identity = { workspace = true }
+tracing = { workspace = true }

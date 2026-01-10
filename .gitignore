@@ -1,0 +1,10 @@
+.claude
+.idea
+*.iml
+wip
+releases
+# update signing key (private half); the .pub file is committed
+*.key
+# build output and installed packages
+target/
+node_modules/
