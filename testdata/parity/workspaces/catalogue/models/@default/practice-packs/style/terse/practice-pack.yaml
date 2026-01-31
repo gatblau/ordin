@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:default:practice-packs:style:terse
+  name: Terse style
+  version: 1.0.0
+  owner: engineering-enablement
+  class: style
+  audience:
+    languages:
+      - markdown
+skills:
+  - urn:ordin:alpha:skills:house-style

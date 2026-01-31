@@ -1,0 +1,13 @@
+# A hand-written profile: comments and key order are the author's own.
+kind: workspace-profile
+apiVersion: ai.enterprise/v1
+metadata:
+  version: 1.2.0
+  id: urn:ordin:acme:workspaces:helper
+  name:   Helper
+  owner: operations
+  status: approved
+defaultRules: [urn:ordin:acme:rules:tone]
+skills:
+  - urn:ordin:acme:skills:review
+commands: ['urn:ordin:acme:commands:summarise']

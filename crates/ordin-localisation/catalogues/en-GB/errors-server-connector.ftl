@@ -1,0 +1,24 @@
+# Company connection: pairing with and talking to a company system
+error-conn-address-invalid = That address isn't a computer name or number ordin can use. Check it.
+error-conn-address-locked = Your company has set this address, so it can't be changed.
+error-conn-already-started = The connection has already started.
+error-conn-bad-answer = The company's system gave an answer ordin couldn't understand. Check you have the right address, then try again.
+error-conn-cert-untrusted = This computer doesn't trust the company's security certificate. Ask for its fingerprint and pin it.
+error-conn-client-cert-unavailable = A certificate that the company needs isn't available on this computer. Install it, then try again.
+error-conn-code-refused = That code is wrong or has run out. Ask for a new one.
+error-conn-computer-name-invalid = The company refused this computer's name. Choose a different name.
+error-conn-datastore = ordin couldn't read or save its connection details. Try again.
+error-conn-deadline = The company's system didn't answer in time. Try again in a moment.
+error-conn-duplicate = This computer is already paired with that address. Choose another one.
+error-conn-event-unreadable = ordin couldn't read an update it received, so it was skipped.
+error-conn-fingerprint-mismatch = The company's system doesn't match the fingerprint you pinned. Check the fingerprint with the person who gave it.
+error-conn-keychain = ordin couldn't use this computer's password store. Unlock it and try again.
+error-conn-key-refused = The company's system no longer accepts this computer. Pair it again.
+error-conn-not-connected = You aren't connected to the company's system right now. Connect and try again.
+error-conn-pairing-line-invalid = That pairing line isn't written correctly. Copy it again.
+error-conn-pairing-stopped = Pairing was stopped after five wrong codes. Ask for a new code.
+error-conn-port-out-of-range = The port must be a number from 1025 to 65535. Change it.
+error-conn-refused-for-version = This version of ordin can't work with the company's system. Update ordin.
+error-conn-too-many-desktops = The company's system already has its most computers paired. Remove one first.
+error-conn-unknown-server = ordin doesn't know that connection. Choose another one.
+error-conn-unreachable = ordin can't reach the company's system. Check your network and try again.

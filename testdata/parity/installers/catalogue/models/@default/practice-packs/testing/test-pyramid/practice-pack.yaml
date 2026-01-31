@@ -1,0 +1,10 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:default:practice-packs:testing:test-pyramid
+  name: Test pyramid
+  version: 1.0.0
+  owner: engineering-enablement
+  class: testing
+packMembers:
+  - urn:ordin:default:rules:testing:pyramid

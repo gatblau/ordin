@@ -1,0 +1,11 @@
+{
+  "root": "urn:ordin:default:workspaces:draft-agent",
+  "root_version": "1.0.0",
+  "target_harness": "claude_code",
+  "workspace_languages": [],
+  "interface_language": "en-GB",
+  "pack_answers": [],
+  "pack_changes": [],
+  "overlay_changes": [],
+  "replacements": []
+}

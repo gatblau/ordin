@@ -1,0 +1,5 @@
+{
+  "root": "urn:ordin:default:workspaces:helpdesk",
+  "target_harness": "copilot_cli",
+  "installer": "vscode"
+}

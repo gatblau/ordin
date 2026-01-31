@@ -1,0 +1,8 @@
+{
+  "codes": [
+    "sync_unknown_loop_strategy",
+    "sync_unknown_runtime_capability",
+    "sync_invalid_loop_trigger",
+    "repository_checked"
+  ]
+}

@@ -1,0 +1,5 @@
+---
+applyTo: "**"
+---
+
+Use short sentences.

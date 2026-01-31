@@ -1,0 +1,927 @@
+{
+  "parts": [
+    {
+      "authoredKind": "rule",
+      "contentDigest": "96597454ce60c66da6ea6971a4a444373aeb685b1d8061b8d6efd7de7819728d",
+      "files": [
+        "legacy.md"
+      ],
+      "id": "@acme/rules/legacy",
+      "kind": "Rule",
+      "manifestPath": "models/@acme/rules/legacy.md",
+      "name": "Legacy",
+      "placedAt": {
+        "error": "AM_ID_INVALID"
+      },
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": false,
+      "slug": "legacy",
+      "status": "approved",
+      "version": "0.9.0"
+    },
+    {
+      "authoredKind": "agent-identity",
+      "contentDigest": "89c1e56e90139af33e4c3779e125f4292b48ae0fbbffcfda9946c2898473e607",
+      "files": [
+        "ordin-bot.yaml"
+      ],
+      "id": "urn:ordin:default:agent-identities:ordin-bot",
+      "kind": "AgentIdentity",
+      "manifestPath": "models/@default/agent-identities/ordin-bot.yaml",
+      "name": "ordin bot",
+      "placedAt": {
+        "error": "AM_NO_FILE_CONVENTION"
+      },
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": false,
+      "slug": "ordin-bot",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "capability",
+      "contentDigest": "fd699237369fda0071fda48e6017ff7993679f11e0bda4173cc432bb696b03d9",
+      "files": [
+        "writing.yaml"
+      ],
+      "id": "urn:ordin:default:capabilities:writing",
+      "kind": "Capability",
+      "manifestPath": "models/@default/capabilities/writing.yaml",
+      "name": "Writing",
+      "placedAt": "models/@default/capabilities/writing.yaml",
+      "readers": {
+        "requiresHumanApproval": [
+          "email_send"
+        ]
+      },
+      "references": [
+        [
+          "skills",
+          "urn:ordin:default:skills:quality:codegen"
+        ],
+        [
+          "toolBindings",
+          "urn:ordin:default:tool-bindings:mail"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "writing",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "command",
+      "contentDigest": "9007b2011235e9fdbc977d58593aba5e0e6291a8b3cd407b7d1675ccbfd5b0c1",
+      "files": [
+        "compare-quotes.md"
+      ],
+      "id": "urn:ordin:default:commands:compare-quotes",
+      "kind": "Command",
+      "manifestPath": "models/@default/commands/compare-quotes.md",
+      "name": "Compare quotes",
+      "placedAt": "models/@default/commands/compare-quotes.md",
+      "readers": {
+        "argumentHint": "<suppliers> <quarter>"
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "compare-quotes",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "context-resource",
+      "contentDigest": "cf58a826da04bde7f6c99e6d6cba4335ff039904492122a8de81f90d49e43e52",
+      "files": [
+        "glossary.md"
+      ],
+      "id": "urn:ordin:default:context-resources:glossary",
+      "kind": "ContextResource",
+      "manifestPath": "models/@default/context-resources/glossary.md",
+      "name": "Glossary",
+      "placedAt": "models/@default/context-resources/glossary.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "glossary",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "crew-profile",
+      "contentDigest": "fe81f2e7e5840071177e8a83097fff1ff96ffb7af543a1d8ed396cdd2aa20bb6",
+      "files": [
+        "review-crew.yaml"
+      ],
+      "id": "urn:ordin:default:crews:review-crew",
+      "kind": "CrewProfile",
+      "manifestPath": "models/@default/crews/review-crew.yaml",
+      "name": "Review crew",
+      "placedAt": {
+        "error": "AM_NO_FILE_CONVENTION"
+      },
+      "readers": {},
+      "references": [
+        [
+          "workspace",
+          "urn:ordin:default:workspaces:cspa-431"
+        ]
+      ],
+      "rendersUnchanged": false,
+      "slug": "review-crew",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "ci-gate",
+      "contentDigest": "afc9882a02acb8a38dada28c2365629542374df5161cb71aa633bd0dc0c652e4",
+      "files": [
+        "gate.yaml"
+      ],
+      "id": "urn:ordin:default:evals:gate",
+      "kind": "Evaluation",
+      "manifestPath": "models/@default/evals/gate.yaml",
+      "name": "Gate",
+      "placedAt": "models/@default/evals/gate.yaml",
+      "readers": {},
+      "references": [
+        [
+          "workspace",
+          "urn:ordin:default:workspaces:cspa-431"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "gate",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "evaluation",
+      "contentDigest": "7f0cdbb664b32db2aa7aec6124b8d742959963217edff5c07f95025885890a3d",
+      "files": [
+        "smoke.yaml"
+      ],
+      "id": "urn:ordin:default:evals:smoke",
+      "kind": "Evaluation",
+      "manifestPath": "models/@default/evals/smoke.yaml",
+      "name": "Smoke",
+      "placedAt": "models/@default/evals/smoke.yaml",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "smoke",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "guideline",
+      "contentDigest": "9ae54b8c8a86fc0823791d7fe1f0988cda2440b10890ec2bccabc9467b699d51",
+      "files": [
+        "writing.yaml"
+      ],
+      "id": "urn:ordin:default:guidelines:writing",
+      "kind": "Guideline",
+      "manifestPath": "models/@default/guidelines/writing.yaml",
+      "name": "Writing guide",
+      "placedAt": "models/@default/guidelines/writing.yaml",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "writing",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "journey",
+      "contentDigest": "499838b4e3a22aab547c8f55322d2f975f574f6ddbe6690d2d6b1022974fe001",
+      "files": [
+        "delivery.yaml"
+      ],
+      "id": "urn:ordin:default:journeys:delivery",
+      "kind": "Journey",
+      "manifestPath": "models/@default/journeys/delivery.yaml",
+      "name": "Delivery",
+      "placedAt": "models/@default/journeys/delivery.yaml",
+      "readers": {
+        "journey": {
+          "seams": [],
+          "stages": [
+            {
+              "agent": "urn:ordin:default:workspaces:cspa-431",
+              "answerWithinDays": 5,
+              "handoverPlaceTarget": "designs",
+              "handoverPlaceType": "folder",
+              "id": "design",
+              "name": "Design",
+              "next": [
+                {
+                  "stage": "build",
+                  "when": "approved"
+                },
+                {
+                  "stage": "design",
+                  "when": "changes asked for"
+                }
+              ],
+              "produces": "urn:ordin:default:output-contracts:role-dossier",
+              "role": "designer",
+              "sendsBackTo": [],
+              "slackChannel": {
+                "id": "C04ABCDEF12",
+                "name": "design-reviews"
+              },
+              "together": false
+            },
+            {
+              "agent": null,
+              "answerWithinDays": null,
+              "handoverPlaceTarget": "releases",
+              "handoverPlaceType": "folder",
+              "id": "build",
+              "name": "Build",
+              "next": [],
+              "produces": null,
+              "role": "builder",
+              "sendsBackTo": [
+                {
+                  "maxRounds": 2,
+                  "stage": "design",
+                  "when": "the design is unclear"
+                }
+              ],
+              "slackChannel": null,
+              "together": true
+            }
+          ],
+          "trigger": null
+        }
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "delivery",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "journey",
+      "contentDigest": "339e255ed9b18ac0abcc2ca2edc4424379de1c3bea05a3f97b69f1ac34cc9972",
+      "files": [
+        "handover.yaml"
+      ],
+      "id": "urn:ordin:default:journeys:handover",
+      "kind": "Journey",
+      "manifestPath": "models/@default/journeys/handover.yaml",
+      "name": "Handover",
+      "placedAt": "models/@default/journeys/handover.yaml",
+      "readers": {
+        "journey": {
+          "seams": [
+            "design-to-build",
+            "build-to-run"
+          ],
+          "stages": [],
+          "trigger": "merge"
+        }
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "handover",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "memory",
+      "contentDigest": "db65f5bc925aaf6f8d9418e17380d392932dd930986029a77005fba76e6b2d66",
+      "files": [
+        "project.yaml"
+      ],
+      "id": "urn:ordin:default:memories:project",
+      "kind": "Memory",
+      "manifestPath": "models/@default/memories/project.yaml",
+      "name": "Project memory",
+      "placedAt": "models/@default/memories/project.yaml",
+      "readers": {
+        "memoryContract": {
+          "excludes": [
+            "secrets"
+          ],
+          "max_age_days": 90,
+          "memory_service": "urn:ordin:default:tool-bindings:mail",
+          "retains": [
+            "decisions",
+            "open-questions"
+          ],
+          "store_location": "remote",
+          "unbounded": false
+        }
+      },
+      "references": [
+        [
+          "memoryService",
+          "urn:ordin:default:tool-bindings:mail"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "project",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "output-contract",
+      "contentDigest": "a79b85693fd52009328084ab6ee8d50d40400bff89fbc07bf0486119921f77a6",
+      "files": [
+        "role-dossier.yaml"
+      ],
+      "id": "urn:ordin:default:output-contracts:role-dossier",
+      "kind": "OutputContract",
+      "manifestPath": "models/@default/output-contracts/role-dossier.yaml",
+      "name": "Role dossier",
+      "placedAt": "models/@default/output-contracts/role-dossier.yaml",
+      "readers": {
+        "outputContract": [
+          {
+            "derived": false,
+            "evidenceThreshold": 1,
+            "meaning": "Who the agent is.",
+            "name": "role-identity",
+            "required": true
+          },
+          {
+            "derived": false,
+            "evidenceThreshold": 0,
+            "meaning": "What the agent does.",
+            "name": "responsibilities",
+            "required": true
+          },
+          {
+            "derived": true,
+            "evidenceThreshold": 0,
+            "meaning": "",
+            "name": "evidence-index",
+            "required": false
+          }
+        ]
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "role-dossier",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "handoff-overlay",
+      "contentDigest": "6101c958a33a238e6778172f80010b78e78cbb4a67f3c51c4afe7c1f91e1edbb",
+      "files": [
+        "summary.md"
+      ],
+      "id": "urn:ordin:default:overlays:handoff:summary",
+      "kind": "HandoffOverlay",
+      "manifestPath": "models/@default/overlays/handoff/summary.md",
+      "name": "Summary",
+      "placedAt": "models/@default/overlays/handoff/summary.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "handoff-summary",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "language-overlay",
+      "contentDigest": "1fed4c3a137c1ba747ca64a2372289d8de642150b423025bc9150c0082a52986",
+      "files": [
+        "en-gb.md"
+      ],
+      "id": "urn:ordin:default:overlays:language:en-gb",
+      "kind": "LanguageOverlay",
+      "manifestPath": "models/@default/overlays/language/en-gb.md",
+      "name": "British English",
+      "placedAt": "models/@default/overlays/language/en-gb.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "language-en-gb",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "source-workflow-overlay",
+      "contentDigest": "121ec43f5b129197e122f8b80841f265965b27da9e8e15342a47f807d40f3448",
+      "files": [
+        "trunk.md"
+      ],
+      "id": "urn:ordin:default:overlays:source-workflow:trunk",
+      "kind": "SourceWorkflowOverlay",
+      "manifestPath": "models/@default/overlays/source-workflow/trunk.md",
+      "name": "Trunk based",
+      "placedAt": "models/@default/overlays/source-workflow/trunk.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "source-workflow-trunk",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "style-overlay",
+      "contentDigest": "b8308b144152da0e864abf999c8f4903d69c8f418a3d35099dc72f4645e16c35",
+      "files": [
+        "plain.markdown"
+      ],
+      "id": "urn:ordin:default:overlays:style:plain",
+      "kind": "StyleOverlay",
+      "manifestPath": "models/@default/overlays/style/plain.markdown",
+      "name": "Plain",
+      "placedAt": "models/@default/overlays/style/plain.md",
+      "readers": {
+        "appliesTo": [
+          {
+            "id": "urn:ordin:default:workspaces:cspa-431",
+            "range": "1.0.0"
+          }
+        ]
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "style-plain",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "practice-pack",
+      "contentDigest": "d32612329fc323c26ffbc2199ad795e21bb8fb25b5689db97b7380ee91e717c0",
+      "files": [
+        "practice-pack.yaml"
+      ],
+      "id": "urn:ordin:default:practice-packs:stack:go",
+      "kind": "PracticePack",
+      "manifestPath": "models/@default/practice-packs/stack/go/practice-pack.yaml",
+      "name": "Go",
+      "placedAt": "models/@default/practice-packs/stack/go/practice-pack.yaml",
+      "readers": {
+        "appliesTo": [
+          {
+            "id": "urn:ordin:default:workspaces:cspa-431",
+            "range": "^1.0.0"
+          },
+          {
+            "id": "urn:ordin:default:workspaces:supplier-analyst",
+            "range": ""
+          }
+        ],
+        "packToolchain": {
+          "coverageFloor": "70",
+          "forbiddenFlags": [
+            "-race=false"
+          ]
+        }
+      },
+      "references": [
+        [
+          "packMembers",
+          "urn:ordin:default:rules:tone"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "stack-go",
+      "status": "approved",
+      "version": "1.3.0"
+    },
+    {
+      "authoredKind": "control-loop",
+      "contentDigest": "2d505c8513cee846cfe95a4867fdddc47e49f187f4d6dfe370cb3ffac5dd3bf5",
+      "files": [
+        "control-loop-cspa.md"
+      ],
+      "id": "urn:ordin:default:rules:control-loops:cspa",
+      "kind": "ControlLoop",
+      "manifestPath": "models/@default/rules/control-loops/control-loop-cspa.md",
+      "name": "Evidence first loop",
+      "placedAt": "models/@default/rules/control-loops/control-loop-cspa.md",
+      "readers": {
+        "controlLoop": {
+          "modes": [
+            "urn:ordin:default:rules:modes:review"
+          ],
+          "requires": [
+            "evidence"
+          ],
+          "strategy": "observe-then-act",
+          "trigger": "every-task"
+        }
+      },
+      "references": [
+        [
+          "modes",
+          "urn:ordin:default:rules:modes:review"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "control-loops-cspa",
+      "status": "approved",
+      "version": "1.2.0"
+    },
+    {
+      "authoredKind": "rule-layer",
+      "contentDigest": "1dc286ce878cb17867a59b3ac2c93842584070d62e36c096c1518c4821d8765d",
+      "files": [
+        "output-language.md"
+      ],
+      "id": "urn:ordin:default:rules:layer:output-language",
+      "kind": "Rule",
+      "manifestPath": "models/@default/rules/layer/output-language.md",
+      "name": "Output language",
+      "placedAt": "models/@default/rules/layer/output-language.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "layer-output-language",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "operating-mode",
+      "contentDigest": "66020236b397c3c5b7d220b3df6c89bf538c6cee433a8b1ac2e26ef214ee5abe",
+      "files": [
+        "review.yaml"
+      ],
+      "id": "urn:ordin:default:rules:modes:review",
+      "kind": "OperatingMode",
+      "manifestPath": "models/@default/rules/modes/review.yaml",
+      "name": "Review",
+      "placedAt": {
+        "error": "AM_NO_FILE_CONVENTION"
+      },
+      "readers": {},
+      "references": [
+        [
+          "entry",
+          "urn:ordin:default:rules:modes:review"
+        ]
+      ],
+      "rendersUnchanged": false,
+      "slug": "modes-review",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "rule",
+      "contentDigest": "9d882e83713cb0113af6dbe13528bc2e4297cb62c2326a852942f8a3840cc1ed",
+      "files": [
+        "tone.md"
+      ],
+      "id": "urn:ordin:default:rules:tone",
+      "kind": "Rule",
+      "manifestPath": "models/@default/rules/tone.md",
+      "name": "Tone",
+      "placedAt": "models/@default/rules/tone.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "tone",
+      "status": "deprecated",
+      "version": "2.1.0"
+    },
+    {
+      "authoredKind": "skill",
+      "contentDigest": "fa4647d0b9c97471f542bd63b0b3b53da7575554978721e5787358ae29465ecf",
+      "files": [
+        "SKILL.md",
+        "scripts/check.sh"
+      ],
+      "id": "urn:ordin:default:skills:quality:codegen",
+      "kind": "Skill",
+      "manifestPath": "models/@default/skills/quality/codegen/SKILL.md",
+      "name": "Code generation",
+      "placedAt": "models/@default/skills/quality/codegen/SKILL.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": false,
+      "slug": "quality-codegen",
+      "status": "approved",
+      "version": "1.4.0"
+    },
+    {
+      "authoredKind": "tool-binding",
+      "contentDigest": "6fe34a1f6591b7a8f4e8be8bc834bcb6b9ee6940a386f39a2d1eaede0c3e5680",
+      "files": [
+        "mail.yaml"
+      ],
+      "id": "urn:ordin:default:tool-bindings:mail",
+      "kind": "ToolBinding",
+      "manifestPath": "models/@default/tool-bindings/mail.yaml",
+      "name": "Mail",
+      "placedAt": {
+        "error": "AM_NO_FILE_CONVENTION"
+      },
+      "readers": {
+        "toolBindings": [
+          {
+            "argument_paths": [
+              "/to/[]/address",
+              "/attachments/*"
+            ],
+            "coverage_floor": "0.75",
+            "env_ref": "MAIL_TOKEN",
+            "forbidden_flags": [
+              "--bcc-all"
+            ],
+            "name": "email_send",
+            "permission": "write",
+            "scope": "user",
+            "server_type": "http",
+            "transport": "streamable-http",
+            "type": "mcp"
+          },
+          {
+            "argument_paths": [],
+            "coverage_floor": null,
+            "env_ref": null,
+            "forbidden_flags": [],
+            "name": "git",
+            "permission": "read",
+            "scope": null,
+            "server_type": null,
+            "transport": null,
+            "type": "cli"
+          }
+        ]
+      },
+      "references": [],
+      "rendersUnchanged": false,
+      "slug": "mail",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "vocabulary",
+      "contentDigest": "5cae083ff5bfaa69732e208034a0c5fc04aea26e27100605c7893f592ce5eed0",
+      "files": [
+        "categories.yaml"
+      ],
+      "id": "urn:ordin:default:vocabulary:categories",
+      "kind": "Vocabulary",
+      "manifestPath": "models/@default/vocabulary/categories.yaml",
+      "name": "Categories",
+      "placedAt": "models/@default/vocabulary/categories.yaml",
+      "readers": {
+        "vocabulary": {
+          "axis": "category",
+          "terms": [
+            {
+              "code": "writing",
+              "description": "Parts about writing.",
+              "label": "Writing"
+            },
+            {
+              "code": "finance",
+              "description": "Parts about money.",
+              "label": "Finance"
+            }
+          ]
+        }
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "categories",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "vocabulary",
+      "contentDigest": "664784451b7120b26739c2e235072c1f8c157a70b45fb10b585e4053f1ec4315",
+      "files": [
+        "rule-subvariants.yaml"
+      ],
+      "id": "urn:ordin:default:vocabulary:rule-subvariants",
+      "kind": "Vocabulary",
+      "manifestPath": "models/@default/vocabulary/rule-subvariants.yaml",
+      "name": "Rule sub-variants",
+      "placedAt": "models/@default/vocabulary/rule-subvariants.yaml",
+      "readers": {
+        "vocabulary": {
+          "axis": "rule-subvariant",
+          "terms": [
+            {
+              "code": "rule-layer",
+              "description": "A rule that layers on top of a mode.",
+              "label": "Layer rule"
+            },
+            {
+              "code": "rule-orchestrator",
+              "description": "A rule that orders other rules.",
+              "label": "Orchestrator rule"
+            }
+          ]
+        }
+      },
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "rule-subvariants",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "system-role",
+      "contentDigest": "0cb2a265be8cacb522b25e49128fe8aac2a6c0ac336484c6051ad75e07a04880",
+      "files": [
+        "system-role.md"
+      ],
+      "id": "urn:ordin:default:workspaces:cspa-431:system-role",
+      "kind": "SystemRole",
+      "manifestPath": "models/@default/workspaces/cspa-431/system-role.md",
+      "name": "cspa-431 role",
+      "placedAt": "models/@default/workspaces/cspa-431/system-role.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "cspa-431-system-role",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "workspace-profile",
+      "contentDigest": "3e5cca329da83969246a1e58ee1ad953bc5ab58853813b8d7e33dc8b1c01ad43",
+      "files": [
+        "workspace-profile.yaml"
+      ],
+      "id": "urn:ordin:default:workspaces:cspa-431",
+      "kind": "WorkspaceProfile",
+      "manifestPath": "models/@default/workspaces/cspa-431/workspace-profile.yaml",
+      "name": "cspa-431",
+      "placedAt": "models/@default/workspaces/cspa-431/workspace-profile.yaml",
+      "readers": {
+        "allowedOperatingModes": [
+          "urn:ordin:default:rules:modes:review"
+        ],
+        "defaultMode": "urn:ordin:default:rules:modes:review",
+        "overlayOffers": {
+          "LanguageOverlay": {
+            "available": [
+              "urn:ordin:default:overlays:language:en-gb"
+            ],
+            "default": "urn:ordin:default:overlays:language:en-gb"
+          },
+          "StyleOverlay": {
+            "available": [],
+            "default": null
+          }
+        },
+        "prohibitedVerbs": [
+          "deploy",
+          "force-push"
+        ],
+        "publishGate": "review",
+        "requiredControlLoop": {
+          "ids": [
+            "urn:ordin:default:rules:control-loops:cspa"
+          ],
+          "required": true
+        },
+        "requiredOverlays": [
+          [
+            "StyleOverlay",
+            [
+              "urn:ordin:default:overlays:style:plain"
+            ]
+          ]
+        ],
+        "requiredPracticePacks": [
+          {
+            "at_least": 1,
+            "class": "stack",
+            "ids": []
+          },
+          {
+            "at_least": 1,
+            "class": null,
+            "ids": [
+              "urn:ordin:default:practice-packs:stack:go"
+            ]
+          }
+        ],
+        "selectablePracticePacks": [
+          {
+            "description": null,
+            "id": "urn:ordin:default:practice-packs:stack:go"
+          },
+          {
+            "description": "Go services",
+            "id": "urn:ordin:default:practice-packs:stack:go"
+          }
+        ]
+      },
+      "references": [
+        [
+          "allowedOperatingModes",
+          "urn:ordin:default:rules:modes:review"
+        ],
+        [
+          "capabilities",
+          "urn:ordin:default:capabilities:writing"
+        ],
+        [
+          "commands",
+          "urn:ordin:default:commands:compare-quotes"
+        ],
+        [
+          "contextResources",
+          "urn:ordin:default:context-resources:glossary"
+        ],
+        [
+          "controlLoop",
+          "urn:ordin:default:rules:control-loops:cspa"
+        ],
+        [
+          "defaultMode",
+          "urn:ordin:default:rules:modes:review"
+        ],
+        [
+          "defaultRules",
+          "urn:ordin:default:rules:tone"
+        ],
+        [
+          "defaultRules",
+          "urn:ordin:default:rules:layer:output-language"
+        ],
+        [
+          "identity",
+          "urn:ordin:default:agent-identities:ordin-bot"
+        ],
+        [
+          "memory",
+          "urn:ordin:default:memories:project"
+        ],
+        [
+          "outputContracts",
+          "urn:ordin:default:output-contracts:role-dossier"
+        ],
+        [
+          "systemRole",
+          "urn:ordin:default:workspaces:cspa-431:system-role"
+        ]
+      ],
+      "rendersUnchanged": true,
+      "slug": "cspa-431",
+      "status": "approved",
+      "version": "1.0.0"
+    },
+    {
+      "authoredKind": "workspace-profile",
+      "contentDigest": "e859c7abdad4df8d83fb4b6dd3dc578a8c55f87b5412b68cf57ce329a59b45a6",
+      "files": [
+        "workspace-profile.yml"
+      ],
+      "id": "urn:ordin:default:workspaces:supplier-analyst",
+      "kind": "WorkspaceProfile",
+      "manifestPath": "models/@default/workspaces/supplier-analyst/workspace-profile.yml",
+      "name": "Supplier analyst",
+      "placedAt": "models/@default/workspaces/supplier-analyst/workspace-profile.yaml",
+      "readers": {
+        "fixedPracticePacks": [
+          {
+            "pack": "urn:ordin:default:practice-packs:stack:go"
+          },
+          {
+            "ask": {
+              "class": "testing",
+              "ids": []
+            }
+          },
+          {
+            "ask": {
+              "class": null,
+              "ids": [
+                "urn:ordin:default:practice-packs:stack:go"
+              ]
+            }
+          }
+        ],
+        "overlayOffers": {
+          "BrandOverlay": {
+            "available": [
+              "urn:ordin:default:overlays:brand:house"
+            ],
+            "default": null
+          }
+        }
+      },
+      "references": [
+        [
+          "skills",
+          "urn:ordin:default:skills:quality:codegen"
+        ]
+      ],
+      "rendersUnchanged": false,
+      "slug": "supplier-analyst",
+      "status": "draft",
+      "version": "1.1.0-rc.1"
+    }
+  ],
+  "refused": [],
+  "unownedFiles": [
+    "models/@default/workspaces/cspa-431/notes.txt"
+  ]
+}

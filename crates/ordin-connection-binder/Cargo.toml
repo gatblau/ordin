@@ -1,0 +1,23 @@
+[package]
+name = "ordin-connection-binder"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-agent-configuration = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-telemetry = { workspace = true }
+http = { workspace = true }
+reqwest = { workspace = true }
+rmcp = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+serde_json = { workspace = true }
+shlex = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }

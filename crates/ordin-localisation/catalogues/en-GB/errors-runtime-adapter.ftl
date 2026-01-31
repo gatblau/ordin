@@ -1,0 +1,24 @@
+# Assistant programs (Runtime Adapter Interface)
+error-ra-adapter-duplicate = That kind of assistant has already been added.
+error-ra-adapter-unknown = ordin doesn't have that kind of assistant on this computer.
+error-ra-allowance-exhausted = Your plan's allowance for the assistant has run out. Wait for it to renew or change plan.
+error-ra-attachment-not-granted = The assistant wasn't given access to that attachment. Share it and try again.
+error-ra-command-unknown = This agent has no task with that name. Check the name and try again.
+error-ra-deadline = That took too long and was stopped. Try again.
+error-ra-event-invalid = The assistant sent an update that doesn't fit the work, so ordin ignored it.
+error-ra-event-order = The assistant's updates arrived in the wrong order, so ordin stopped following the work. Try again.
+error-ra-handle-invalid = ordin couldn't match this work to the assistant's own record of it. Start it again.
+error-ra-harness-untested = This version of Claude Code hasn't been tested with ordin. It may not work as expected.
+error-ra-input-too-large = What you sent the assistant is too long. Keep the text and inputs to 16,384 characters each or fewer, then try again.
+error-ra-limit-out-of-range = One of the limits is too low or too high. Change it and try again.
+error-ra-model-invalid = That model name isn't valid. Check how it is written.
+error-ra-model-unknown = A model can't be chosen for this kind of assistant. Remove the model and try again.
+error-ra-plan-invalid = The assistant's plan wasn't in the expected shape, so ordin left it out. The work carries on.
+error-ra-resume-mismatch = That answer is for a different approval from the one this work is waiting on. Answer the current one.
+error-ra-signed-out = Claude Code is signed out. Sign in again.
+error-ra-snapshot-inconsistent = The saved record of this work doesn't agree with itself. Try again.
+error-ra-target-mismatch = That assistant isn't the right one for this work. Choose a matching one.
+error-ra-thread-busy = The conversation is busy with something else. Try again in a moment.
+error-ra-unknown-run = The assistant doesn't know about that work.
+error-ra-unreachable = ordin couldn't reach the assistant. Check your connection or that it starts, then try again.
+error-ra-verb-not-offered = This assistant can't do that.

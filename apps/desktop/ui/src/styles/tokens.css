@@ -1,0 +1,1272 @@
+/* Design tokens: every value of cross-cutting/VisualDesign.md (ADR-116), from the prototype
+   docs/design/ordin-desktop/user-interface.html. A brandable property reads the active brand pack's
+   token (set on :root as --brand-* by applyBrandToDocument) and falls back to the prototype's value;
+   fixed properties (waiting, done, danger, approval, charts, kinds, code, diagrams) take literal values
+   only (ADR-041). Components read only these properties. Status is never carried by colour alone. */
+
+@font-face {
+  font-family: 'Jost';
+  src: url('../assets/fonts/Jost-wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  color-scheme: light dark;
+  --color-scrim: rgba(10, 15, 20, 0.4);
+  --font-body: var(--brand-font-body, 'Jost'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --space-02: 2px;
+  --space-04: 4px;
+  --space-06: 6px;
+  --space-sm: var(--brand-space-sm, 8px);
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-md: var(--brand-space-md, 16px);
+  --space-24: 24px;
+  --space-32: 32px;
+  --radius-sm: 4px;
+  --radius-xs: 6px;
+  --radius-row: 7px;
+  --radius-md: var(--brand-radius-md, 8px);
+  --radius-list: 10px;
+  --radius-lg: var(--brand-radius-lg, 12px);
+  --radius-bubble: 14px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --color-background: var(--brand-color-background-light, #F2F4F7);
+  --color-surface: var(--brand-color-surface-light, #FFFFFF);
+  --color-text: var(--brand-color-text-light, #17212B);
+  --color-text-muted: var(--brand-color-text-muted-light, #52606D);
+  --color-text-secondary: var(--brand-color-text-secondary-light, var(--brand-color-text-light, #3D4A57));
+  --color-accent: var(--brand-color-accent-light, #1F4FB8);
+  --color-on-accent: var(--brand-color-on-accent-light, #FFFFFF);
+  --color-accent-ink: var(--brand-color-accent-ink-light, var(--brand-color-text-light, #163A88));
+  --color-accent-soft: var(--brand-color-accent-soft-light, var(--brand-color-surface-light, #E3EAF7));
+  --color-chip: var(--brand-color-chip-light, var(--brand-color-surface-light, #EEF2F8));
+  --color-line: var(--brand-color-line-light, var(--brand-color-border-control-light, #DDE2E8));
+  --color-line-strong: var(--brand-color-line-strong-light, var(--brand-color-border-control-light, #A9B4C1));
+  --color-border-control: var(--brand-color-border-control-light, #7D8A98);
+  --color-focus: var(--brand-color-focus-light, #1F4FB8);
+  --color-primary: var(--brand-color-primary-light, var(--brand-color-text-light, #17212B));
+  --color-on-primary: var(--brand-color-on-primary-light, var(--brand-color-background-light, #FFFFFF));
+  --color-waiting: #B4530A;
+  --color-waiting-text: #8A3F07;
+  --color-waiting-soft: #FFF8F1;
+  --color-waiting-line: #F0C9A3;
+  --color-on-status: #FFFFFF;
+  --color-done: #0E7C66;
+  --color-done-text: #0E6B58;
+  --color-done-soft: #E6F4EF;
+  --color-danger: #B42318;
+  --color-danger-soft: #FDEDEC;
+  --color-approval-background: #FFFDF6;
+  --color-approval-line: #1F4FB8;
+  --color-diff-added: #E6F4EF;
+  --color-diff-removed: #FBEBEC;
+  --chart-1: #1F4FB8;
+  --chart-2: #C4501B;
+  --chart-3: #0E7C66;
+  --chart-4: #7A3FB0;
+  --chart-5: #9A6B00;
+  --chart-6: #57606A;
+  --chart-7: #00778A;
+  --chart-8: #6B6B6B;
+  --color-kind-sharepoint: #0B6FC2;
+  --color-kind-confluence: #3B5BDB;
+  --color-kind-github: #57606A;
+  --color-kind-gitlab: #B4541A;
+  --color-kind-local: #0E7C66;
+  --color-kind-word: #2B5CB8;
+  --color-kind-sheet: #1D7A46;
+  --color-kind-slides: #C4501B;
+  --color-kind-pdf: #B42318;
+  --color-kind-image: #7A3FB0;
+  --color-kind-crew: #8A3F07;
+  --color-kind-memory: #9A6B00;
+  --color-syntax-keyword: #7A2E9E;
+  --color-syntax-string: #0B6B3A;
+  --color-syntax-comment: #5E6B78;
+  --color-syntax-number: #9A4A00;
+  --color-syntax-type: #1F4FB8;
+  --color-syntax-function: #6B4E00;
+  --color-diagram-agent-fill: #dbeafe;
+  --color-diagram-agent-stroke: #2563eb;
+  --color-diagram-ask-fill: #fef3c7;
+  --color-diagram-ask-stroke: #b45309;
+  --color-diagram-if-fill: #ede9fe;
+  --color-diagram-if-stroke: #7c3aed;
+  --color-diagram-me-fill: #ffedd5;
+  --color-diagram-me-stroke: #c2410c;
+  --color-diagram-each-fill: #ccfbf1;
+  --color-diagram-each-stroke: #0f766e;
+  --color-diagram-until-fill: #dcfce7;
+  --color-diagram-until-stroke: #15803d;
+  --color-diagram-call-fill: #e0e7ff;
+  --color-diagram-call-stroke: #4338ca;
+  --color-diagram-path-fill: #f1f5f9;
+  --color-diagram-path-stroke: #64748b;
+  --color-diagram-ink: #0f172a;
+  --color-chip-sharepoint-fill: #E8F1FB;
+  --color-chip-sharepoint-text: #0B4F8A;
+  --color-chip-confluence-fill: #E9EEFB;
+  --color-chip-confluence-text: #1F3F99;
+  --color-chip-github-fill: #EEF0F2;
+  --color-chip-github-text: #2A3139;
+  --color-chip-gitlab-fill: #FCEFE6;
+  --color-chip-gitlab-text: #8A3B0E;
+  --color-chip-local-fill: var(--color-done-soft);
+  --color-chip-local-text: var(--color-done-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-background: var(--brand-color-background-dark, #11161C);
+    --color-surface: var(--brand-color-surface-dark, #1A2129);
+    --color-text: var(--brand-color-text-dark, #E8EDF2);
+    --color-text-muted: var(--brand-color-text-muted-dark, #9AA6B3);
+    --color-text-secondary: var(--brand-color-text-secondary-dark, var(--brand-color-text-dark, #C3CCD6));
+    --color-accent: var(--brand-color-accent-dark, #7FA6F5);
+    --color-on-accent: var(--brand-color-on-accent-dark, #11161C);
+    --color-accent-ink: var(--brand-color-accent-ink-dark, var(--brand-color-text-dark, #A9C3FA));
+    --color-accent-soft: var(--brand-color-accent-soft-dark, var(--brand-color-surface-dark, #22314A));
+    --color-chip: var(--brand-color-chip-dark, var(--brand-color-surface-dark, #24303D));
+    --color-line: var(--brand-color-line-dark, var(--brand-color-border-control-dark, #2C3642));
+    --color-line-strong: var(--brand-color-line-strong-dark, var(--brand-color-border-control-dark, #4A5868));
+    --color-border-control: var(--brand-color-border-control-dark, #647384);
+    --color-focus: var(--brand-color-focus-dark, #7FA6F5);
+    --color-primary: var(--brand-color-primary-dark, var(--brand-color-text-dark, #E8EDF2));
+    --color-on-primary: var(--brand-color-on-primary-dark, var(--brand-color-background-dark, #11161C));
+    --color-waiting: #F0A35E;
+    --color-waiting-text: #F3B47A;
+    --color-waiting-soft: #2A2119;
+    --color-waiting-line: #5C4127;
+    --color-on-status: #11161C;
+    --color-done: #4CC3A5;
+    --color-done-text: #6FD3B9;
+    --color-done-soft: #173229;
+    --color-danger: #F28B82;
+    --color-danger-soft: #3A1F23;
+    --color-approval-background: #1E2530;
+    --color-approval-line: #7FA6F5;
+    --color-diff-added: #173229;
+    --color-diff-removed: #3A1F23;
+    --chart-1: #7FA6F5;
+    --chart-2: #F2A37A;
+    --chart-3: #4CC3A5;
+    --chart-4: #C9A3F0;
+    --chart-5: #E8C468;
+    --chart-6: #AAB4BF;
+    --chart-7: #4FB8C9;
+    --chart-8: #A3A3A3;
+    --color-kind-sharepoint: #6CB4F0;
+    --color-kind-confluence: #93A8F5;
+    --color-kind-github: #AAB4BF;
+    --color-kind-gitlab: #F0A270;
+    --color-kind-local: #4CC3A5;
+    --color-kind-word: #8FB0F2;
+    --color-kind-sheet: #6FD39A;
+    --color-kind-slides: #F2A37A;
+    --color-kind-pdf: #F28B82;
+    --color-kind-image: #C9A3F0;
+    --color-kind-crew: #F3B47A;
+    --color-kind-memory: #E8C468;
+    --color-syntax-keyword: #D2A8FF;
+    --color-syntax-string: #7EE0A6;
+    --color-syntax-comment: #8B98A6;
+    --color-syntax-number: #F2B47A;
+    --color-syntax-type: #8FB0F2;
+    --color-syntax-function: #E8C468;
+    --color-diagram-agent-fill: #1e3a5f;
+    --color-diagram-agent-stroke: #60a5fa;
+    --color-diagram-ask-fill: #4a3510;
+    --color-diagram-ask-stroke: #fbbf24;
+    --color-diagram-if-fill: #35245e;
+    --color-diagram-if-stroke: #a78bfa;
+    --color-diagram-me-fill: #4a2410;
+    --color-diagram-me-stroke: #fb923c;
+    --color-diagram-each-fill: #0f3d3a;
+    --color-diagram-each-stroke: #2dd4bf;
+    --color-diagram-until-fill: #14391f;
+    --color-diagram-until-stroke: #4ade80;
+    --color-diagram-call-fill: #272a5c;
+    --color-diagram-call-stroke: #818cf8;
+    --color-diagram-path-fill: #1f2937;
+    --color-diagram-path-stroke: #94a3b8;
+    --color-diagram-ink: #f1f5f9;
+    --color-chip-sharepoint-fill: var(--color-chip);
+    --color-chip-sharepoint-text: var(--color-text-secondary);
+    --color-chip-confluence-fill: var(--color-chip);
+    --color-chip-confluence-text: var(--color-text-secondary);
+    --color-chip-github-fill: var(--color-chip);
+    --color-chip-github-text: var(--color-text-secondary);
+    --color-chip-gitlab-fill: var(--color-chip);
+    --color-chip-gitlab-text: var(--color-text-secondary);
+    --color-chip-local-fill: var(--color-done-soft);
+    --color-chip-local-text: var(--color-done-text);
+  }
+}
+:root[data-theme='dark'] {
+  --color-background: var(--brand-color-background-dark, #11161C);
+  --color-surface: var(--brand-color-surface-dark, #1A2129);
+  --color-text: var(--brand-color-text-dark, #E8EDF2);
+  --color-text-muted: var(--brand-color-text-muted-dark, #9AA6B3);
+  --color-text-secondary: var(--brand-color-text-secondary-dark, var(--brand-color-text-dark, #C3CCD6));
+  --color-accent: var(--brand-color-accent-dark, #7FA6F5);
+  --color-on-accent: var(--brand-color-on-accent-dark, #11161C);
+  --color-accent-ink: var(--brand-color-accent-ink-dark, var(--brand-color-text-dark, #A9C3FA));
+  --color-accent-soft: var(--brand-color-accent-soft-dark, var(--brand-color-surface-dark, #22314A));
+  --color-chip: var(--brand-color-chip-dark, var(--brand-color-surface-dark, #24303D));
+  --color-line: var(--brand-color-line-dark, var(--brand-color-border-control-dark, #2C3642));
+  --color-line-strong: var(--brand-color-line-strong-dark, var(--brand-color-border-control-dark, #4A5868));
+  --color-border-control: var(--brand-color-border-control-dark, #647384);
+  --color-focus: var(--brand-color-focus-dark, #7FA6F5);
+  --color-primary: var(--brand-color-primary-dark, var(--brand-color-text-dark, #E8EDF2));
+  --color-on-primary: var(--brand-color-on-primary-dark, var(--brand-color-background-dark, #11161C));
+  --color-waiting: #F0A35E;
+  --color-waiting-text: #F3B47A;
+  --color-waiting-soft: #2A2119;
+  --color-waiting-line: #5C4127;
+  --color-on-status: #11161C;
+  --color-done: #4CC3A5;
+  --color-done-text: #6FD3B9;
+  --color-done-soft: #173229;
+  --color-danger: #F28B82;
+  --color-danger-soft: #3A1F23;
+  --color-approval-background: #1E2530;
+  --color-approval-line: #7FA6F5;
+  --color-diff-added: #173229;
+  --color-diff-removed: #3A1F23;
+  --chart-1: #7FA6F5;
+  --chart-2: #F2A37A;
+  --chart-3: #4CC3A5;
+  --chart-4: #C9A3F0;
+  --chart-5: #E8C468;
+  --chart-6: #AAB4BF;
+  --chart-7: #4FB8C9;
+  --chart-8: #A3A3A3;
+  --color-kind-sharepoint: #6CB4F0;
+  --color-kind-confluence: #93A8F5;
+  --color-kind-github: #AAB4BF;
+  --color-kind-gitlab: #F0A270;
+  --color-kind-local: #4CC3A5;
+  --color-kind-word: #8FB0F2;
+  --color-kind-sheet: #6FD39A;
+  --color-kind-slides: #F2A37A;
+  --color-kind-pdf: #F28B82;
+  --color-kind-image: #C9A3F0;
+  --color-kind-crew: #F3B47A;
+  --color-kind-memory: #E8C468;
+  --color-syntax-keyword: #D2A8FF;
+  --color-syntax-string: #7EE0A6;
+  --color-syntax-comment: #8B98A6;
+  --color-syntax-number: #F2B47A;
+  --color-syntax-type: #8FB0F2;
+  --color-syntax-function: #E8C468;
+  --color-diagram-agent-fill: #1e3a5f;
+  --color-diagram-agent-stroke: #60a5fa;
+  --color-diagram-ask-fill: #4a3510;
+  --color-diagram-ask-stroke: #fbbf24;
+  --color-diagram-if-fill: #35245e;
+  --color-diagram-if-stroke: #a78bfa;
+  --color-diagram-me-fill: #4a2410;
+  --color-diagram-me-stroke: #fb923c;
+  --color-diagram-each-fill: #0f3d3a;
+  --color-diagram-each-stroke: #2dd4bf;
+  --color-diagram-until-fill: #14391f;
+  --color-diagram-until-stroke: #4ade80;
+  --color-diagram-call-fill: #272a5c;
+  --color-diagram-call-stroke: #818cf8;
+  --color-diagram-path-fill: #1f2937;
+  --color-diagram-path-stroke: #94a3b8;
+  --color-diagram-ink: #f1f5f9;
+  --color-chip-sharepoint-fill: var(--color-chip);
+  --color-chip-sharepoint-text: var(--color-text-secondary);
+  --color-chip-confluence-fill: var(--color-chip);
+  --color-chip-confluence-text: var(--color-text-secondary);
+  --color-chip-github-fill: var(--color-chip);
+  --color-chip-github-text: var(--color-text-secondary);
+  --color-chip-gitlab-fill: var(--color-chip);
+  --color-chip-gitlab-text: var(--color-text-secondary);
+  --color-chip-local-fill: var(--color-done-soft);
+  --color-chip-local-text: var(--color-done-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+/* V5-SCR-1: the window never scrolls, even by the pixel that rounding leaves on a scaled display. */
+html {
+  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Icons (cross-cutting/VisualDesign.md V8; ScreensModule.md SM-IC-2, SM-IC-4) ---- */
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+}
+.icon-small {
+  width: 13px;
+  height: 13px;
+}
+.icon-twist {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.12s;
+}
+/* An open row's twist is turned 90° (its toggle carries `aria-expanded` or `.open`); the global
+   reduced-motion rule above removes the animation. */
+[aria-expanded='true'] > .icon.icon-twist,
+.open > .icon.icon-twist {
+  transform: rotate(90deg);
+}
+.icon-mark {
+  width: 12px;
+  height: 12px;
+}
+.icon-needs-tab {
+  width: 14px;
+  height: 14px;
+}
+.icon-close {
+  width: 11px;
+  height: 11px;
+}
+/* The document heading: a 24 px drawing centred in a 44 px tile. */
+.icon-heading {
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  background: var(--color-chip);
+  border-radius: var(--radius-list);
+}
+/* Direction-bearing icons mirror under a right-to-left locale; an open twist turns and does not mirror. */
+[dir='rtl'] .icon:has(> use[href='#i-chev']),
+[dir='rtl'] .icon:has(> use[href='#i-send']),
+[dir='rtl'] .icon:has(> use[href='#i-open']),
+[dir='rtl'] .icon:has(> use[href='#i-history']) {
+  transform: scaleX(-1);
+}
+[dir='rtl'] [aria-expanded='true'] > .icon.icon-twist,
+[dir='rtl'] .open > .icon.icon-twist {
+  transform: rotate(90deg);
+}
+/* The icon before a row's or card's words (V8 *Icon tile colour*): secondary text, unless tinted. */
+.icon-tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+.icon-tile[data-tint='accent-ink'] {
+  color: var(--color-accent-ink);
+}
+.icon-tile[data-tint='running'] {
+  color: var(--color-accent);
+}
+.icon-tile[data-tint='memory'] {
+  color: var(--color-kind-memory);
+}
+.icon-tile[data-tint='crew'] {
+  color: var(--color-kind-crew);
+}
+.icon-tile[data-tint='sheet'] {
+  color: var(--color-kind-sheet);
+}
+.icon-tile[data-tint='word'] {
+  color: var(--color-kind-word);
+}
+.icon-tile[data-tint='slides'] {
+  color: var(--color-kind-slides);
+}
+.icon-tile[data-tint='pdf'] {
+  color: var(--color-kind-pdf);
+}
+.icon-tile[data-tint='image'] {
+  color: var(--color-kind-image);
+}
+.icon-tile[data-tint='confluence'] {
+  color: var(--color-kind-confluence);
+}
+/* Where documents live (V8 *Icon tile colour*: a where-it-lives icon takes its origin's kind colour). */
+.icon-tile[data-tint='sharepoint'] {
+  color: var(--color-kind-sharepoint);
+}
+.icon-tile[data-tint='local'] {
+  color: var(--color-kind-local);
+}
+.icon-tile[data-tint='github'] {
+  color: var(--color-kind-github);
+}
+/* A button with an icon before its words (V8 *Gap to words*); zero specificity, so a part's own
+   display and gap win. */
+:where(button:has(> .icon, > .icon-tile)) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-04);
+}
+
+/* ---- Shared parts (cross-cutting/VisualDesign.md V6) ---- */
+
+/* Button: every <button> unless a part below resets it. */
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  padding: 7px var(--space-12);
+  min-height: 36px;
+  font-size: 14px;
+  cursor: pointer;
+}
+button:disabled,
+button[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+/* The default action of a view or dialog is the primary button (the prototype's `.btn.primary`). */
+button[data-default='true'],
+button.primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: transparent;
+}
+/* A go button is always the outlined accent button, also when it is the default (never the primary fill). */
+button.go {
+  background: var(--color-surface);
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 600;
+}
+button.danger {
+  border: 2px solid var(--color-danger);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+button.small {
+  padding: 3px var(--space-sm);
+  min-height: 28px;
+  font-size: 13px;
+}
+button.link {
+  border: 0;
+  background: none;
+  color: var(--color-accent-ink);
+  text-decoration: underline;
+  padding: 0;
+  min-height: 0;
+}
+button[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 600;
+}
+
+/* Text field, select. */
+input:not([type='checkbox'], [type='radio'], [type='range']),
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  padding: var(--space-06) var(--space-sm);
+}
+
+/* Count badge, state label, chip, muted and small text. */
+.count {
+  display: inline-block;
+  background: var(--color-waiting);
+  color: var(--color-on-status);
+  border-radius: var(--radius-pill);
+  padding: 0 7px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+.state-label {
+  display: inline-flex;
+  gap: var(--space-04);
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-sm);
+  background: var(--color-chip);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.state-label.waiting {
+  background: var(--color-waiting-soft);
+  color: var(--color-waiting-text);
+}
+.state-label.done {
+  background: var(--color-done-soft);
+  color: var(--color-done-text);
+}
+.state-label.failed {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.chip {
+  background: var(--color-chip);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-sm);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.small {
+  font-size: 13px;
+}
+
+/* A row of a list: the prototype's `.librow`. */
+.list-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-06);
+}
+.list-row {
+  display: flex;
+  gap: var(--space-10);
+  align-items: flex-start;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-list);
+  background: var(--color-surface);
+  padding: var(--space-10) var(--space-12);
+}
+.list-row.is-new {
+  border-color: var(--color-accent);
+}
+.list-row .grow {
+  flex: 1;
+  min-width: 0;
+}
+.list-row b {
+  display: block;
+}
+.list-row small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.list-row > button,
+.list-row > .row-actions {
+  flex-shrink: 0;
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-06);
+  align-items: center;
+}
+
+/* ---- Settings sections (ScreensModule.md, Settings walk-through amendment, January 2026) ---- */
+/* Shared by every section, so no section is left with the browser's own styles (bulleted lists, boxed
+   fieldsets, inline labels). A class drawn in more than one component lives here, not in one of them. */
+.tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.secondary,
+.hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.invalid {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+.side-panel {
+  margin-block-start: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+.settings-section {
+  font-size: 14px;
+}
+.settings-section h4 {
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-section .intro {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.settings-section .done-line {
+  font-size: 13px;
+}
+/* A setting on one line: its words at the start, its control or buttons at the end. */
+.setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  padding: var(--space-06) var(--space-10);
+}
+.setting-row .grow {
+  flex: 1;
+  min-inline-size: 160px;
+}
+.setting-row small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+/* A switch with its words after it. */
+.switch-line {
+  display: flex;
+  gap: var(--space-06);
+  align-items: center;
+}
+/* A group of choices: no box, its name above, one choice per line. */
+.choice-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-06);
+}
+.choice-group > legend {
+  padding: 0;
+  margin-block-end: var(--space-06);
+  font-size: 13px;
+  font-weight: 600;
+}
+.choice-group > label {
+  display: flex;
+  gap: var(--space-06);
+  align-items: center;
+}
+/* A form in a section: small labels above full-width fields, one column. */
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+.field-stack label:not(:has(input[type='checkbox'], input[type='radio'])) {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-04);
+  font-size: 13px;
+}
+.field-stack ol {
+  margin: 0;
+  padding-inline-start: var(--space-md);
+}
+
+/* ---- The window's regions (V5); logical properties so right-to-left locales mirror ---- */
+/* V5-SCR-1: the shell is exactly the window's height; each region scrolls inside itself and the
+   window never scrolls. */
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-width) 0 minmax(0, 1fr) 0 var(--conversation-width);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+}
+.shell.narrow {
+  grid-template-columns: min(var(--rail-width), 40vw) 0 minmax(0, 1fr);
+}
+/* SM-PC-1: each region is placed in its own column, so a pane collapsed to its strip never moves another. */
+.shell > .rail {
+  grid-column: 1;
+}
+.shell > .separator-rail {
+  grid-column: 2;
+}
+.shell > .centre {
+  grid-column: 3;
+}
+.shell:not(.narrow) > .separator-conversation {
+  grid-column: 4;
+}
+.shell:not(.narrow) > .conversation {
+  grid-column: 5;
+}
+/* A collapsed pane's separator keeps its column but is neither drawn nor reached. */
+.separator.parked {
+  visibility: hidden;
+  pointer-events: none;
+}
+.region {
+  min-width: 0;
+  overflow: auto;
+}
+.rail {
+  background: var(--color-surface);
+  border-inline-end: 1px solid var(--color-line);
+  padding: var(--space-md);
+}
+.conversation {
+  background: var(--color-surface);
+  border-inline-start: 1px solid var(--color-line);
+  display: flex;
+  flex-direction: column;
+}
+/* The panel edge: a 10 px hit area over the border, a 2 px accent line on hover, focus and drag. */
+.separator {
+  position: relative;
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+}
+.separator::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -5px;
+  inline-size: 10px;
+}
+.separator::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -1px;
+  inline-size: 2px;
+  background: transparent;
+  transition: background 0.12s;
+}
+.separator:hover::after,
+.separator:focus-visible::after {
+  background: var(--color-accent);
+}
+.separator:focus-visible {
+  outline: none;
+}
+.conversation.overlay {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: min(420px, 92vw);
+  border-inline-start: 1px solid var(--color-line-strong);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
+  z-index: 26;
+}
+.centre {
+  display: flex;
+  flex-direction: column;
+}
+/* The header of a narrow window: the Conversation button at the end (scene `home` at 1,000 px). */
+.narrow-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border-block-end: 1px solid var(--color-line);
+  flex: none;
+}
+.narrow-header > button {
+  padding: 3px var(--space-sm);
+  min-height: 28px;
+  font-size: 13px;
+}
+.screen-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* Tab row and tab. */
+.screen-tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-06) var(--space-md) 0;
+  border-block-end: 1px solid var(--color-line);
+  background: var(--color-surface);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: none;
+  /* With many tabs the row scrolls sideways. A styled scrollbar is a classic one in WebKit (not an overlay),
+     so it takes its own thin room below the tabs and never covers a tab's name. */
+  scrollbar-width: thin;
+}
+.screen-tabs::-webkit-scrollbar {
+  block-size: 6px;
+}
+.screen-tabs::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 3px;
+}
+.screen-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+.screen-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-06);
+  border: 1px solid transparent;
+  border-block-end: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 5px var(--space-04) 6px var(--space-10);
+  max-inline-size: 230px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.screen-tab:hover {
+  background: var(--color-chip);
+}
+.screen-tab.front {
+  background: var(--color-background);
+  border-color: var(--color-line);
+  color: var(--color-text);
+  font-weight: 600;
+}
+.screen-tab > button[role='tab'] {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 0;
+  font: inherit;
+  color: inherit;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: var(--space-06);
+  min-width: 0;
+}
+.screen-tab .tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.screen-tab .tab-close {
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  inline-size: 20px;
+  block-size: 20px;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.screen-tab .tab-close:hover {
+  background: var(--color-line);
+  color: var(--color-text);
+}
+.new-mark {
+  color: var(--color-accent-ink);
+}
+.screen-panel {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-24) var(--space-32);
+}
+@media (max-width: 700px) {
+  .screen-panel {
+    padding: var(--space-md);
+  }
+}
+/* A screen: a column of sections at most 860 px wide. */
+.screen-panel > section,
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-inline-size: 860px;
+}
+/* A document or a block on its own screen fills the centre, so collapsing a side pane widens it; the text
+   inside keeps a readable line length (MarkdownView, 70ch). */
+.screen-panel > section.document {
+  max-inline-size: none;
+}
+.screen-panel > section > h2,
+.screen > h2 {
+  font-size: 18px;
+}
+.screen-panel > section section,
+.screen section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-14);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.screen-panel > section section > h3,
+.screen section > h3 {
+  font-size: 15px;
+  display: flex;
+  gap: var(--space-06);
+  align-items: center;
+}
+
+/* A row of the tree one level in (the prototype's `.trow` at `--lv:1`): a group is upper case and
+   muted (`li.grp`); a row of its own (Knowledge, What Ordin remembers) is not. */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  inline-size: 100%;
+  min-height: 30px;
+  padding: 2px 6px 2px calc(2px + 14px + 23px);
+  border: 1px solid transparent;
+  border-radius: var(--radius-row);
+  background: none;
+  text-align: start;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+.tree-row.leaf {
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-text);
+  font-weight: 400;
+}
+.tree-row:hover {
+  background: var(--color-chip);
+}
+.tree-row:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* A tree row's actions (the prototype's `.tacts` / `.tact`): drawn on hover, focus or selection; on a
+   touch screen always. Its ⋯ menu (`.ctx`) floats under the row. */
+.tree-line {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.tree-line > .tree-row {
+  flex: 1;
+  min-width: 0;
+}
+.tree-actions {
+  display: none;
+  gap: 1px;
+  align-items: center;
+  flex: none;
+  margin-inline-start: auto;
+  padding-inline-end: 6px;
+}
+.tree-node .tree-actions {
+  padding-inline-end: 0;
+}
+:is(.tree-line, .tree-node):is(:hover, :focus-within) .tree-actions,
+.tree-node.current .tree-actions,
+.tree-actions.shown {
+  display: flex;
+}
+@media (hover: none) {
+  .tree-actions {
+    display: flex;
+  }
+}
+.tree-action {
+  border: 0;
+  background: none;
+  inline-size: 24px;
+  block-size: 24px;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+.tree-action:hover {
+  background: var(--color-line);
+  color: var(--color-text);
+}
+.tree-action:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+.tree-menu-list {
+  position: absolute;
+  z-index: 40;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  min-inline-size: 210px;
+  max-inline-size: 300px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-04);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-list);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  font-weight: 400;
+}
+.tree-menu-list button {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  border: 0;
+  background: none;
+  text-align: start;
+  padding: 7px var(--space-10);
+  min-height: 0;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--color-text);
+}
+.tree-menu-list button:hover,
+.tree-menu-list button:focus {
+  background: var(--color-chip);
+  outline: none;
+}
+.tree-menu-list button:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+.tree-menu-list button.danger {
+  color: var(--color-danger);
+  font-weight: 400;
+}
+
+/* Modal dialog. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-md);
+  background: var(--color-scrim);
+  z-index: 45;
+}
+.dialog {
+  inline-size: min(460px, 100%);
+  max-block-size: 86vh;
+  overflow: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  padding: var(--space-md) 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+.dialog h2 {
+  font-size: 15px;
+}
+.dialog p {
+  font-size: 13px;
+}
+/* In a dialog the default button is the keyboard's, not a primary fill (scene `removeWs`). */
+.dialog button[data-default='true']:not(.go, .danger, .primary) {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border-control);
+}
+.dialog-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+}
+/* An error: one sentence in the text colour, at most one small action, the reference small and muted
+   (scene `errors`). */
+.error-line {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-06);
+  color: var(--color-text);
+}
+.error-line button {
+  padding: 3px var(--space-sm);
+  min-height: 28px;
+  font-size: 13px;
+}
+.error-reference {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Blocks (cross-cutting/VisualDesign.md V6 "Block", "Conversation bubble", "Approval card"; ScreensModule
+   step 6's scene table). In the conversation a message is a bubble, a block drawn in full is a block card and
+   any other block is its one-line card; on its own screen a block has no frame and the screen's heading names
+   it, so the block's own first heading is not repeated. */
+.conversation-items .block-message {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-bubble);
+  padding: 10px var(--space-14);
+  max-inline-size: 780px;
+}
+.conversation-items .block-message > p {
+  margin: 0;
+}
+.conversation-items .block-message > p + p {
+  margin-block-start: var(--space-sm);
+}
+.conversation-items :is(.block-question, .block-result) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-12) var(--space-14);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  inline-size: 100%;
+  max-inline-size: 780px;
+  box-sizing: border-box;
+}
+.screen-panel > section.block-screen {
+  max-inline-size: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.screen-panel > section.block-screen > h2 {
+  font-size: 19px;
+}
+.block-screen > h2 ~ :is(.block-report, .block-chart, .block-form, .block-table) > :is(h3, h4):first-child,
+.block-screen > h2 ~ .block-table > .table-view > :is(h3, h4):first-child {
+  display: none;
+}
+/* Words under a block: where its numbers come from, notes and dates (the prototype's `.rmeta`, `.rsrc`). */
+.block-meta,
+.source {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.block-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+/* Text fields and selects inside blocks (V6 "Text field, select"). */
+:is(.block-form, .block-question, .table-view, .approval-card) :is(input[type='text'], input[type='search'], select) {
+  font: inherit;
+  color: inherit;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  padding: 6px var(--space-sm);
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+.table-view input[type='search'] {
+  font-size: 13px;
+  max-inline-size: 260px;
+}
+
+/* SM-FL-1: in every form a field's label sits above its control and each field takes its own line (the Jira
+   form and the knowledge page's edit form read as one run of words). A check box, a radio button and a
+   slider keep their line; a text area, which holds a body of text, takes the width of its form. */
+form label:has(> input:not([type='checkbox']):not([type='radio']):not([type='range'])),
+form label:has(> select),
+form label:has(> textarea) {
+  display: grid;
+  gap: var(--space-04);
+  margin-block-end: var(--space-sm);
+  max-inline-size: 460px;
+}
+form label:has(> textarea) {
+  max-inline-size: 860px;
+}
+form label > textarea {
+  inline-size: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  white-space: pre-wrap;
+}
+
+/* SM-PG-1: a run that is working shows movement beside its state label, so it does not look frozen. */
+.activity {
+  display: inline-block;
+  flex: none;
+  inline-size: 10px;
+  block-size: 10px;
+  margin-inline-end: var(--space-04);
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: ordin-spin 0.9s linear infinite;
+}
+@keyframes ordin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity {
+    animation: none;
+    border-inline-end-color: currentColor;
+    opacity: 0.6;
+  }
+}

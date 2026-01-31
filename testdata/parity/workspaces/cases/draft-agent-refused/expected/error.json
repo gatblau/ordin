@@ -1,0 +1,7 @@
+{
+  "code": "RES_ROOT_NOT_APPROVED",
+  "detail": {
+    "id": "urn:ordin:default:workspaces:draft-agent",
+    "status": "Draft"
+  }
+}

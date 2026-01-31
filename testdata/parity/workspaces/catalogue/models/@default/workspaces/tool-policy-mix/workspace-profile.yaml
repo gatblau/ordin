@@ -1,0 +1,23 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:tool-policy-mix
+  name: tool-policy-mix
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+capabilities:
+  - urn:ordin:default:capabilities:writing
+defaultRules:
+  - urn:ordin:default:rules:tone
+selectablePracticePacks:
+  - urn:ordin:default:practice-packs:stack:go
+  - urn:ordin:default:practice-packs:stack:rust
+toolBindings:
+  - urn:ordin:default:tool-bindings:search
+  - urn:ordin:default:tool-bindings:git
+toolPermissions:
+  workspaceOverrides:
+    prohibited:
+      - rm
+      - curl

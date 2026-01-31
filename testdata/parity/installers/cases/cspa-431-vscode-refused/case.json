@@ -1,0 +1,5 @@
+{
+  "root": "urn:ordin:default:workspaces:cspa-431",
+  "target_harness": "copilot_cli",
+  "installer": "vscode"
+}

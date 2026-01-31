@@ -1,0 +1,17 @@
+{
+  "urn:ordin:alpha:skills:house-style@1.0.0": [
+    "SKILL.md"
+  ],
+  "urn:ordin:default:practice-packs:style:terse@1.0.0": [
+    "practice-pack.yaml"
+  ],
+  "urn:ordin:default:rules:tone@1.0.0": [
+    "tone.md"
+  ],
+  "urn:ordin:default:system-roles:builder@1.0.0": [
+    "builder.md"
+  ],
+  "urn:ordin:default:workspaces:conflicting-packs@1.0.0": [
+    "workspace-profile.yaml"
+  ]
+}

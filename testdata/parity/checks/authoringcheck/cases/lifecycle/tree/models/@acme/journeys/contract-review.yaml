@@ -1,0 +1,25 @@
+apiVersion: ai.enterprise/v1
+kind: journey
+metadata:
+  id: urn:ordin:acme:journeys:contract-review
+  name: Contract review
+  version: 1.0.0
+  owner: legal-ops
+stages:
+  - id: draft
+    name: Draft
+    role: drafter
+    answerWithinDays: 400
+    handoverPlace:
+      target: drafts
+      type: folder
+    next:
+      - stage: review
+  - id: review
+    name: Review
+    role: reviewer
+    handoverPlace:
+      target: reviews
+      type: folder
+    next:
+      - stage: draft

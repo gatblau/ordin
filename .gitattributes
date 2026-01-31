@@ -1,0 +1,7 @@
+# Text files keep LF line endings on every system. Git for Windows would otherwise check them
+# out with CRLF, which changes their bytes: the brand pack's SVG files would no longer match the
+# checksums in brand.json, and the build would stop with BRAND_ASSET_HASH_MISMATCH.
+* text=auto eol=lf
+
+# PowerShell scripts run on Windows and keep that system's line endings.
+*.ps1 text eol=crlf

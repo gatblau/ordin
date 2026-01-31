@@ -1,0 +1,7 @@
+apiVersion: ai.enterprise/v1
+kind: agent-identity
+metadata:
+  id: urn:ordin:default:agent-identities:ordin-bot
+  name: ordin bot
+  version: 1.0.0
+  owner: platform

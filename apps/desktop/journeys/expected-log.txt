@@ -1,0 +1,3 @@
+# Log messages any journey may meet at WARNING or ERROR. One per line: <message> <reason>. A journey that
+# expects a message only it causes names it with app.expectLog instead. Anything else fails the journey.
+obs.failed The program checks for OBS Studio when a workspace's Minutes row is drawn; the Windows test machine runs no OBS, so the check answers OBS_NOT_REACHABLE at warn (ObsRecorderAdapter.md, Observability). Journey 13 runs its own fake OBS.

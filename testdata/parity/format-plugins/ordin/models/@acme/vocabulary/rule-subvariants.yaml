@@ -1,0 +1,12 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:rule-subvariants
+  name: Rule sub-variants
+  version: 1.0.0
+  owner: operations
+axis: rule-subvariant
+terms:
+  - code: rule-layer
+    label: Layer rule
+    description: A rule that layers on top of a mode.

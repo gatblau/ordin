@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:coordinator
+  name: Ordin
+  version: 1.0.0
+  owner: ordin-tests
+  description: Talks with the person and hands work to agents.
+  category: imported
+  audience:
+    roles: [imported]

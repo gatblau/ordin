@@ -1,0 +1,35 @@
+[package]
+name = "ordin-crew-orchestrator"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-journal = { workspace = true }
+# `Coordinator` and `CrewHost` are `#[async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# The recursive walk of the outline returns boxed futures; parallel steps are joined.
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The `crew_runs`, `rounds` and `crew_step_states` tables live in the Journal's datastore.
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+# `CrewView.cancel` is a `CancellationToken` (Public Interface).
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# The scripted adapter of the Runtime Adapter interface (integration test, plan Phase 5).
+ordin-runtime-adapter = { workspace = true, features = ["testkit"] }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }

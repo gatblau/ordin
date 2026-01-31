@@ -1,0 +1,19 @@
+.claude
+.idea
+*.iml
+wip
+releases
+# update signing key (private half); the .pub file is committed
+*.key
+# build output and installed packages
+target/
+node_modules/
+# the desktop program's generated Tauri schemas, its built screens and the bundled programs copied
+# beside it before bundling
+apps/desktop/gen/
+apps/desktop/ui/dist/
+apps/desktop/binaries/
+# the bundled agents copied in by release-build (PB-REL-7)
+apps/desktop/catalogue/
+# DirectML.dll staged by a Windows release-build (PB-REL-25)
+apps/desktop/windows-runtime/

@@ -1,0 +1,27 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:supplier-analyst
+  name: supplier-analyst
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+capabilities:
+  - urn:ordin:default:capabilities:triage
+defaultRules:
+  - urn:ordin:default:rules:tone
+  - urn:ordin:default:rules:legacy-style
+fixedPracticePacks:
+  - urn:ordin:default:practice-packs:stack:go
+governanceMetadata:
+  languageOverlays:
+    available:
+      - urn:ordin:default:overlays:language:en-GB
+      - urn:ordin:default:overlays:language:de
+    default: urn:ordin:default:overlays:language:en-GB
+requiredPracticePacks:
+  - anyOf:
+      - urn:ordin:default:practice-packs:stack:go
+    atLeast: 1
+selectablePracticePacks:
+  - urn:ordin:default:practice-packs:quality:lint-strict

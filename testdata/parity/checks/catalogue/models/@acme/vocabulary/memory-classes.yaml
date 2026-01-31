@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:memory-classes
+  name: memory-classes
+  version: 1.0.0
+  owner: legal-ops
+axis: memory-content-class
+terms:
+  - code: decisions
+    label: Decisions
+  - code: open-questions
+    label: Open questions

@@ -1,0 +1,5 @@
+{
+  "code": "INST_LOOP_UNSUPPORTED",
+  "strategy": "plan-then-execute",
+  "missing_capability": null
+}

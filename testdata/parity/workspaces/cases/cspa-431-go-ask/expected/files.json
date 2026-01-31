@@ -1,0 +1,54 @@
+{
+  "urn:ordin:default:capabilities:writing@1.0.0": [
+    "writing.yaml"
+  ],
+  "urn:ordin:default:context-resources:glossary@1.0.0": [
+    "glossary.md"
+  ],
+  "urn:ordin:default:memories:project@1.0.0": [
+    "project.yaml"
+  ],
+  "urn:ordin:default:output-contracts:role-dossier@1.0.0": [
+    "role-dossier.yaml"
+  ],
+  "urn:ordin:default:overlays:language:en-GB@1.0.0": [
+    "en-gb.md"
+  ],
+  "urn:ordin:default:overlays:source-workflow:trunk@1.0.0": [
+    "trunk.md"
+  ],
+  "urn:ordin:default:overlays:style:plain@1.0.0": [
+    "plain.md"
+  ],
+  "urn:ordin:default:practice-packs:stack:go@1.0.0": [
+    "practice-pack.yaml"
+  ],
+  "urn:ordin:default:rules:control-loops:cspa@1.0.0": [
+    "cspa.md"
+  ],
+  "urn:ordin:default:rules:modes:build@1.0.0": [
+    "build.yaml"
+  ],
+  "urn:ordin:default:rules:modes:review@1.0.0": [
+    "review.yaml"
+  ],
+  "urn:ordin:default:rules:quality@1.0.0": [
+    "quality.md"
+  ],
+  "urn:ordin:default:rules:tone@1.0.0": [
+    "tone.md"
+  ],
+  "urn:ordin:default:skills:quality:codegen@1.1.0": [
+    "SKILL.md",
+    "scripts/check.sh"
+  ],
+  "urn:ordin:default:system-roles:builder@1.0.0": [
+    "builder.md"
+  ],
+  "urn:ordin:default:tool-bindings:mail@1.0.0": [
+    "mail.yaml"
+  ],
+  "urn:ordin:default:workspaces:cspa-431@1.0.0": [
+    "workspace-profile.yaml"
+  ]
+}

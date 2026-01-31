@@ -1,0 +1,35 @@
+[package]
+name = "ordin-team-knowledge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-push = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+# The bare clone of each bound repository, fetched and committed in process (§B step 4, §E step 6).
+git2 = { workspace = true }
+# The traits owned here are `#[async_trait]` (D3), as is the Journal's `EventSink`.
+async-trait = { workspace = true }
+# The description's location forms and the login pattern (Shared Context 2 of the team workspace amendment).
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The local bytes' digest in each item record (§F step 4).
+sha2 = { workspace = true }
+# This module's tables live in the Journal's SQLite datastore.
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+# Lengths of the description's strings are counted after NFC normalisation (Shared Context 2).
+unicode-normalization = { workspace = true }
+uuid = { workspace = true }

@@ -1,0 +1,25 @@
+# ordin-organisation-profile: your company's settings
+error-prof-address-invalid = The web address for your company's settings must start with https:// and not be too long.
+error-prof-cache-invalid = The saved copy of your company's settings can't be trusted. ordin will fetch them again.
+error-prof-content-invalid = Your company's settings contain something ordin doesn't accept, so ordin goes on without them.
+error-prof-datastore-unavailable = ordin couldn't read or save your company's settings. Try again in a moment.
+error-prof-format-unsupported = Your company's settings are in a newer form than this ordin understands. Install the latest ordin.
+error-prof-http-status = The web address for your company's settings didn't give the expected answer. Check the address and try again.
+error-prof-installer-invalid = The set-up information that came with ordin can't be read. Reinstall ordin.
+error-prof-installer-write-failed = ordin couldn't save its set-up information. Check there is enough disk space and try again.
+error-prof-key-unknown = Your company's settings were signed with a key ordin doesn't know. Install the latest ordin.
+error-prof-multiple-active = More than one set of company settings is in use at once. Restart ordin and try again.
+error-prof-not-used = This set-up doesn't use a company settings file, so that isn't available.
+error-prof-no-address = ordin doesn't know where to find your company's settings, so set-up can't finish.
+error-prof-remote-agent-not-enabled = That outside agent hasn't been switched on yet, so it can't be marked as checked.
+error-prof-remote-agent-not-found = That outside agent couldn't be found.
+error-prof-remote-agent-withdrawn = That outside agent has been withdrawn, so its status can't be changed.
+error-prof-signature-invalid = The signature on your company's settings isn't valid, so ordin didn't use them.
+error-prof-signature-missing = Your company's settings have no signature, so ordin didn't use them.
+error-prof-too-large = Your company's settings are too large to load.
+error-prof-unreachable = ordin couldn't reach the address for your company's settings. Check your connection and try again.
+error-prof-unverified-activation = Those company settings haven't been checked yet, so they can't be switched on.
+error-prof-version-not-newer = Those company settings aren't newer than the ones already in use.
+error-rag-http-fields-invalid = That outside agent needs a secure web address and a sign-in provider, and no Slack details. Check them and try again.
+error-rag-name-invalid = That outside agent's name must be 1 to 120 characters and not already used. Choose another name.
+error-rag-slack-fields-invalid = That outside agent needs a Slack account and a Slack channel in the right form, and no web address. Check them and try again.

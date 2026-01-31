@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:pack-classes
+  name: pack-classes
+  version: 1.0.0
+  owner: legal-ops
+axis: pack-class
+terms:
+  - code: stack
+    label: technology stack
+  - code: testing
+    label: testing approach

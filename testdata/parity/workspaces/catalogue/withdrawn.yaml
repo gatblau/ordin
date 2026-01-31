@@ -1,0 +1,14 @@
+listSchema: ordin.withdrawn/v1
+entries:
+  - part:
+      kind: Rule
+      id: urn:ordin:default:rules:old-tone
+    reason: Replaced by the second edition.
+    withdrawnAt: 2026-01-12T09:00:00.000Z
+    replacement:
+      id: urn:ordin:default:rules:tone-v2
+  - part:
+      kind: Skill
+      id: urn:ordin:default:skills:legacy-review
+    reason: The old checklist is no longer valid.
+    withdrawnAt: 2026-01-12T09:30:00.000Z

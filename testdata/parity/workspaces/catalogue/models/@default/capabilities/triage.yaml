@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: urn:ordin:default:capabilities:triage
+  name: Triage
+  version: 1.0.0
+  owner: engineering-enablement
+skills:
+  - urn:ordin:default:skills:triage:intake
+toolBindings:
+  - urn:ordin:default:tool-bindings:search

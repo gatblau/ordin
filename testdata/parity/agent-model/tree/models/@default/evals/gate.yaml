@@ -1,0 +1,8 @@
+apiVersion: ai.enterprise/v1
+kind: ci-gate
+metadata:
+  id: urn:ordin:default:evals:gate
+  name: Gate
+  version: 1.0.0
+  owner: engineering-enablement
+workspace: urn:ordin:default:workspaces:cspa-431

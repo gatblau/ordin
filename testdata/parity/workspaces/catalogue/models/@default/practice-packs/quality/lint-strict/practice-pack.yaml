@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:default:practice-packs:quality:lint-strict
+  name: Strict linting
+  version: 1.0.0
+  owner: engineering-enablement
+  class: quality
+  audience:
+    languages:
+      - go
+      - rust
+toolchain:
+  forbiddenFlags:
+    - --no-lint

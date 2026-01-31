@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "command_id": "urn:ordin:default:commands:triage:summarise",
+      "session_name": "summarise"
+    }
+  ],
+  "launch_paths": null,
+  "reference_only_parts": [
+    "urn:ordin:default:capabilities:support",
+    "urn:ordin:default:memories:project",
+    "urn:ordin:default:skills:quality-codegen"
+  ]
+}

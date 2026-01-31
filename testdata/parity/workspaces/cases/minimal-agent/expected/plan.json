@@ -1,0 +1,57 @@
+{
+  "overlayOrder": [],
+  "planHash": "sha256:89b2442e12992505387ea5a7eac5d2c73470476fb27bdbe7dec2018bd18e7561",
+  "practicePacks": [],
+  "resolved": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c",
+      "id": "urn:ordin:default:system-roles:builder",
+      "kind": "SystemRole",
+      "name": "builder",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307",
+      "id": "urn:ordin:default:rules:tone",
+      "kind": "Rule",
+      "name": "tone",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:b619e78250e8ee082b8ba213754d8a8134258b8cb82a41de911a1266133bd8f1",
+      "id": "urn:ordin:default:workspaces:minimal",
+      "kind": "WorkspaceProfile",
+      "name": "minimal",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "root": {
+    "commit": "0000000000000000000000000000000000000000",
+    "contentHash": "sha256:b619e78250e8ee082b8ba213754d8a8134258b8cb82a41de911a1266133bd8f1",
+    "id": "urn:ordin:default:workspaces:minimal",
+    "kind": "WorkspaceProfile",
+    "name": "minimal",
+    "repository": "bundled",
+    "version": "1.0.0"
+  },
+  "selections": {
+    "overlays": [],
+    "pendingChoices": [],
+    "practicePacks": []
+  },
+  "targetHarness": "claude_code",
+  "toolPolicy": {
+    "forbiddenFlags": [],
+    "mcpServers": [],
+    "prohibitedVerbs": [],
+    "requiresHumanApproval": []
+  },
+  "warnings": [],
+  "withdrawnSnapshot": "sha256:8bfafc38476808e505392d70fd850d8e97c333ee399e7ab8d1244c3561d85c8a"
+}

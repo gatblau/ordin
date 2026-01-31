@@ -1,0 +1,238 @@
+{
+  "source": "ordin-desktop/components/RulesEngine.md, restated cases: Refuse when, on a host; Refuse unless, with sub-domains; A rule that cannot be evaluated, and an absent argument; Dot segments and percent-encoding; A stated list of texts; A rule on a list",
+  "set": {
+    "tools": [
+      {
+        "name": "http_head",
+        "arguments": [
+          "url"
+        ]
+      },
+      {
+        "name": "http_get",
+        "arguments": [
+          "url"
+        ]
+      },
+      {
+        "name": "fetch_api",
+        "arguments": [
+          "url"
+        ]
+      },
+      {
+        "name": "create_ticket",
+        "arguments": [
+          "project"
+        ]
+      },
+      {
+        "name": "share_links",
+        "arguments": [
+          "links[].url"
+        ]
+      }
+    ],
+    "configured": {
+      "message_rules": [],
+      "steps": [],
+      "schedule_entries": [],
+      "argument_rules": [
+        {
+          "name": "no-internal",
+          "tool": "http_head",
+          "argument": "url",
+          "form": "refuse-when",
+          "address": {
+            "hosts": [
+              "intranet.example"
+            ]
+          }
+        },
+        {
+          "name": "fetch-only-docs",
+          "tool": "http_get",
+          "argument": "url",
+          "form": "refuse-unless",
+          "address": {
+            "hosts": [
+              "example.org"
+            ],
+            "with-subdomains": true
+          }
+        },
+        {
+          "name": "public-api-only",
+          "tool": "fetch_api",
+          "argument": "url",
+          "form": "refuse-unless",
+          "address": {
+            "hosts": [
+              "example.org"
+            ],
+            "path-prefixes": [
+              "/api/public/"
+            ]
+          }
+        },
+        {
+          "name": "known-projects",
+          "tool": "create_ticket",
+          "argument": "project",
+          "form": "refuse-unless",
+          "equals-any": [
+            "OPS",
+            "WEB"
+          ]
+        },
+        {
+          "name": "links-to-docs",
+          "tool": "share_links",
+          "argument": "links[].url",
+          "form": "refuse-unless",
+          "address": {
+            "hosts": [
+              "example.org"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "calls": [
+    {
+      "tool": "http_head",
+      "arguments": {
+        "url": "https://intranet.example/x"
+      },
+      "verdict": "deny",
+      "rule": "no-internal"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "https://example.org/a"
+      },
+      "verdict": "allow"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "https://api.example.org/a"
+      },
+      "verdict": "allow"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "https://evil-example.org/a"
+      },
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "https://example.org.evil.net/a"
+      },
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "https://example.org@evil.net/"
+      },
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": "not an address"
+      },
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {
+        "url": {
+          "href": "https://example.org"
+        }
+      },
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "http_get",
+      "arguments": {},
+      "verdict": "deny",
+      "rule": "fetch-only-docs"
+    },
+    {
+      "tool": "fetch_api",
+      "arguments": {
+        "url": "https://example.org/api/public/doc"
+      },
+      "verdict": "allow"
+    },
+    {
+      "tool": "fetch_api",
+      "arguments": {
+        "url": "https://example.org/api/public/../admin"
+      },
+      "verdict": "deny",
+      "rule": "public-api-only"
+    },
+    {
+      "tool": "fetch_api",
+      "arguments": {
+        "url": "https://example.org/api/public/%2e%2e/admin"
+      },
+      "verdict": "deny",
+      "rule": "public-api-only"
+    },
+    {
+      "tool": "create_ticket",
+      "arguments": {
+        "project": "OPS"
+      },
+      "verdict": "allow"
+    },
+    {
+      "tool": "create_ticket",
+      "arguments": {
+        "project": "HR"
+      },
+      "verdict": "deny",
+      "rule": "known-projects"
+    },
+    {
+      "tool": "share_links",
+      "arguments": {
+        "links": [
+          {
+            "url": "https://example.org/a"
+          }
+        ]
+      },
+      "verdict": "allow"
+    },
+    {
+      "tool": "share_links",
+      "arguments": {
+        "links": [
+          {
+            "url": "https://example.org/a"
+          },
+          {
+            "url": "https://evil.net/b"
+          }
+        ]
+      },
+      "verdict": "deny",
+      "rule": "links-to-docs"
+    }
+  ]
+}

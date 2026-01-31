@@ -1,0 +1,44 @@
+[package]
+name = "ordin-knowledge-query-client"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+# The `TokenSource` seam over the Identity Service, so the unit tests can stand in for it.
+async-trait = { workspace = true }
+# Times of the `kq_connections` rows (RFC 3339, milliseconds).
+chrono = { workspace = true }
+# `StreamExt` over the server-sent-event stream.
+futures = { workspace = true }
+# `stream` gives `Response::bytes_stream`, which `sse-stream` decodes.
+reqwest = { workspace = true, features = ["stream"] }
+# `Delegation` holds the token as a secret (2C wire, §12 amendment January 2026).
+secrecy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The statement digest of the hit identity key (Internal Logic M.2).
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+sse-stream = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+# `CancellationToken` of `start_change_streams` and of a dropped answer stream.
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# A signed-in credential for the scenario that runs the real token source.
+ordin-identity = { workspace = true, features = ["test-support"] }
+# The knowledge route group stand-in on loopback (plan, "HTTP stand-ins").
+wiremock = { workspace = true }
+# Log-capture test (tests/logging.rs).
+tracing-subscriber = { workspace = true }
+# PostgreSQL 18 in tests (plan, "PostgreSQL 18 in tests"); the helper is tests/support/pg.rs.
+testcontainers = { workspace = true }

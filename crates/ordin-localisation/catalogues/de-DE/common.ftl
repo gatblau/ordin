@@ -1,0 +1,1 @@
+locale-native-name = Deutsch

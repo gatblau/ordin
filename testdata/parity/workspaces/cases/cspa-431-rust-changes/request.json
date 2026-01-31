@@ -1,0 +1,18 @@
+{
+  "root": "urn:ordin:default:workspaces:cspa-431",
+  "root_version": null,
+  "target_harness": "copilot_cli",
+  "workspace_languages": [
+    "rust"
+  ],
+  "interface_language": "en-GB",
+  "pack_answers": [],
+  "pack_changes": [
+    "urn:ordin:default:practice-packs:stack:go",
+    "urn:ordin:default:practice-packs:testing:bdd"
+  ],
+  "overlay_changes": [
+    "urn:ordin:default:overlays:language:es"
+  ],
+  "replacements": []
+}

@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: journey
+metadata:
+  id: urn:ordin:default:journeys:handover
+  name: Handover
+  version: 1.0.0
+  owner: engineering-enablement
+seams:
+  - design-to-build
+  - build-to-run
+trigger: merge

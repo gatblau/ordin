@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:replaced-rule
+  name: replaced-rule
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+defaultRules:
+  - urn:ordin:default:rules:old-tone
+  - urn:ordin:default:rules:quality

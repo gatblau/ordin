@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:echo
+  name: Note writer
+  version: 1.0.0
+  owner: ordin-tests
+  description: Writes a short note in its own folder.
+  category: imported
+  audience:
+    roles: [imported]
+capabilities:
+  - urn:ordin:default:capabilities:careful-writing

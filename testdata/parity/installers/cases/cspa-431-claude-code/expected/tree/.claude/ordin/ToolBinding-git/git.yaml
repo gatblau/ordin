@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: tool-binding
+metadata:
+  id: urn:ordin:default:tool-bindings:git
+  name: Git
+  version: 1.0.0
+  owner: engineering-enablement
+bindings:
+  - forbiddenFlags:
+      - --force
+    name: git
+    permission: read
+    type: cli

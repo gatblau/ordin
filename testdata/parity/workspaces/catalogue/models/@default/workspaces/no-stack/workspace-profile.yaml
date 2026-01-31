@@ -1,0 +1,14 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:no-stack
+  name: no-stack
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+defaultRules:
+  - urn:ordin:default:rules:tone
+requiredPracticePacks:
+  - atLeast: 1
+    where:
+      class: stack

@@ -1,0 +1,30 @@
+apiVersion: ai.enterprise/v1
+kind: ci-gate
+metadata:
+  id: "urn:ordin:default:evals:ci-gate"
+  name: Publish gate
+  version: 1.0.0
+  owner: gatblau
+
+# A ci-gate is read as an Evaluation, so it sits under the urn:ordin:default:evals
+# set that the workspaces' publishGate names.
+
+purpose: >
+  Publish-time gate for the workspaces below. Runs the evaluations under
+  models/@default/evals/ and blocks publishing on any blocking failure.
+
+governs:
+  - "urn:ordin:default:workspaces:advisor"
+  - "urn:ordin:default:workspaces:coordinator"
+
+evalSuite:
+  root: "models/@default/evals/"
+
+blocks: true
+passCriteria:
+  allBlockingMustPass: true
+  failureBehaviour: block-publish
+
+invariants:
+  - "Every blocking evaluation failure stops publishing."
+  - "A workspace's publishGate must name a non-empty set of evaluations, or the check fails."

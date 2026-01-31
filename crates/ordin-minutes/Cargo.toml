@@ -1,0 +1,31 @@
+[package]
+name = "ordin-minutes"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The Minutes Service (MinutesService.md); in the desktop program only with its `minutes` switch.
+[dependencies]
+ordin-types = { workspace = true }
+ordin-dictation = { workspace = true, features = ["transcription"] }
+ordin-obs = { workspace = true }
+ordin-localisation = { workspace = true }
+ordin-journal = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# The fake OBS of the OBS Recorder Adapter's tests (plan 07 Phase 4).
+ordin-obs = { workspace = true, features = ["fake"] }
+# The real Identity Service, which the OBS Recorder Adapter reads the password from.
+ordin-identity = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+reqwest = { workspace = true }
+base64 = { workspace = true }

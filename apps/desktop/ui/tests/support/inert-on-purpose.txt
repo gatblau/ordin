@@ -1,0 +1,6 @@
+# Controls the dead-controls sweep (plan 04, safety net B) clicks that change nothing on purpose.
+# One per line: <screen id> <CSS selector, no spaces> <reason>.
+terminal textarea the terminal's own input field (xterm.js); a click only puts the cursor in it
+server-languages input[type=radio]:checked the language in use; choosing it again changes nothing (a radio group, SM-SW-13)
+installed-files li[role=treeitem] a tree row's treeitem only carries the tree semantics; the button inside it opens the file or folder
+settings input[aria-describedby=settings-memory-details-hint] kept in this window's view preferences, which the sweep runs without (startApp storage null); the memory page reads it when it opens

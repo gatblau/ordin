@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: tool-binding
+metadata:
+  id: urn:ordin:default:tool-bindings:search
+  name: Search
+  version: 1.0.0
+  owner: engineering-enablement
+bindings:
+  - name: search
+    permission: read
+    serverType: stdio
+    transport: stdio
+    type: mcp

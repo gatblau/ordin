@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:default:practice-packs:stack:go
+  name: Go
+  version: 1.0.0
+  owner: engineering-enablement
+  class: stack
+  audience:
+    languages:
+      - go
+toolchain:
+  coverageFloor: 70
+  forbiddenFlags:
+    - -race=false

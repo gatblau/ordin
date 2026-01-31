@@ -1,0 +1,36 @@
+[package]
+name = "ordin-sharepoint"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# The seam that points the adapter at a loopback stand-in over plain http, for this crate's tests.
+# Never enabled outside `[dev-dependencies]`.
+test-support = []
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+# Base64url of a sharing address (Internal Logic 3a).
+base64 = { workspace = true }
+# Upload bodies are shared between attempts without copying.
+bytes = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+# Request addresses are built from segments and query pairs, never by string concatenation.
+url = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+ordin-sharepoint = { path = ".", features = ["test-support"] }
+tracing-subscriber = { workspace = true }
+wiremock = { workspace = true }

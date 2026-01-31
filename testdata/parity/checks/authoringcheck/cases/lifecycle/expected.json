@@ -1,0 +1,7 @@
+{
+  "codes": [
+    "lifecycle_days_invalid",
+    "lifecycle_stage_backward",
+    "repository_checked"
+  ]
+}

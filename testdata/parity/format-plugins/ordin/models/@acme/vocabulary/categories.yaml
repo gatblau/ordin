@@ -1,0 +1,12 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:categories
+  name: Categories
+  version: 1.0.0
+  owner: operations
+axis: category
+terms:
+  - code: writing
+    label: Writing
+    description: Parts about writing.

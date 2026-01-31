@@ -1,0 +1,8 @@
+apiVersion: ai.enterprise/v1
+kind: ci-gate
+metadata:
+  id: "urn:ordin:acme:evals:ci-gate"
+  name: Publish gate
+  version: 1.0.0
+  owner: legal-ops
+purpose: Blocks publishing when a clause check fails.

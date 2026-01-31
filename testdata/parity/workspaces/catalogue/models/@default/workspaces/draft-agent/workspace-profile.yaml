@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:draft-agent
+  name: draft-agent
+  version: 1.0.0
+  owner: engineering-enablement
+  status: draft
+systemRole: urn:ordin:default:system-roles:builder
+defaultRules:
+  - urn:ordin:default:rules:tone

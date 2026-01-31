@@ -1,0 +1,69 @@
+[package]
+name = "ordin-host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# The port-level constructor `OrdinHost::with_ports` and the `ports` module, for this crate's
+# integration tests (a real Session Supervisor and Crew Orchestrator beside stand-ins).
+testkit = []
+# Ordin writes meeting minutes (OrdinHost.md OH-MIN-1 to OH-MIN-3), turned on by the desktop
+# program's build switch `minutes`.
+minutes = []
+
+[dependencies]
+ordin-types = { workspace = true, features = ["schema"] }
+ordin-runtime-adapter = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-checker = { workspace = true }
+ordin-files = { workspace = true }
+ordin-package-inspector = { workspace = true }
+ordin-package-catalogue = { workspace = true }
+ordin-crew-orchestrator = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-usage-planner = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-push = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-journal = { workspace = true }
+# The active locale, the language match and the person's language drafts (X-30; ADR-109).
+ordin-localisation = { workspace = true }
+saphyr = { workspace = true }
+tracing = { workspace = true }
+# `ToolProvider`, `Coordinator`, `TriggerDesk`, `AuthoringHost` and `HandoverHost` are `#[async_trait]` traits.
+async-trait = { workspace = true }
+# Local dates in the continued history (step 48.5).
+chrono = { workspace = true }
+futures = { workspace = true }
+# Tool argument types derive `JsonSchema`; `input_schema` is generated from them (ToolProvider).
+schemars = { workspace = true }
+# `agents[].version` is a SemVer requirement in Cargo syntax (the fixed-code check).
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Tool arguments: the serde path of a refusal becomes `ArgumentProblem.at`.
+serde_path_to_error = { workspace = true }
+# `workflow_versions.content_sha256` (Data Model).
+sha2 = { workspace = true }
+# This crate's tables live in the Journal's datastore (D4, R20).
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+ordin-host = { path = ".", features = ["testkit"] }
+# The scripted adapter of the Runtime Adapter interface (session and crew integration tests).
+ordin-runtime-adapter = { workspace = true, features = ["testkit"] }
+# The real Crew Orchestrator needs the Rules Engine, Approval Service and Organisation Profile.
+ordin-approval = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-rules = { workspace = true }
+tracing-subscriber = { workspace = true }

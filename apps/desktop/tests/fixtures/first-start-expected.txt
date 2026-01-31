@@ -1,0 +1,3 @@
+# Log messages a clean first start may write at WARN or above (plan 04, safety net C;
+# tests/first_start.rs). One per line: <message> <reason>. Anything else fails the check.
+memory.models_not_downloaded the check runs a build with no models input; logged once at info (MEM-MD-6)

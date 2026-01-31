@@ -1,0 +1,8 @@
+# Requests a screen test sends wrong on purpose, which the backend's input check is expected to refuse
+# (plan 04, safety net A; `make ui-contract-check`). One per line: <test file> <command> <reason>.
+backend.test.ts setup.sign_in_harness the transport test sends an empty input to check how a reply is routed, not what a screen sends
+backend.test.ts identity.sign_in_wait the transport test sends an empty input to check how a reply is routed, not what a screen sends
+backend.test.ts mail.list_messages the transport test sends an empty input to check SVC_NOT_IN_THIS_VERSION handling, not what a screen sends
+bootstrap.test.ts mail.list_messages the start-up test sends an empty input to check SVC_NOT_IN_THIS_VERSION handling, not what a screen sends
+backend.test.ts files.save_export the timeout test sends an empty input to check the window never times out a command that waits for the person
+backend.test.ts identity.import_client_certificate the timeout test sends an empty input to check the window never times out a command that waits for the person

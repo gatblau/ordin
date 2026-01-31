@@ -1,0 +1,11 @@
+{
+  "root": "urn:ordin:default:workspaces:supplier-analyst",
+  "root_version": null,
+  "target_harness": "claude_code",
+  "workspace_languages": [],
+  "interface_language": "de-AT",
+  "pack_answers": [],
+  "pack_changes": [],
+  "overlay_changes": [],
+  "replacements": []
+}

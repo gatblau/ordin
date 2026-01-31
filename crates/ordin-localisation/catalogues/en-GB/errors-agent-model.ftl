@@ -1,0 +1,24 @@
+# ordin-agent-model: the definitions that describe agents and their parts
+error-am-api-version-unknown = That definition is written for a version ordin doesn't support.
+error-am-digest-invalid = The check code for that part isn't valid.
+error-am-draft-fields-invalid = The draft is missing a name or has details that are the wrong type. Fix it and try again.
+error-am-draft-kind-not-composable = That kind of part can't be added here, or you have added a second one where only one is allowed.
+error-am-field-shape-invalid = One of the details in that definition is in the wrong form. Check it and try again.
+error-am-file-too-large = That file is too large. Files can be up to 1 MB.
+error-am-id-invalid = The name given for that part isn't in the form ordin expects.
+error-am-kind-unknown = ordin doesn't recognise that kind of part.
+error-am-lock-file-invalid = The file that fixes the parts in use is damaged or incomplete. Create it again.
+error-am-manifest-field-missing = That definition is missing its version, kind or name. Add the missing detail.
+error-am-manifest-malformed = That definition isn't written correctly. Check its opening and closing lines and its layout.
+error-am-no-file-convention = ordin has no file layout for that kind of part.
+error-am-path-invalid = That file location isn't valid. Use a simple location inside the folder.
+error-am-source-corrupt = The files for that part have changed since it was published, so ordin didn't use them.
+error-am-source-unavailable = ordin couldn't read the catalogue copy on this computer. Try again.
+error-am-source-withdrawn-list-unreadable = ordin couldn't read the list of withdrawn parts. Check your connection and try again.
+error-am-status-unknown = That part has a status ordin doesn't recognise.
+error-am-task-body-invalid = That task's text doesn't match its fields.
+error-am-task-input-invalid = One of that task's fields isn't written in the form ordin expects.
+error-am-version-invalid = That version number isn't in the form ordin expects.
+error-am-vocabulary-axis-duplicate = Two word lists cover the same subject. Keep only one.
+error-am-withdrawn-list-invalid = The list of withdrawn parts is not written correctly, so ordin didn't use it.
+error-am-yaml-feature-refused = That definition uses a shortcut ordin doesn't allow. Write each part out in full.

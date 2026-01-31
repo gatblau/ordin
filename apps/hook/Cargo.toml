@@ -1,0 +1,38 @@
+[package]
+name = "ordin-hook"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "ordin-hook"
+path = "src/main.rs"
+
+[dependencies]
+ordin-types = { workspace = true }
+serde_json = { workspace = true }
+# HMAC-SHA256 over the canonical JSON of the message (Ordin Hook E).
+hmac = { workspace = true }
+sha2 = { workspace = true }
+# The current user's id, for the owner check of the key file (Ordin Hook H.2). Already in Cargo.lock.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+# The pipe opened for overlapped I/O, so reading and writing proceed at once (Ordin Hook
+# SA-HOOK-PIPE-01). Already in Cargo.lock.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading"] }
+
+# On Windows the hook carries the Visual C++ runtime inside it and uses the Universal C runtime that is
+# part of Windows, as Tauri builds the desktop program, so it starts on a PC with no Visual C++
+# redistributable (PB-REL-24). Already in Cargo.lock (through tauri-build).
+[build-dependencies]
+static_vcruntime = "3.0.0"
+
+[dev-dependencies]
+# Builds the `deadline` of the stand-in relay's `holding` reply.
+chrono = { workspace = true }
+
+# The stand-in relay and MCP Front listen on a named pipe on Windows, as the core does.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes"] }

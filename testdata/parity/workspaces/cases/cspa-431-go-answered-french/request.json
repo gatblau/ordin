@@ -1,0 +1,20 @@
+{
+  "root": "urn:ordin:default:workspaces:cspa-431",
+  "root_version": null,
+  "target_harness": "claude_code",
+  "workspace_languages": [
+    "go"
+  ],
+  "interface_language": "fr",
+  "pack_answers": [
+    {
+      "rule_index": 1,
+      "pack_ids": [
+        "urn:ordin:default:practice-packs:testing:test-pyramid"
+      ]
+    }
+  ],
+  "pack_changes": [],
+  "overlay_changes": [],
+  "replacements": []
+}

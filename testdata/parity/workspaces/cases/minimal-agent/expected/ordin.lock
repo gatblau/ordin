@@ -1,0 +1,38 @@
+lockfileSchema: ordin.lock/v1
+planHash: sha256:89b2442e12992505387ea5a7eac5d2c73470476fb27bdbe7dec2018bd18e7561
+targetHarness: claude_code
+composition:
+  kind: WorkspaceProfile
+  id: urn:ordin:default:workspaces:minimal
+  name: minimal
+  version: 1.0.0
+  contentHash: sha256:b619e78250e8ee082b8ba213754d8a8134258b8cb82a41de911a1266133bd8f1
+  repository: bundled
+  commit: "0000000000000000000000000000000000000000"
+artefacts:
+  - kind: SystemRole
+    id: urn:ordin:default:system-roles:builder
+    name: builder
+    version: 1.0.0
+    contentHash: sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:tone
+    name: tone
+    version: 1.0.0
+    contentHash: sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: WorkspaceProfile
+    id: urn:ordin:default:workspaces:minimal
+    name: minimal
+    version: 1.0.0
+    contentHash: sha256:b619e78250e8ee082b8ba213754d8a8134258b8cb82a41de911a1266133bd8f1
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+overlaysApplied: []
+selections:
+  practicePacks: []
+  overlays: []
+  pendingChoices: []

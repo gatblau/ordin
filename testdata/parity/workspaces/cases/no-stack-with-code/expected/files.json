@@ -1,0 +1,14 @@
+{
+  "urn:ordin:default:practice-packs:stack:rust@1.0.0": [
+    "practice-pack.yaml"
+  ],
+  "urn:ordin:default:rules:tone@1.0.0": [
+    "tone.md"
+  ],
+  "urn:ordin:default:system-roles:builder@1.0.0": [
+    "builder.md"
+  ],
+  "urn:ordin:default:workspaces:no-stack@1.0.0": [
+    "workspace-profile.yaml"
+  ]
+}

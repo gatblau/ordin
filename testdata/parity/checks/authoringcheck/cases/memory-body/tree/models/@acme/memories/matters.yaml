@@ -1,0 +1,16 @@
+apiVersion: ai.enterprise/v1
+kind: memory
+metadata:
+  id: urn:ordin:acme:memories:matters
+  name: Matters
+  version: 1.0.0
+  owner: legal-ops
+excludes:
+  - decisions
+retains:
+  - decisions
+  - rumours
+retention:
+  maxAgeDays: 0
+store:
+  location: remote

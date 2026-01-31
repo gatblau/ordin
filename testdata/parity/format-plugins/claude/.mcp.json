@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "jira": {
+      "command": "jira-mcp",
+      "args": ["--read-only"],
+      "env": { "JIRA_TOKEN": "placeholder-not-a-secret" }
+    },
+    "wiki": {
+      "type": "sse",
+      "url": "https://wiki.example.org/sse",
+      "headers": { "Authorization": "placeholder-not-a-secret" }
+    }
+  }
+}

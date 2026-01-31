@@ -1,0 +1,29 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:cspa-431
+  name: cspa-431
+  version: 1.0.0
+  owner: engineering-enablement
+  description: Builds components from their specifications.
+systemRole: urn:ordin:default:system-roles:builder
+allowedOperatingModes:
+  - urn:ordin:default:rules:modes:plan-mode
+  - urn:ordin:default:rules:modes:build-mode
+defaultMode: urn:ordin:default:rules:modes:plan-mode
+controlLoop: urn:ordin:default:rules:control-loops:cspa
+capabilities:
+  - urn:ordin:default:capabilities:delivery
+contextResources:
+  - urn:ordin:default:context-resources:glossary
+  - urn:ordin:default:context-resources:house-style
+defaultRules:
+  - urn:ordin:default:rules:tone
+memory: urn:ordin:default:memories:project
+selectablePracticePacks:
+  - urn:ordin:default:practice-packs:testing:test-pyramid
+governanceMetadata:
+  languageOverlays:
+    available:
+      - urn:ordin:default:overlays:language:en-GB
+    default: urn:ordin:default:overlays:language:en-GB

@@ -1,0 +1,14 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: urn:ordin:default:capabilities:writing
+  name: Writing
+  version: 1.0.0
+  owner: engineering-enablement
+defaultToolPolicy:
+  requiresHumanApproval:
+    - email_send
+skills:
+  - urn:ordin:default:skills:quality:codegen
+toolBindings:
+  - urn:ordin:default:tool-bindings:mail

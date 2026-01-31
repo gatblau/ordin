@@ -1,0 +1,90 @@
+{
+  "overlayOrder": [],
+  "planHash": "sha256:d4ab4791dbe25331a77d859a1933695ae1cc54f8c41ee522f6ad9e947d8dd90c",
+  "practicePacks": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:e1b4b16565716fbb2ebf62a1aba6b0418bd89cc66f815ca886578799dea5200d",
+      "id": "urn:ordin:default:practice-packs:style:terse",
+      "kind": "PracticePack",
+      "name": "style-terse",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "resolved": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c",
+      "id": "urn:ordin:default:system-roles:builder",
+      "kind": "SystemRole",
+      "name": "builder",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307",
+      "id": "urn:ordin:default:rules:tone",
+      "kind": "Rule",
+      "name": "tone",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:7c346704d02f8eb01c84146d8b25ebb0e8eb18142935b32666ec204838afa79d",
+      "id": "urn:ordin:alpha:skills:house-style",
+      "kind": "Skill",
+      "name": "house-style",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:91c7b45a4f97aae2d7003ac69d72315b4ba9459fd770cc012934e649caf1ad1f",
+      "id": "urn:ordin:default:workspaces:conflicting-packs",
+      "kind": "WorkspaceProfile",
+      "name": "conflicting-packs",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:e1b4b16565716fbb2ebf62a1aba6b0418bd89cc66f815ca886578799dea5200d",
+      "id": "urn:ordin:default:practice-packs:style:terse",
+      "kind": "PracticePack",
+      "name": "style-terse",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "root": {
+    "commit": "0000000000000000000000000000000000000000",
+    "contentHash": "sha256:91c7b45a4f97aae2d7003ac69d72315b4ba9459fd770cc012934e649caf1ad1f",
+    "id": "urn:ordin:default:workspaces:conflicting-packs",
+    "kind": "WorkspaceProfile",
+    "name": "conflicting-packs",
+    "repository": "bundled",
+    "version": "1.0.0"
+  },
+  "selections": {
+    "overlays": [],
+    "pendingChoices": [],
+    "practicePacks": [
+      {
+        "chosenBy": "person-change",
+        "id": "urn:ordin:default:practice-packs:style:terse"
+      }
+    ]
+  },
+  "targetHarness": "claude_code",
+  "toolPolicy": {
+    "forbiddenFlags": [],
+    "mcpServers": [],
+    "prohibitedVerbs": [],
+    "requiresHumanApproval": []
+  },
+  "warnings": [],
+  "withdrawnSnapshot": "sha256:8bfafc38476808e505392d70fd850d8e97c333ee399e7ab8d1244c3561d85c8a"
+}

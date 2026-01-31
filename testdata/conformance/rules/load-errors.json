@@ -1,0 +1,32 @@
+{
+  "source": "ordin-desktop/components/RulesEngine.md, restated cases: An argument rule checked before a run; A gate of the package cannot be named again (codes in ordin's RULE_ form)",
+  "loads": [
+    { "name": "an argument rule on a tool that is not bound",
+      "set": { "tools": [{ "name": "http_get", "arguments": ["url"] }],
+               "configured": { "message_rules": [], "steps": [], "schedule_entries": [],
+                 "argument_rules": [{ "name": "r", "tool": "http_put", "argument": "url", "form": "refuse-when", "equals-any": ["x"] }] } },
+      "code": "RULE_UNBOUND_TOOL" },
+    { "name": "an argument the tool does not describe",
+      "set": { "tools": [{ "name": "http_get", "arguments": ["url"] }],
+               "configured": { "message_rules": [], "steps": [], "schedule_entries": [],
+                 "argument_rules": [{ "name": "r", "tool": "http_get", "argument": "uri", "form": "refuse-when", "equals-any": ["x"] }] } },
+      "code": "RULE_UNKNOWN_ARGUMENT" },
+    { "name": "a configured step gate takes the package gate's name",
+      "set": { "tools": [{ "name": "deploy", "arguments": [] }],
+               "declaration": { "format-version": 1, "gates": { "steps": [
+                 { "name": "deploy-needs-plan", "point": "before-tool", "tool": "deploy",
+                   "conditions": [{ "kind": "path-absent", "path": "/plan.md" }], "outcome": { "kind": "refuse" } } ] } },
+               "configured": { "message_rules": [], "argument_rules": [], "schedule_entries": [],
+                 "steps": [{ "name": "deploy-needs-plan", "point": "end",
+                   "conditions": [{ "kind": "path-absent", "path": "/plan.md" }], "outcome": { "kind": "refuse" } }] } },
+      "code": "RULE_GATE_OVERRIDE" }
+  ],
+  "addresses": [
+    { "text": "example.org/path" },
+    { "text": "https://2130706433/" },
+    { "text": "https://exa mple.org/" },
+    { "text": "https://example.org:0/" },
+    { "text": "https://example.org/%zz" },
+    { "text": "https://user@example.org/" }
+  ]
+}

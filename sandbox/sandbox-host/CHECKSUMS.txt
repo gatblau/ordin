@@ -1,0 +1,7 @@
+# Content digests of the bundled, integrity-verified artefacts (ADR-018).
+# Verified by SandboxRuntime::new before instantiation; fail-closed on mismatch.
+# Reproducible (OQ-WD-2): `make guest` rebuilds the guest byte-for-byte with the toolchain
+# pinned in rust-toolchain.toml, `--locked`, path remapping, and the patched dependencies in
+# guest/patches/ (sorted code generation; no build environment embedded).
+# format: <sha256>  <path>
+6acf57b3172b1cd59146ae796a01f4b15a811602ae4da7cd1a58eebe9302090a  guest/pysandbox-guest.wasm

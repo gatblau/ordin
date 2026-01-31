@@ -1,0 +1,22 @@
+# Setup Assistant
+error-harn-duplicate = That Claude Code installation has already been added. Choose a different one.
+error-harn-path-invalid = That location isn't valid for Claude Code. Choose the full path to the program.
+error-harn-sign-in-method-invalid = That way of signing in to Claude Code isn't valid. Choose another.
+error-harn-state-inconsistent = The Claude Code details don't fit together. Check them and try again.
+error-harn-version-invalid = That Claude Code version isn't valid. Check it and try again.
+error-setup-language-server-digest-mismatch = The downloaded language helper isn't the expected one, so it wasn't installed. Try again.
+error-setup-language-server-install-failed = ordin couldn't install the language helper. Check your connection and try again.
+error-setup-language-server-not-approved = Your company hasn't approved that language helper.
+error-setup-language-server-platform-unsupported = That language helper isn't available for this computer.
+error-setup-second-install = ordin is already installed on this computer by another account. Use that one, or remove it first.
+error-setup-self-update-unavailable = This copy of ordin can't update itself. Reinstall ordin to get the new version.
+error-setup-store-unsupported = A new ordin can't be set up on that kind of storage. Choose another.
+error-setup-update-feed-invalid = ordin couldn't read the update information, or it isn't safe to use. Try again later.
+error-setup-update-install-failed = The update couldn't be installed. Try again.
+error-setup-update-in-progress = An update is already under way. Wait for it to finish.
+error-setup-update-none = There is no newer version to install.
+error-setup-update-no-archive = No update is available for this computer yet.
+error-setup-update-replace-failed = The update couldn't replace the current version, so ordin kept the one you have. Try again.
+error-setup-update-signature-invalid = The update couldn't be checked as genuine, so it wasn't installed.
+error-setup-update-unreachable = ordin couldn't reach the update information. Check your connection and try again.
+error-setup-update-version-changed = A different version is now on offer. Check for updates again.
