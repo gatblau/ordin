@@ -1,0 +1,10 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:acme:workspaces:clause-checker
+  name: clause-checker
+  version: 1.0.0
+  owner: legal-ops
+systemRole: urn:ordin:acme:system-roles:reviewer
+defaultRules:
+  - urn:ordin:acme:rules:tone

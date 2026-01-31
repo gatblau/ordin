@@ -1,0 +1,11 @@
+{
+  "identifier": "main",
+  "description": "The screens module in the main window: Service API commands and events only.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:app:allow-version",
+    "ordin:default"
+  ]
+}

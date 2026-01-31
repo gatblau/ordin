@@ -1,0 +1,9 @@
+apiVersion: ai.enterprise/v1
+kind: operating-mode
+metadata:
+  id: urn:ordin:default:rules:modes:build
+  name: Build
+  version: 1.0.0
+  owner: engineering-enablement
+permissions:
+  write: true

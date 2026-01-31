@@ -1,0 +1,39 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: "urn:ordin:default:workspaces:advisor"
+  name: The agent maker
+  version: 0.1.0
+  owner: gatblau
+  description: "Finds what the library already holds for a need, names what is missing with the evidence for each judgement, and drafts a new part for a person to review."
+  category: sdlc
+  audience:
+    roles:
+      - architect
+      - developer
+
+systemRole: "urn:ordin:default:workspaces:advisor:system-role"
+
+defaultRules:
+  - "urn:ordin:default:rules:orchestrators:working-modes"
+  - "urn:ordin:default:rules:layer:identifier-verification"
+  - "urn:ordin:default:rules:layer:output-language"
+
+# Seven modes: Patch and Execute are absent, so the agent maker cannot edit source
+# or run a build.
+allowedOperatingModes:
+  - "urn:ordin:default:rules:modes:observe-mode"
+  - "urn:ordin:default:rules:modes:infer-mode"
+  - "urn:ordin:default:rules:modes:plan-mode"
+  - "urn:ordin:default:rules:modes:sync-mode"
+  - "urn:ordin:default:rules:modes:review-mode"
+  - "urn:ordin:default:rules:modes:explain-mode"
+  - "urn:ordin:default:rules:modes:escalate-mode"
+
+defaultMode: "urn:ordin:default:rules:modes:observe-mode"
+
+controlLoop: "urn:ordin:default:rules:control-loops:plan-centric"
+
+governanceMetadata:
+  # Every evaluation under this name; no evaluation carries the name exactly.
+  publishGate: "urn:ordin:default:evals"

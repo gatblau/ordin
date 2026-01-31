@@ -1,0 +1,91 @@
+lockfileSchema: ordin.lock/v1
+planHash: sha256:16f5c93a00278326facb27c3278aae49a77a15b947c2c5b15fc32be41b4eb0c7
+targetHarness: claude_code
+composition:
+  kind: WorkspaceProfile
+  id: urn:ordin:default:workspaces:tool-policy-mix
+  name: tool-policy-mix
+  version: 1.0.0
+  contentHash: sha256:97df94b57cd62f895c12d24c3b25ce300030dbc5dfaee3b684a260245ce221ef
+  repository: bundled
+  commit: "0000000000000000000000000000000000000000"
+artefacts:
+  - kind: SystemRole
+    id: urn:ordin:default:system-roles:builder
+    name: builder
+    version: 1.0.0
+    contentHash: sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:tone
+    name: tone
+    version: 1.0.0
+    contentHash: sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Skill
+    id: urn:ordin:default:skills:quality:codegen
+    name: quality-codegen
+    version: 1.1.0
+    contentHash: sha256:db527259e8a9416ffbd9a6a30108087955ee7a442214e0c8f135cb03a1db435f
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ToolBinding
+    id: urn:ordin:default:tool-bindings:git
+    name: git
+    version: 1.0.0
+    contentHash: sha256:57e7be5cf57279ec623e4400319860a5f8af4de8aafabf9dc383531f16f9b007
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ToolBinding
+    id: urn:ordin:default:tool-bindings:mail
+    name: mail
+    version: 1.0.0
+    contentHash: sha256:edd90665453a9e77235d1001907fdd9cd6ddb8183a68819cd0506e5873997fcc
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ToolBinding
+    id: urn:ordin:default:tool-bindings:search
+    name: search
+    version: 1.0.0
+    contentHash: sha256:aa7f5403a82866ce999c384d9cf89ba0fbaf87f5e0c64eb35553c215e8a9b36c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Capability
+    id: urn:ordin:default:capabilities:writing
+    name: writing
+    version: 1.0.0
+    contentHash: sha256:fd699237369fda0071fda48e6017ff7993679f11e0bda4173cc432bb696b03d9
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: WorkspaceProfile
+    id: urn:ordin:default:workspaces:tool-policy-mix
+    name: tool-policy-mix
+    version: 1.0.0
+    contentHash: sha256:97df94b57cd62f895c12d24c3b25ce300030dbc5dfaee3b684a260245ce221ef
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: PracticePack
+    id: urn:ordin:default:practice-packs:stack:go
+    name: stack-go
+    version: 1.0.0
+    contentHash: sha256:34515bf5d99b9f7491014555797a7674430e1787f2aea9befcab9cd9992ad7d9
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: PracticePack
+    id: urn:ordin:default:practice-packs:stack:rust
+    name: stack-rust
+    version: 1.0.0
+    contentHash: sha256:2382ef62c068cbc84ab494a3493025ebd4acf47bf9b2d734025278bb24dc0a94
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+overlaysApplied: []
+selections:
+  practicePacks:
+    - id: urn:ordin:default:practice-packs:stack:go
+      chosenBy: workspace-code
+    - id: urn:ordin:default:practice-packs:stack:rust
+      chosenBy: workspace-code
+  overlays: []
+  pendingChoices: []

@@ -1,0 +1,54 @@
+[package]
+name = "ordin-push"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-confluence = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+ordin-files = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-localisation = { workspace = true }
+# Git commits and pushes to local repositories, in process (SA-GIT-01; licence exception E1).
+git2 = { workspace = true }
+# `WorkingCopyStore` and `EventSink` are `#[async_trait]` traits.
+async-trait = { workspace = true }
+# At most four origin checks at once (Internal Logic A.3).
+futures = { workspace = true }
+# Content digest compared at recovery (Internal Logic G.1) and the audience digest (E.1).
+sha2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# The stand-ins' seam points the adapters at a loopback server (this crate's tests only).
+ordin-sharepoint = { workspace = true, features = ["test-support"] }
+ordin-confluence = { workspace = true, features = ["test-support"] }
+# spec: ordin-desktop/components/ProjectService#PROJ-SEAM-3
+ordin-projects = { workspace = true, features = ["test-support"] }
+# The real File Service, Project Service and Craft Toolkit need real lower-phase services (dev edges only).
+ordin-agent-folders = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-rules = { workspace = true }
+# The signed organisation profile that lets the fake conversion app in (FU-105).
+ed25519-dalek = { workspace = true }
+base64 = { workspace = true }
+reqwest = { workspace = true }
+url = { workspace = true }
+tracing-subscriber = { workspace = true }
+# The SharePoint and Confluence stand-ins on loopback (plan, "HTTP stand-ins").
+wiremock = { workspace = true }

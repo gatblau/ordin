@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:roles
+  name: roles
+  version: 1.0.0
+  owner: legal-ops
+axis: audience-role
+terms:
+  - code: lawyer
+    label: Lawyer

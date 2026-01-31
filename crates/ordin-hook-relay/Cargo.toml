@@ -1,0 +1,42 @@
+[package]
+name = "ordin-hook-relay"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-journal = { workspace = true }
+getrandom = { workspace = true }
+serde_json = { workspace = true }
+# `EventSink` and the three internal ports are `#[async_trait]` traits.
+async-trait = { workspace = true }
+# `session_events` returns a `futures` `BoxStream` (Public Interface).
+futures = { workspace = true }
+# HMAC-SHA256 over the canonical JSON of the message (Internal Logic C.6, H); `verify_slice` compares in constant time.
+hmac = { workspace = true }
+sha2 = { workspace = true }
+serde = { workspace = true }
+# The `hook_late_decisions` table lives in the Journal's datastore; this crate writes its own statements.
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+# Shutdown and force-close signals shared by the accept loop, the connections and the late watchers.
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+# The session secret is wiped from memory when the session closes (Security).
+zeroize = { workspace = true }
+
+[dev-dependencies]
+# The held run of the integration tests is supervised by the real Session Supervisor over a channel-driven adapter.
+ordin-runtime-adapter = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-usage-planner = { workspace = true }
+# PostgreSQL 18 for the migration slice (plan 01, "PostgreSQL 18 in tests").
+testcontainers = { workspace = true }
+tracing-subscriber = { workspace = true }

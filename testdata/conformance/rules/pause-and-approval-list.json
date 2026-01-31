@@ -1,0 +1,29 @@
+{
+  "source": "ordin-desktop/components/RulesEngine.md, restated cases: The outcome pause; A refused call does not pause, and a paused call pauses once",
+  "set": {
+    "tools": [
+      { "name": "refund", "arguments": ["amount"] },
+      { "name": "adjust", "arguments": ["amount"] }
+    ],
+    "approval_list": ["refund"],
+    "configured": {
+      "message_rules": [],
+      "steps": [],
+      "schedule_entries": [],
+      "argument_rules": [
+        { "name": "big-refund", "tool": "adjust", "argument": "amount", "form": "refuse-when",
+          "outcome": "pause", "patterns": ["^[0-9]{4,}$"] },
+        { "name": "no-negative", "tool": "refund", "argument": "amount", "form": "refuse-when",
+          "patterns": ["^-"] },
+        { "name": "big-refund-listed", "tool": "refund", "argument": "amount", "form": "refuse-when",
+          "outcome": "pause", "patterns": ["^[0-9]{4,}$"] }
+      ]
+    }
+  },
+  "calls": [
+    { "tool": "adjust", "arguments": { "amount": "2500" }, "verdict": "ask", "rule": "big-refund" },
+    { "tool": "adjust", "arguments": { "amount": "25" }, "verdict": "allow" },
+    { "tool": "refund", "arguments": { "amount": "-5" }, "verdict": "deny", "rule": "no-negative" },
+    { "tool": "refund", "arguments": { "amount": "25" }, "verdict": "ask", "rule": "approval-list" }
+  ]
+}

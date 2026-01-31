@@ -1,0 +1,153 @@
+{
+  "overlayOrder": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:c5d80f73649cf0553ac8ce1fcd1d60f35c96165cd1e2cbba20785ffebb4e1d43",
+      "id": "urn:ordin:default:overlays:language:de",
+      "kind": "LanguageOverlay",
+      "name": "language-de",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "planHash": "sha256:9f0a5e021d79f25ad22605ce629e8e7afde28fbb2e4d7da03ee36503ff620f96",
+  "practicePacks": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:34515bf5d99b9f7491014555797a7674430e1787f2aea9befcab9cd9992ad7d9",
+      "id": "urn:ordin:default:practice-packs:stack:go",
+      "kind": "PracticePack",
+      "name": "stack-go",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "resolved": [
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c",
+      "id": "urn:ordin:default:system-roles:builder",
+      "kind": "SystemRole",
+      "name": "builder",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:84557cc2d63b2a78a599bd365a45789b76fc5a85f90a07ad58de44ea4dd9d35a",
+      "id": "urn:ordin:default:rules:legacy-style",
+      "kind": "Rule",
+      "name": "legacy-style",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307",
+      "id": "urn:ordin:default:rules:tone",
+      "kind": "Rule",
+      "name": "tone",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:565b2b5f2475f4a0747742883b326480d6f3a440451b85da2b1bdbeb7409dacb",
+      "id": "urn:ordin:default:skills:triage:intake",
+      "kind": "Skill",
+      "name": "triage-intake",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:aa7f5403a82866ce999c384d9cf89ba0fbaf87f5e0c64eb35553c215e8a9b36c",
+      "id": "urn:ordin:default:tool-bindings:search",
+      "kind": "ToolBinding",
+      "name": "search",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:3d02253450edf9dda8b355d50d4ac0df3c1648ffc5f980ce1f45d891a0eb9c50",
+      "id": "urn:ordin:default:capabilities:triage",
+      "kind": "Capability",
+      "name": "triage",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:3b0b05ce5435cbaabf209efd572dddd95c035e0277af3b71a8d1031561c1b4cc",
+      "id": "urn:ordin:default:workspaces:supplier-analyst",
+      "kind": "WorkspaceProfile",
+      "name": "supplier-analyst",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:34515bf5d99b9f7491014555797a7674430e1787f2aea9befcab9cd9992ad7d9",
+      "id": "urn:ordin:default:practice-packs:stack:go",
+      "kind": "PracticePack",
+      "name": "stack-go",
+      "repository": "bundled",
+      "version": "1.0.0"
+    },
+    {
+      "commit": "0000000000000000000000000000000000000000",
+      "contentHash": "sha256:c5d80f73649cf0553ac8ce1fcd1d60f35c96165cd1e2cbba20785ffebb4e1d43",
+      "id": "urn:ordin:default:overlays:language:de",
+      "kind": "LanguageOverlay",
+      "name": "language-de",
+      "repository": "bundled",
+      "version": "1.0.0"
+    }
+  ],
+  "root": {
+    "commit": "0000000000000000000000000000000000000000",
+    "contentHash": "sha256:3b0b05ce5435cbaabf209efd572dddd95c035e0277af3b71a8d1031561c1b4cc",
+    "id": "urn:ordin:default:workspaces:supplier-analyst",
+    "kind": "WorkspaceProfile",
+    "name": "supplier-analyst",
+    "repository": "bundled",
+    "version": "1.0.0"
+  },
+  "selections": {
+    "overlays": [
+      {
+        "chosenBy": "interface-language",
+        "id": "urn:ordin:default:overlays:language:de"
+      }
+    ],
+    "pendingChoices": [],
+    "practicePacks": [
+      {
+        "chosenBy": "maker-fixed",
+        "id": "urn:ordin:default:practice-packs:stack:go"
+      }
+    ]
+  },
+  "targetHarness": "claude_code",
+  "toolPolicy": {
+    "coverageFloor": "70",
+    "forbiddenFlags": [
+      "-race=false"
+    ],
+    "mcpServers": [
+      {
+        "declaredBy": "urn:ordin:default:tool-bindings:search",
+        "name": "search",
+        "transport": "stdio",
+        "type": "stdio"
+      }
+    ],
+    "prohibitedVerbs": [],
+    "requiresHumanApproval": []
+  },
+  "warnings": [
+    "constituent urn:ordin:default:rules:legacy-style is deprecated; do not add new uses"
+  ],
+  "withdrawnSnapshot": "sha256:8bfafc38476808e505392d70fd850d8e97c333ee399e7ab8d1244c3561d85c8a"
+}

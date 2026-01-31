@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "stop": true,
+      "file": "",
+      "entry": "RES_ROOT_NOT_FOUND"
+    }
+  ]
+}

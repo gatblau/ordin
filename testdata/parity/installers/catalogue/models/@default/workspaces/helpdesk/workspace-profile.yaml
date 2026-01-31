@@ -1,0 +1,21 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:helpdesk
+  name: helpdesk
+  version: 2.1.0
+  owner: support-operations
+systemRole: urn:ordin:default:system-roles:helper
+controlLoop: urn:ordin:default:rules:control-loops:respond
+capabilities:
+  - urn:ordin:default:capabilities:support
+contextResources:
+  - urn:ordin:default:context-resources:glossary
+defaultRules:
+  - urn:ordin:default:rules:tone
+memory: urn:ordin:default:memories:project
+governanceMetadata:
+  languageOverlays:
+    available:
+      - urn:ordin:default:overlays:language:en-GB
+    default: urn:ordin:default:overlays:language:en-GB

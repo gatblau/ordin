@@ -1,0 +1,178 @@
+// Team knowledge (ADR-103, ADR-110): the address split, the panel and the dialogs' commands.
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { stripIsolates, t as rawT } from '../src/lib/i18n/fluent';
+import { splitFolderAddress, teamErrorMessage, TeamController } from '../src/lib/views/fixed/team.svelte';
+import TeamPanel from '../src/lib/views/fixed/TeamPanel.svelte';
+import { ok, err } from './support/fake-backend';
+import { html, loadWindowCatalogue } from './support/ssr';
+import { backendWith, text, WS } from './fixed-support';
+import { uid } from './support/ids';
+
+beforeAll(loadWindowCatalogue);
+const t = (id: string, args?: Record<string, string | number>) => stripIsolates(rawT(id, args));
+
+const status = (over: Record<string, unknown> = {}) => ({
+  workspace_id: WS, folders: [], descriptions: [], folder_large: false, held_for_check: 0, problems: [], workspace_facts: 0, workspace_large: false, ...over,
+});
+
+describe('splitting a folder address', () => {
+  it('GitHub: https://<host>/<owner>/<name>/tree/<branch>/<path>', () => {
+    expect(splitFolderAddress('https://github.com/acme/platform-team/tree/main/knowledge')).toEqual({ url: 'https://github.com/acme/platform-team', branch: 'main', path: 'knowledge' });
+  });
+  it('GitLab: https://<host>/<group>/<name>/-/tree/<branch>/<path>, with a deeper path', () => {
+    expect(splitFolderAddress('https://gitlab.example.com/acme/team/-/tree/trunk/docs/knowledge')).toEqual({ url: 'https://gitlab.example.com/acme/team', branch: 'trunk', path: 'docs/knowledge' });
+  });
+  it('the repository root has an empty path', () => {
+    expect(splitFolderAddress('https://github.com/acme/team/tree/main')).toEqual({ url: 'https://github.com/acme/team', branch: 'main', path: '' });
+  });
+  it.each(['not a url', 'https://github.com/acme/team', 'http://github.com/acme/team/tree/main/x', 'https://user:pw@github.com/a/b/tree/main/x', ''])('"%s" is not the address of a folder', (text) => {
+    expect(splitFolderAddress(text)).toBeNull();
+  });
+});
+
+describe('the panel\'s commands', () => {
+  it('Happy path — turning team knowledge on sends the link choice and keeps the status', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.turn_on', ok(status({ binding: { folder: 'knowledge' }, header_line: 'acme/supplier-team › knowledge' }))) });
+    const c = new TeamController(handle, WS);
+    expect(await c.turnOn({ kind: 'link', source_link_id: uid('sl1') })).toBe(true);
+    expect(transport.sentOf('team_knowledge.turn_on')[0]?.input).toEqual({ ws: WS, choice: { kind: 'link', source_link_id: uid('sl1') } });
+    expect(c.status?.header_line).toBe('acme/supplier-team › knowledge');
+    expect(t('team-header', { folder: c.status?.header_line ?? '' })).toBe('Team knowledge: acme/supplier-team › knowledge');
+  });
+
+  it('Happy path — reading another team\'s folder sends url, branch and path', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.add_read_folder', ok(status())) });
+    const parsed = splitFolderAddress('https://github.com/acme/platform-team/tree/main/knowledge');
+    await new TeamController(handle, WS).addReadFolder({ kind: 'new_folder', ...(parsed as { url: string; branch: string; path: string }) });
+    expect(transport.sentOf('team_knowledge.add_read_folder')[0]?.input).toEqual({
+      ws: WS, choice: { kind: 'new_folder', url: 'https://github.com/acme/platform-team', branch: 'main', path: 'knowledge' },
+    });
+  });
+
+  it('Get them sends get (with the folder id for another folder) and share sends share', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.get', ok(status({ busy: 'getting' }))).on('team_knowledge.share', ok(status({ busy: 'sharing' }))) });
+    const c = new TeamController(handle, WS);
+    await c.get();
+    await c.get(uid('f2'));
+    await c.share();
+    expect(transport.sentOf('team_knowledge.get').map((e) => e.input)).toEqual([{ ws: WS }, { ws: WS, folder_id: uid('f2') }]);
+    expect(c.busy).toBe(true);
+    expect(t('team-busy-getting')).toBe('Getting what the team has learned…');
+  });
+
+  it('a refusal is kept for the dialog and Try again re-sends the command', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.turn_on', err('TEAM_NO_ACCESS', 'You cannot open that folder.', { action: 'try_again' })) });
+    const c = new TeamController(handle, WS);
+    expect(await c.turnOn({ kind: 'link', source_link_id: uid('x') })).toBe(false);
+    expect(c.error?.message).toBe('You cannot open that folder.');
+    await c.retry?.();
+    expect(transport.sentOf('team_knowledge.turn_on')).toHaveLength(2);
+  });
+
+  it('Stop sharing sends turn_off and reads the status again', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.turn_off', ok({})).on('team_knowledge.status', ok(status())) });
+    await new TeamController(handle, WS).turnOff();
+    expect(transport.commandsSent()).toEqual(['team_knowledge.turn_off', 'team_knowledge.status']);
+  });
+
+  it('the status is read when a workspace_changed arrives (the controller reads again)', async () => {
+    const { handle, transport } = await backendWith({ setup: (tr) => tr.on('team_knowledge.status', ok(status())) });
+    const c = new TeamController(handle, WS);
+    await c.load();
+    await c.load();
+    expect(transport.sentOf('team_knowledge.status')).toHaveLength(2);
+  });
+});
+
+describe('the panel\'s sentences', () => {
+  it('Happy path — new items from colleagues read with plurals: "8 new facts and 1 page from Priya and Sam"', () => {
+    expect(t('team-available', { facts: 8, pages: 1, people: 'Priya and Sam' })).toBe('8 new facts and 1 page from Priya and Sam');
+  });
+  it('Edge case — facts waiting for a check', () => {
+    expect(t('team-held-for-check', { count: 2 })).toBe('2 facts wait for you to check them');
+  });
+  it('Edge case — read-only access: the sentence beside the disabled Share button', () => {
+    expect(t(teamErrorMessage('TEAM_READ_ONLY').id)).toBe("You can read this team's knowledge but not add to it.");
+  });
+  it('Error path — the repository cannot be reached: the sentence with Try again', () => {
+    const m = teamErrorMessage('TEAM_REMOTE_UNREACHABLE');
+    expect(t(m.id)).toBe("Your team's knowledge can't be reached just now.");
+    expect(m.action).toBe('try_again');
+  });
+  it('TEAM_NOTHING_TO_SHARE is drawn as its message, not as an error', () => {
+    expect(teamErrorMessage('TEAM_NOTHING_TO_SHARE')).toEqual({ id: 'team-nothing-to-share', action: null });
+  });
+  it('Edge case — the dialog says what will be shared before the first share', () => {
+    expect(t('team-share-dialog-history')).toBe("What you share stays in the repository's history, even after you delete it.");
+  });
+});
+
+describe('the panel drawn from a status', () => {
+  const folder = (over: Record<string, unknown> = {}) => ({
+    folder_id: uid('f1'), name: 'Security standards', set_by_company: true, may_stop: false, held: { facts: 3, pages: 1 }, problems: [], folder_large: false, access: 'read_only', bundle_kind: 'knowledge', ...over,
+  });
+  const draw = async (st: Record<string, unknown>) => {
+    const { state } = await backendWith();
+    return html(TeamPanel, { backend: state, workspaceId: WS, initialStatus: status(st) as never });
+  };
+
+  it('is not drawn when the backend does not answer the team knowledge group (SM-UP-1)', async () => {
+    const { state } = await backendWith({ groups: ['service', 'memory'] });
+    expect(html(TeamPanel, { backend: state, workspaceId: WS }).replace(/<!--.*?-->/g, '').trim()).toBe('');
+  });
+
+  it('Edge case — a folder set by the company cannot be stopped', async () => {
+    const out = text(await draw({ binding: { folder: 'k' }, folders: [folder()] }));
+    expect(out).toContain('Set by your company');
+    expect(out).toContain('3 facts and 1 page');
+    expect(out).not.toContain('Stop reading');
+    expect(text(await draw({ binding: { folder: 'k' }, folders: [folder({ set_by_company: false, may_stop: true })] }))).toContain('Stop reading');
+  });
+
+  it('Edge case — no access to a folder set by the company: its sentence with no help button, and every other folder is drawn as before', async () => {
+    const out = text(await draw({ binding: { folder: 'k' }, folders: [folder({ blocked: 'TEAM_COMPANY_FOLDER_NO_ACCESS' }), folder({ folder_id: uid('f2'), name: 'Platform notes', set_by_company: false })] }));
+    expect(out).toContain("You can't open Security standards yet.");
+    expect(out).not.toContain('Send to IT');
+    expect(out).toContain('Platform notes');
+  });
+
+  it('Edge case — no adopt without an own folder: the panel says the workspace shares to no team folder', async () => {
+    const out = text(await draw({ folders: [folder()] }));
+    expect(out).toContain("This workspace reads knowledge your company names but doesn't share to a team folder.");
+    expect(out).toContain('Share knowledge with a team…');
+  });
+
+  it('busy draws one progress line and disables Get them and Share', async () => {
+    const out = await draw({ binding: { folder: 'k' }, busy: 'getting', available: { counts: { new_facts: 8, new_pages: 1 }, from: ['Priya', 'Sam'] } });
+    expect(text(out)).toContain('Getting what the team has learned…');
+    expect(text(out)).not.toContain('8 new facts');
+    expect(out).toMatch(/<button[^>]*disabled[^>]*>(?:<svg[^>]*><use[^>]*><\/use><\/svg><!---->)?\s*Share what we/);
+  });
+
+  it('available items read with Get them; read-only access disables Share and ties its sentence to the button', async () => {
+    const out = await draw({ binding: { folder: 'k' }, available: { counts: { new_facts: 8, new_pages: 1 }, from: ['Priya', 'Sam'] }, share_unavailable: 'TEAM_READ_ONLY' });
+    expect(text(out)).toContain('8 new facts and 1 page from Priya and Sam');
+    expect(text(out)).toContain('Get them');
+    expect(text(out)).toContain("You can read this team's knowledge but not add to it.");
+    expect(out).toContain('aria-describedby="team-share-unavailable"');
+    expect(out).toMatch(/<button[^>]*disabled/);
+  });
+
+  it('last_error TEAM_REMOTE_UNREACHABLE draws the sentence with Try again; TEAM_NOTHING_TO_SHARE is not an error', async () => {
+    const bad = text(await draw({ binding: { folder: 'k' }, last_error: 'TEAM_REMOTE_UNREACHABLE' }));
+    expect(bad).toContain("Your team's knowledge can't be reached just now.");
+    expect(bad).toContain('Try again');
+    const none = await draw({ binding: { folder: 'k' }, last_error: 'TEAM_NOTHING_TO_SHARE' });
+    expect(text(none)).toContain('Nothing new to share.');
+    expect(none).not.toContain('role="alert"');
+  });
+
+  it('problems list "Not taken in" and a large folder says so', async () => {
+    const out = text(await draw({ binding: { folder: 'k' }, folder_large: true, problems: [{ code: 'TEAM_FILE_UNREADABLE', path: 'notes.md', first_seen_at: 'x' }, { code: 'TEAM_FACT_NOT_TAKEN', path: 'f.md', first_seen_at: 'x' }] }));
+    expect(out).toContain('Not taken in');
+    expect(out).toContain('notes.md could not be read.');
+    expect(out).toContain('A shared fact was not taken in');
+    expect(out).toContain("This team's folder is very large");
+  });
+});

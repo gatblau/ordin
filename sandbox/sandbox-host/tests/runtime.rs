@@ -1,0 +1,378 @@
+//! Phase 7 integration gate: C12 SandboxRuntime running the **real RustPython
+//! `wasm32-wasip1` guest** in-process on Wasmtime + the deny-by-default WASI subset.
+//! Proves: agent Python `api.tickets.get(...)` reaches the broker via the single
+//! capability import and the sanitised body returns to the guest (printed → captured
+//! stdout, no token); a Python infinite loop is terminated as RUNTIME_LIMIT (epoch);
+//! a tiny fuel budget terminates as RUNTIME_LIMIT (fuel); a digest mismatch fails
+//! closed (RUNTIME_ARTIFACT_MISMATCH).
+#![cfg(feature = "integration")]
+
+use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
+
+use sandboxd::broker::{BrokerCall, BrokerError};
+use sandboxd::runtime::{
+    CapabilityBundle, Limits, RuntimeError, SandboxRuntime, RUNTIME_LIMIT_EXIT,
+};
+use sandboxd::types::UntrustedResponse;
+
+/// The pinned RustPython guest artefact (digest in ../CHECKSUMS.txt).
+const GUEST: &[u8] = include_bytes!("../guest/pysandbox-guest.wasm");
+
+struct StubBroker {
+    body: Vec<u8>,
+    status: u16,
+}
+impl BrokerCall for StubBroker {
+    fn call_boxed<'a>(
+        &'a self,
+        _cap_id: &'a [u8; 16],
+        _verb: &'a str,
+        _path: &'a str,
+        _params: &'a sandboxd::types::Params,
+        _body: &'a [u8],
+    ) -> Pin<Box<dyn Future<Output = Result<UntrustedResponse, BrokerError>> + Send + 'a>> {
+        let body = self.body.clone();
+        let status = self.status;
+        Box::pin(async move {
+            Ok(UntrustedResponse {
+                untrusted: true,
+                status,
+                content_type: "application/json".into(),
+                body,
+                truncated: false,
+            })
+        })
+    }
+
+    fn call_tool_boxed<'a>(
+        &'a self,
+        _cap_id: &'a [u8; 16],
+        tool: &'a str,
+        arguments: &'a serde_json::Value,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<sandboxd::types::UntrustedMcpResult, BrokerError>>
+                + Send
+                + 'a,
+        >,
+    > {
+        // Echo the tool + arguments back as a text part so a guest round-trip is observable.
+        let tool = tool.to_string();
+        let args = arguments.to_string();
+        Box::pin(async move {
+            Ok(sandboxd::types::UntrustedMcpResult {
+                untrusted: true,
+                is_error: false,
+                truncated: false,
+                parts: vec![sandboxd::types::UntrustedPart::Text {
+                    content_type: "text/plain".into(),
+                    body: format!("{tool}:{args}").into_bytes(),
+                }],
+            })
+        })
+    }
+}
+
+/// A broker that always fails the call with a fixed error — exercises the shim's
+/// error arm (the real `dummy`/passthrough symptom: an empty body with no signal).
+struct FailingBroker {
+    error: BrokerError,
+}
+impl BrokerCall for FailingBroker {
+    fn call_boxed<'a>(
+        &'a self,
+        _cap_id: &'a [u8; 16],
+        _verb: &'a str,
+        _path: &'a str,
+        _params: &'a sandboxd::types::Params,
+        _body: &'a [u8],
+    ) -> Pin<Box<dyn Future<Output = Result<UntrustedResponse, BrokerError>> + Send + 'a>> {
+        let error = self.error.clone();
+        Box::pin(async move { Err(error) })
+    }
+
+    fn call_tool_boxed<'a>(
+        &'a self,
+        _cap_id: &'a [u8; 16],
+        _tool: &'a str,
+        _arguments: &'a serde_json::Value,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<sandboxd::types::UntrustedMcpResult, BrokerError>>
+                + Send
+                + 'a,
+        >,
+    > {
+        let error = self.error.clone();
+        Box::pin(async move { Err(error) })
+    }
+}
+
+fn bundle() -> CapabilityBundle {
+    let mut mappings = HashMap::new();
+    mappings.insert("tickets".to_string(), [1u8; 16]);
+    CapabilityBundle { mappings }
+}
+
+fn runtime(broker: Arc<dyn BrokerCall>) -> SandboxRuntime {
+    let digest = SandboxRuntime::digest_of(GUEST);
+    SandboxRuntime::new(&digest, GUEST, broker).expect("runtime builds")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_real_python_broker_round_trip() {
+    let broker = Arc::new(StubBroker {
+        body: b"{\"data\":\"ok\"}".to_vec(),
+        status: 200,
+    });
+    let rt = runtime(broker);
+    // fuel huge so the (heavy) RustPython init never trips fuel; epoch is the deadline.
+    let limits = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    let code = "print(api.tickets.get('/api/v2/tickets/42').decode())";
+    let r = rt.run(code, &bundle(), &limits).await;
+
+    assert_eq!(
+        r.exit_code, 0,
+        "guest exited cleanly; stderr={:?}",
+        r.stderr
+    );
+    assert!(
+        r.stdout.contains("{\"data\":\"ok\"}"),
+        "guest received the broker body; stdout={:?}",
+        r.stdout
+    );
+    assert!(!r.stdout.contains("token"), "no token reaches the guest");
+    assert_eq!(r.api_calls.len(), 1, "one brokered call");
+    assert_eq!(r.api_calls[0].method, "GET");
+    assert_eq!(r.api_calls[0].path, "/api/v2/tickets/42");
+    assert_eq!(r.api_calls[0].status, Some(200));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_real_python_mcp_tool_round_trip() {
+    // ADR-034: the guest reaches an MCP tool through the same single host import (tag 1).
+    // The StubBroker echoes the tool + arguments as a text part; the SDK
+    // (`mcp.<cap>.call_tool`) parses the JSON envelope and the agent reads parts[0].text.
+    let broker = Arc::new(StubBroker {
+        body: Vec::new(),
+        status: 200,
+    });
+    let rt = runtime(broker);
+    let limits = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    let code = r#"
+r = mcp.tickets.call_tool("search_tickets", {"q": "open"})
+print(r["untrusted"], r["parts"][0]["text"])
+"#;
+    let r = rt.run(code, &bundle(), &limits).await;
+
+    assert_eq!(
+        r.exit_code, 0,
+        "guest exited cleanly; stderr={:?}",
+        r.stderr
+    );
+    assert!(
+        r.stdout.contains("search_tickets"),
+        "the tool name round-tripped through the broker; stdout={:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("True"),
+        "the untrusted marker is present in the parsed envelope; stdout={:?}",
+        r.stdout
+    );
+    assert!(!r.stdout.contains("token"), "no token reaches the guest");
+    assert_eq!(r.api_calls.len(), 1, "one brokered MCP call");
+    assert_eq!(r.api_calls[0].method, "mcp.tools/call");
+    assert_eq!(r.api_calls[0].path, "search_tickets");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_broker_error_surfaces_on_stderr() {
+    // Regression: a failed brokered call must be observable. Before the fix the shim
+    // dropped the BrokerError, the guest received empty bytes, and stderr was empty —
+    // indistinguishable from a call that legitimately returned an empty body. The call
+    // must now record status=None AND surface the broker-error code on stderr.
+    let broker = Arc::new(FailingBroker {
+        error: BrokerError::NoCredential,
+    });
+    let rt = runtime(broker);
+    let limits = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    let code = "print(api.tickets.get('/api/v2/tickets/42').decode())";
+    let r = rt.run(code, &bundle(), &limits).await;
+
+    // The guest still runs cleanly — the failure is the broker's, not a guest trap.
+    assert_eq!(
+        r.exit_code, 0,
+        "guest exited cleanly; stderr={:?}",
+        r.stderr
+    );
+    // The error code reaches stderr (NoCredential → IDP_UNAVAILABLE, broker.rs).
+    assert!(
+        r.stderr.contains("IDP_UNAVAILABLE"),
+        "broker-error code surfaces on stderr; stderr={:?}",
+        r.stderr
+    );
+    // The call is recorded as failed (no status), not silently dropped.
+    assert_eq!(r.api_calls.len(), 1, "one attempted call");
+    assert_eq!(r.api_calls[0].method, "GET");
+    assert_eq!(r.api_calls[0].path, "/api/v2/tickets/42");
+    assert_eq!(r.api_calls[0].status, None, "failed call carries no status");
+}
+
+#[test]
+fn c12_digest_mismatch_fails_closed() {
+    let broker = Arc::new(StubBroker {
+        body: vec![],
+        status: 200,
+    });
+    match SandboxRuntime::new(&"0".repeat(64), GUEST, broker) {
+        Err(e) => {
+            assert_eq!(e, RuntimeError::ArtifactMismatch);
+            assert_eq!(e.code(), "RUNTIME_ARTIFACT_MISMATCH");
+        }
+        Ok(_) => panic!("expected ArtifactMismatch for a wrong digest"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_python_infinite_loop_hits_epoch_limit() {
+    let broker = Arc::new(StubBroker {
+        body: vec![],
+        status: 200,
+    });
+    let rt = runtime(broker);
+    let limits = Limits {
+        fuel: Some(u64::MAX), // epoch must win
+        epoch_deadline: Duration::from_millis(500),
+        ..Limits::default()
+    };
+    let r = rt.run("while True:\n    pass\n", &bundle(), &limits).await;
+    assert_eq!(r.exit_code, RUNTIME_LIMIT_EXIT, "stdout={:?}", r.stdout);
+    assert_eq!(r.stderr, "RUNTIME_LIMIT");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_tiny_fuel_hits_fuel_limit() {
+    let broker = Arc::new(StubBroker {
+        body: vec![],
+        status: 200,
+    });
+    let rt = runtime(broker);
+    // A tiny fuel budget is exhausted during interpreter startup → terminated.
+    let limits = Limits {
+        fuel: Some(1_000_000),
+        epoch_deadline: Duration::from_secs(30),
+        ..Limits::default()
+    };
+    let r = rt.run("print('unreached')", &bundle(), &limits).await;
+    assert_eq!(r.exit_code, RUNTIME_LIMIT_EXIT, "stdout={:?}", r.stdout);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c12_stdlib_modules_available() {
+    // FU-022 Phase 1: the ADR-014 stdlib modules that the corrected wiring makes
+    // importable (frozen rustpython-pylib + native rustpython-stdlib modules) run
+    // in the real guest on Wasmtime. `re`/`json` remain Phase-2 work and are not
+    // asserted here.
+    let broker = Arc::new(StubBroker {
+        body: vec![],
+        status: 200,
+    });
+    let rt = runtime(broker);
+    // Init with the full stdlib is heavy; let epoch be the only deadline (mirrors
+    // the broker round-trip test).
+    let limits = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    let code = "\
+import datetime, base64, collections, itertools
+print('DT', datetime.date(2020, 1, 1).isoformat())
+print('B64', base64.b64encode(b'hi').decode())
+print('CO', collections.OrderedDict([('a', 1)]).get('a'))
+print('IT', list(itertools.islice(itertools.count(), 3)))
+";
+    let r = rt.run(code, &bundle(), &limits).await;
+    assert_eq!(
+        r.exit_code, 0,
+        "guest exited cleanly; stderr={:?}",
+        r.stderr
+    );
+    assert!(
+        r.stdout.contains("DT 2020-01-01"),
+        "datetime; stdout={:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("B64 aGk="),
+        "base64; stdout={:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("CO 1"),
+        "collections; stdout={:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("IT [0, 1, 2]"),
+        "itertools; stdout={:?}",
+        r.stdout
+    );
+}
+
+/// OQ-WD-1: one run reaching its deadline must not stop another run on the same engine.
+/// Before the per-run stop flag, the short run's deadline bumped the shared epoch and every
+/// store (deadline 1) trapped, so the long run also ended as RUNTIME_LIMIT.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c12_one_runs_deadline_does_not_stop_another_run() {
+    let broker = Arc::new(StubBroker {
+        body: vec![],
+        status: 200,
+    });
+    let rt = Arc::new(runtime(broker));
+    let short = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_millis(300),
+        ..Limits::default()
+    };
+    let long = Limits {
+        fuel: Some(u64::MAX),
+        epoch_deadline: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    // Busy for about two seconds of wall-clock time, then finish normally.
+    let busy = "import time\nt = time.monotonic()\nwhile time.monotonic() - t < 2.0:\n    pass\nprint('done')\n";
+    let rt_long = rt.clone();
+    let long_run = tokio::spawn(async move { rt_long.run(busy, &bundle(), &long).await });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let short_run = rt.run("while True:\n    pass\n", &bundle(), &short).await;
+    let long_run = long_run.await.expect("long run task");
+
+    assert_eq!(
+        short_run.exit_code, RUNTIME_LIMIT_EXIT,
+        "the short run hits its own deadline"
+    );
+    assert_eq!(long_run.exit_code, 0, "stderr={:?}", long_run.stderr);
+    assert!(
+        long_run.stdout.contains("done"),
+        "stdout={:?}",
+        long_run.stdout
+    );
+}

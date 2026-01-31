@@ -1,0 +1,9 @@
+.idea
+.claude
+CLAUDE.md
+/target
+/data
+
+# Derived roll-up of docs/wip/plan/*; rebuild with /plan-index. The plan bodies stay tracked and are
+# the source of truth — only this view of them is transient.
+/docs/wip/plan/00-index.md

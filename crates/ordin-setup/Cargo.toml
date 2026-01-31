@@ -1,0 +1,54 @@
+[package]
+name = "ordin-setup"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# `SetupAssistant::with_profile_only` for the integration tests of other crates and this one; never
+# enabled by a program.
+test-support = []
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-package-catalogue = { workspace = true }
+ordin-catalogue = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+ordin-journal = { workspace = true }
+# `HarnessProbe`, `AppUpdater` and `ServerPlatform` are `#[async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# Tauri's updater writes the signature and the public key as base64 of minisign's text (C-99).
+base64 = { workspace = true }
+chrono = { workspace = true }
+flate2 = { workspace = true }
+# One update check and one guided run at a time, shared by every caller (SET-UP-2, A.1).
+futures = { workspace = true }
+minisign-verify = { workspace = true }
+# The help request's redaction patterns (G.3).
+regex = { workspace = true }
+reqwest = { workspace = true }
+# Version order of the update feed (SET-UP-3, F.4).
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Program hashes, the requirements digest and the help request's body hash.
+sha2 = { workspace = true }
+# The setup tables in the Journal's SQLite datastore (SA-RECON-02).
+sqlx = { workspace = true }
+tar = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+zip = { workspace = true }
+
+[dev-dependencies]
+ordin-setup = { path = ".", features = ["test-support"] }
+# Test signatures in minisign's legacy form, made with a key the tests generate.
+ed25519-dalek = { workspace = true }
+# The update feed and help destination stand-ins (loopback only; plan 01, "HTTP stand-ins").
+wiremock = { workspace = true }

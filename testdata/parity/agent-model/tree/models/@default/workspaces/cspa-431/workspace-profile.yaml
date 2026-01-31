@@ -1,0 +1,55 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:cspa-431
+  name: cspa-431
+  version: 1.0.0
+  owner: engineering-enablement
+allowedOperatingModes:
+  - urn:ordin:default:rules:modes:review
+capabilities:
+  - urn:ordin:default:capabilities:writing
+commands:
+  - urn:ordin:default:commands:compare-quotes
+contextResources:
+  - urn:ordin:default:context-resources:glossary
+controlLoop: urn:ordin:default:rules:control-loops:cspa
+defaultMode: urn:ordin:default:rules:modes:review
+defaultRules:
+  - urn:ordin:default:rules:tone
+  - urn:ordin:default:rules:layer:output-language
+governanceMetadata:
+  languageOverlays:
+    available:
+      - urn:ordin:default:overlays:language:en-gb
+    default: urn:ordin:default:overlays:language:en-gb
+  publishGate: review
+  styleOverlays: []
+identity: urn:ordin:default:agent-identities:ordin-bot
+memory: urn:ordin:default:memories:project
+outputContracts:
+  - urn:ordin:default:output-contracts:role-dossier
+requiredControlLoop:
+  ids:
+    - urn:ordin:default:rules:control-loops:cspa
+  required: true
+requiredPracticePacks:
+  - atLeast: 1
+    where:
+      class: stack
+  - anyOf:
+      - urn:ordin:default:practice-packs:stack:go
+    atLeast: 1
+requiredStyleOverlays:
+  anyOf:
+    - urn:ordin:default:overlays:style:plain
+selectablePracticePacks:
+  - urn:ordin:default:practice-packs:stack:go
+  - description: Go services
+    id: urn:ordin:default:practice-packs:stack:go
+systemRole: urn:ordin:default:workspaces:cspa-431:system-role
+toolPermissions:
+  workspaceOverrides:
+    prohibited:
+      - deploy
+      - force-push

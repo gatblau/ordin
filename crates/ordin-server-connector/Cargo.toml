@@ -1,0 +1,38 @@
+[package]
+name = "ordin-server-connector"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+# The `DesktopKeyStore` trait is declared with `#[async_trait]`.
+async-trait = { workspace = true }
+# Command bodies and replies travel as shared bytes.
+bytes = { workspace = true }
+# Chunks of the event stream are turned into a stream for `sse-stream`.
+futures = { workspace = true }
+# HTTP/2 over the negotiated ALPN and the system proxy (ServerConnector.md Internal Logic 2).
+reqwest = { workspace = true, features = ["http2", "system-proxy"] }
+rustls = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+sse-stream = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+tokio-rustls = { workspace = true }
+tracing-subscriber = { workspace = true }
+wiremock = { workspace = true }

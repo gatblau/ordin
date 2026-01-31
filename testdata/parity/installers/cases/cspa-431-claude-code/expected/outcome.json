@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "command_id": "urn:ordin:default:commands:lifecycle:apply",
+      "session_name": "cspa-431:apply"
+    }
+  ],
+  "launch_paths": ["instructions.md", "plugin", "cspa-431"],
+  "reference_only_parts": [
+    "urn:ordin:default:capabilities:delivery",
+    "urn:ordin:default:tool-bindings:git"
+  ]
+}

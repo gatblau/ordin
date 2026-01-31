@@ -1,0 +1,44 @@
+[package]
+name = "ordin-home-search"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-files = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-confluence = { workspace = true }
+# `JournalReader` and `SearchSource` are `#[async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# The seven-day window of *Since you last looked* when Home was never opened (Internal Logic 2.1).
+chrono = { workspace = true }
+# Home's reads and the search sources run in parallel (Internal Logic 2.1, 4.2).
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The module's own tables in the Journal's SQLite datastore (SA-RECON-01).
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# The real collaborators of the integration test (lower-phase crates, dev edges only).
+ordin-agent-folders = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-sharepoint = { workspace = true, features = ["test-support"] }
+ordin-confluence = { workspace = true, features = ["test-support"] }
+# The client the adapters require; every request goes to a loopback stand-in.
+reqwest = { workspace = true }
+url = { workspace = true }
+# The SharePoint stand-in (loopback only; plan 01, "HTTP stand-ins").
+wiremock = { workspace = true }

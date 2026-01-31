@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: output-contract
+metadata:
+  id: urn:ordin:default:output-contracts:role-dossier
+  name: Role dossier
+  version: 1.0.0
+  owner: engineering-enablement
+sections:
+  - meaning: What the role is for.
+    name: purpose
+    required: true

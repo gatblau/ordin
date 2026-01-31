@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:conflicting-packs
+  name: conflicting-packs
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+defaultRules:
+  - urn:ordin:default:rules:tone
+selectablePracticePacks:
+  - urn:ordin:default:practice-packs:style:terse
+  - urn:ordin:default:practice-packs:style:verbose

@@ -1,0 +1,3 @@
+# Controls the dead-controls sweep (plan 04, safety net B) clicks that change nothing on purpose.
+# One per line: <screen id> <CSS selector, no spaces> <reason>.
+terminal textarea the terminal's own input field (xterm.js); a click only puts the cursor in it

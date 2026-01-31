@@ -1,0 +1,25 @@
+[package]
+name = "ordin-approval"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-journal = { workspace = true }
+# `EventSink` and `PruneParticipant` are `#[async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# 16 random bytes per card reference from the operating system (Internal Logic B.3).
+getrandom = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+# Unique temporary folder names in tests.
+uuid = { workspace = true }

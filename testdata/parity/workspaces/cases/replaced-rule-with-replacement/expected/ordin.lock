@@ -1,0 +1,45 @@
+lockfileSchema: ordin.lock/v1
+planHash: sha256:7df0bac739cc6e2cdbb980e9dfc1e97fa4ad7123009cb9c9a921118e41af5c12
+targetHarness: claude_code
+composition:
+  kind: WorkspaceProfile
+  id: urn:ordin:default:workspaces:replaced-rule
+  name: replaced-rule
+  version: 1.0.0
+  contentHash: sha256:7498fe05d38e0a7b3f38271c9e4e455a9870d31f5877e511f731537f39ba2882
+  repository: bundled
+  commit: "0000000000000000000000000000000000000000"
+artefacts:
+  - kind: SystemRole
+    id: urn:ordin:default:system-roles:builder
+    name: builder
+    version: 1.0.0
+    contentHash: sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:quality
+    name: quality
+    version: 1.0.0
+    contentHash: sha256:7854d35204138b1382e1ad75f0413cb9ae4a4ddab7d3ab4bc8067d18fc989dc1
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:tone-v2
+    name: tone-v2
+    version: 1.0.0
+    contentHash: sha256:72d2f9bc2a03e9b2db4fe7ac4af80e264aea04292695dc27b2dba767d4ff940c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: WorkspaceProfile
+    id: urn:ordin:default:workspaces:replaced-rule
+    name: replaced-rule
+    version: 1.0.0
+    contentHash: sha256:7498fe05d38e0a7b3f38271c9e4e455a9870d31f5877e511f731537f39ba2882
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+overlaysApplied: []
+selections:
+  practicePacks: []
+  overlays: []
+  pendingChoices: []

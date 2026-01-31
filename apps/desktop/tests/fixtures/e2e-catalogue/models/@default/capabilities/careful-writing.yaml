@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: urn:ordin:default:capabilities:careful-writing
+  name: Careful writing
+  version: 1.0.0
+  owner: ordin-tests
+  description: Every file the agent touches waits for the person's approval.
+defaultToolPolicy:
+  requiresHumanApproval:
+    - touch

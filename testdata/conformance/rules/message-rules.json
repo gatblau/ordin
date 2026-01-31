@@ -1,0 +1,50 @@
+{
+  "source": "ordin-desktop/components/RulesEngine.md, restated cases: A stated reply; A subset of the bound tools; Additive outcomes with a stated reply; An additive rule with no deciding rule; The single-call answer; Delivery stated by a rule; A share of a rule's keywords",
+  "set": {
+    "commands": ["answer"],
+    "tools": [
+      { "name": "search_docs", "arguments": ["q"] },
+      { "name": "http_get", "arguments": ["url"] }
+    ],
+    "configured": {
+      "steps": [],
+      "argument_rules": [],
+      "schedule_entries": [],
+      "message_rules": [
+        { "name": "holiday-reply", "priority": 50,
+          "conditions": [{ "kind": "keywords", "words": ["holiday", "policy"], "match": "all" }],
+          "decides": { "kind": "reply", "text": "The holiday policy is in the handbook, section 4." } },
+        { "name": "docs-link", "priority": 40,
+          "conditions": [{ "kind": "keywords", "words": ["holiday", "docs"] }],
+          "adds": [{ "kind": "attach-action", "action": "docs-link" }] },
+        { "name": "status-link", "priority": 30,
+          "conditions": [{ "kind": "keywords", "words": ["holiday"] }],
+          "adds": [{ "kind": "attach-action", "action": "status-link" }, { "kind": "attach-action", "action": "docs-link" }] },
+        { "name": "no-tools", "priority": 20,
+          "conditions": [{ "kind": "keywords", "words": ["offline"] }],
+          "decides": { "kind": "tools", "tools": [] } },
+        { "name": "quick-answer", "priority": 20,
+          "conditions": [{ "kind": "keywords", "words": ["changed"] }],
+          "decides": { "kind": "single-call", "command": "answer" } },
+        { "name": "recap-to-asker", "priority": 10,
+          "conditions": [{ "kind": "keywords", "words": ["summarise", "recap"] }],
+          "adds": [{ "kind": "delivery", "to": "asker" }] },
+        { "name": "it-help", "priority": 5,
+          "conditions": [{ "kind": "keyword-share", "words": ["reset", "vpn", "password", "laptop"], "share": "0.75" }],
+          "decides": { "kind": "reply", "text": "See the IT help page." } }
+      ]
+    }
+  },
+  "starts": [
+    { "text": "What is the Holiday policy this year?", "outcome": "replied", "control": "holiday-reply",
+      "reply": "The holiday policy is in the handbook, section 4.", "actions_attached": ["docs-link", "status-link"] },
+    { "text": "Where is the canteen?", "outcome": "proceed", "actions_attached": [] },
+    { "text": "Where are the docs?", "outcome": "proceed", "actions_attached": ["docs-link"] },
+    { "text": "I am offline", "outcome": "proceed", "tool_subset": [] },
+    { "text": "What changed in 2.4?", "outcome": "proceed", "single_call": true, "command": "answer" },
+    { "text": "please recap", "outcome": "proceed", "delivery": "asker" },
+    { "text": "hello", "outcome": "proceed", "delivery": null },
+    { "text": "laptop vpn: how do I reset it", "outcome": "replied", "control": "it-help" },
+    { "text": "how do I reset my password", "outcome": "proceed" }
+  ]
+}

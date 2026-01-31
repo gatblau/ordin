@@ -1,0 +1,19 @@
+[package]
+name = "ordin-team-knowledge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-push = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+git2 = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }

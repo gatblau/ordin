@@ -1,0 +1,81 @@
+{
+  "parts": [
+    {
+      "authoredKind": "rule",
+      "contentDigest": "f697ee93abe37c664ad70f76add86c289d725119f977dbe41070551fc5357112",
+      "files": [
+        "a.md"
+      ],
+      "id": "urn:ordin:default:rules:pair:a",
+      "kind": "Rule",
+      "manifestPath": "models/@default/rules/pair/a.md",
+      "name": "",
+      "placedAt": "models/@default/rules/pair/a.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "pair-a",
+      "status": "approved",
+      "version": ""
+    },
+    {
+      "authoredKind": "rule",
+      "contentDigest": "9658c3c8f79bcea0adb902511298ded31895de7d7bd55e09899d6c9055f4563b",
+      "files": [
+        "b.md"
+      ],
+      "id": "urn:ordin:default:rules:pair:b",
+      "kind": "Rule",
+      "manifestPath": "models/@default/rules/pair/b.md",
+      "name": "",
+      "placedAt": "models/@default/rules/pair/b.md",
+      "readers": {},
+      "references": [],
+      "rendersUnchanged": true,
+      "slug": "pair-b",
+      "status": "approved",
+      "version": ""
+    }
+  ],
+  "refused": [
+    {
+      "code": "AM_YAML_FEATURE_REFUSED",
+      "path": "models/@default/rules/anchor.yaml"
+    },
+    {
+      "code": "AM_FIELD_SHAPE_INVALID",
+      "path": "models/@default/rules/bad-audience.yaml"
+    },
+    {
+      "code": "AM_MANIFEST_MALFORMED",
+      "path": "models/@default/rules/duplicate.yaml"
+    },
+    {
+      "code": "AM_MANIFEST_FIELD_MISSING",
+      "path": "models/@default/rules/no-id.yaml"
+    },
+    {
+      "code": "AM_MANIFEST_MALFORMED",
+      "path": "models/@default/rules/not-a-map.yaml"
+    },
+    {
+      "code": "AM_YAML_FEATURE_REFUSED",
+      "path": "models/@default/rules/tagged.yaml"
+    },
+    {
+      "code": "AM_MANIFEST_MALFORMED",
+      "path": "models/@default/rules/unclosed.md"
+    },
+    {
+      "code": "AM_KIND_UNKNOWN",
+      "path": "models/@default/overlays/brand/house.md"
+    },
+    {
+      "code": "AM_KIND_UNKNOWN",
+      "path": "models/@default/overlays/jurisdiction/uk.yaml"
+    }
+  ],
+  "unownedFiles": [
+    "models/@default/rules/pair/shared.txt"
+  ]
+}

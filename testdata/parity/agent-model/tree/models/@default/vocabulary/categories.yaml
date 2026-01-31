@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:default:vocabulary:categories
+  name: Categories
+  version: 1.0.0
+  owner: engineering-enablement
+axis: category
+terms:
+  - code: writing
+    description: Parts about writing.
+    label: Writing
+  - code: finance
+    description: Parts about money.
+    label: Finance

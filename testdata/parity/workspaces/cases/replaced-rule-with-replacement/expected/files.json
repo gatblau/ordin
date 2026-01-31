@@ -1,0 +1,14 @@
+{
+  "urn:ordin:default:rules:quality@1.0.0": [
+    "quality.md"
+  ],
+  "urn:ordin:default:rules:tone-v2@1.0.0": [
+    "tone-v2.md"
+  ],
+  "urn:ordin:default:system-roles:builder@1.0.0": [
+    "builder.md"
+  ],
+  "urn:ordin:default:workspaces:replaced-rule@1.0.0": [
+    "workspace-profile.yaml"
+  ]
+}

@@ -1,0 +1,12 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:withdrawn-skill
+  name: withdrawn-skill
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+capabilities:
+  - urn:ordin:default:capabilities:review-legacy
+defaultRules:
+  - urn:ordin:default:rules:tone

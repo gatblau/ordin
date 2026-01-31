@@ -1,0 +1,45 @@
+[package]
+name = "ordin-command-bridge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-server-connector = { workspace = true }
+ordin-journal = { workspace = true }
+# The Bridge implements the Journal's `EventSink`, declared with `#[async_trait]`.
+async-trait = { workspace = true }
+# A command body is handed to the Server Connector as shared bytes.
+bytes = { workspace = true }
+serde = { workspace = true }
+# `RawValue` carries envelopes and replies through IPC without re-reading them.
+serde_json = { workspace = true, features = ["raw_value"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+# The log lines `brg.command`, `brg.event_dropped`, `brg.stream`, `brg.stream_lagging` (Logging.md).
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+# The desktop program ships for macOS and Windows only (HLD 05), so the Tauri plugin is built only
+# there, and a Linux build of the workspace needs none of Tauri's system libraries (FU-010(h)).
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tauri = { workspace = true }
+
+[dev-dependencies]
+# A `ServiceApi` for the tests, written against `for_each_command!`.
+async-trait = { workspace = true }
+# A Server Connector over a real Journal needs a `DesktopKeyStore` (the trait is in ordin-identity).
+ordin-identity = { workspace = true }
+rustls = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+tracing-subscriber = { workspace = true }
+zeroize = { workspace = true }
+
+# Tauri's mock runtime for `tests/tauri_integration.rs` (plan OA-5).
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dev-dependencies]
+tauri = { workspace = true, features = ["test"] }

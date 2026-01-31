@@ -1,0 +1,26 @@
+{
+  "code": "RES_CONFLICT",
+  "detail": {
+    "slots": [
+      {
+        "candidates": [
+          {
+            "id": "urn:ordin:alpha:skills:house-style",
+            "requested_by": [
+              "urn:ordin:default:practice-packs:style:terse"
+            ],
+            "version": "1.0.0"
+          },
+          {
+            "id": "urn:ordin:beta:skills:house-style",
+            "requested_by": [
+              "urn:ordin:default:practice-packs:style:verbose"
+            ],
+            "version": "2.0.0"
+          }
+        ],
+        "slot": "Skill/house-style"
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+# path | date as written | reason
+docs/design/ordin-desktop/user-interface.html | March 2027 | sample text of a mock-up: an insurance certificate's expiry, not a document date
+docs/spec/ordin-desktop/components/IdentityAndCredentials.md | 2099-06-30 | validity end of a test certificate in a scenario
+docs/spec/ordin-desktop/components/SharedTypes.md | 9999-12-31 | upper limit of the timestamp range

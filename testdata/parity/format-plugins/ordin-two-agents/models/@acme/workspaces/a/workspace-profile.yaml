@@ -1,0 +1,7 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:acme:workspaces:a
+  name: Agent a
+  version: 1.0.0
+  owner: operations

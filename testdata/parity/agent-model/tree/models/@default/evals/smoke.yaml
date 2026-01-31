@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: urn:ordin:default:evals:smoke
+  name: Smoke
+  version: 1.0.0
+  owner: engineering-enablement
+cases:
+  - expect: hello
+    input: Say hello
+threshold: 0.9

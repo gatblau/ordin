@@ -1,0 +1,60 @@
+# Release workflow (plan 03 phase 3 — FU-001).
+#
+# On a `v*` tag: build the one image carrying both binaries, smoke-test it (boot each binary against
+# a real Dex via the testcontainers-rs suite), then publish it to GHCR. Publishing is gated behind the
+# green smoke, so a broken image never reaches the registry.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # create the GitHub release + generated notes
+  packages: write   # push the image to GHCR
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable (branch head on 2026-01-29)
+        with:
+          # Pinned by commit, the action cannot read the toolchain from its ref name.
+          toolchain: stable
+
+      # The smoke builds `memory:ci` (multi-stage Dockerfile) and boots it as both `recall` and
+      # `memory-mcp` against a real dexidp/dex container, asserting /healthz and tools/list. This is
+      # the publish gate: a Dockerfile or boot regression fails here before anything is pushed.
+      - name: Container smoke (build + boot both binaries against Dex)
+        run: cargo test --test container -- --nocapture
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Re-tag the already-built (and smoke-passed) `memory:ci` image as the GHCR refs and push. No
+      # second build — the image the smoke validated is exactly the image published.
+      - name: Tag and push image to GHCR
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/recall"
+          tag="${GITHUB_REF_NAME}"
+          sha="${GITHUB_SHA::12}"
+          docker tag memory:ci "${image}:${tag}"
+          docker tag memory:ci "${image}:${sha}"
+          docker push "${image}:${tag}"
+          docker push "${image}:${sha}"
+          echo "published ${image}:${tag} and ${image}:${sha}"
+
+      - name: Create GitHub release with generated notes
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          generate_release_notes: true

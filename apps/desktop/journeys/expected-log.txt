@@ -1,0 +1,2 @@
+# Log messages any journey may meet at WARN or ERROR. One per line: <message> <reason>. A journey that
+# expects a message only it causes names it with app.expectLog instead. Anything else fails the journey.

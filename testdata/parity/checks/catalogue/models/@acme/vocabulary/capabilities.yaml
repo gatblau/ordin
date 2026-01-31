@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: urn:ordin:acme:vocabulary:capabilities
+  name: capabilities
+  version: 1.0.0
+  owner: legal-ops
+axis: runtime-capability
+terms:
+  - code: evidence
+    label: Evidence

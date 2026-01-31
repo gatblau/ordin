@@ -1,0 +1,29 @@
+{
+  "urn:ordin:default:capabilities:triage@1.0.0": [
+    "triage.yaml"
+  ],
+  "urn:ordin:default:overlays:language:de@1.0.0": [
+    "de.md"
+  ],
+  "urn:ordin:default:practice-packs:stack:go@1.0.0": [
+    "practice-pack.yaml"
+  ],
+  "urn:ordin:default:rules:legacy-style@1.0.0": [
+    "legacy-style.md"
+  ],
+  "urn:ordin:default:rules:tone@1.0.0": [
+    "tone.md"
+  ],
+  "urn:ordin:default:skills:triage:intake@1.0.0": [
+    "SKILL.md"
+  ],
+  "urn:ordin:default:system-roles:builder@1.0.0": [
+    "builder.md"
+  ],
+  "urn:ordin:default:tool-bindings:search@1.0.0": [
+    "search.yaml"
+  ],
+  "urn:ordin:default:workspaces:supplier-analyst@1.0.0": [
+    "workspace-profile.yaml"
+  ]
+}

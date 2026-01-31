@@ -1,0 +1,54 @@
+[package]
+name = "ordin-projects"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-files = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-journal = { workspace = true }
+# `ServerInstaller`, `GithubAccess` and `ToolProvider` are `#[async_trait]` traits (Public Interface).
+async-trait = { workspace = true }
+# The contents API of the repository hosts carries file bytes as base64 (Internal Logic 14.3).
+base64 = { workspace = true }
+# The dates of commits as the repository hosts give them (Internal Logic 14.4).
+chrono = { workspace = true }
+# SA-GIT-01: the bundled libgit2 with its HTTPS transport over the platform TLS (licence exception E1).
+git2 = { workspace = true, features = ["https", "vendored-libgit2", "vendored-openssl"] }
+portable-pty = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The hash of a repository's identity, which a language-server answer is bound to (SA-RECON-11).
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+
+[features]
+# Lets a downstream crate's tests send Git traffic to a local bare repository (`ProjectService::allow_local_remote`).
+# Never enabled by a normal dependency edge.
+# spec: ordin-desktop/components/ProjectService#PROJ-SEAM-3
+test-support = []
+
+[dev-dependencies]
+# The real Rules Engine and File Service collaborators of the tests (lower-phase crates, dev edges only).
+ordin-agent-folders = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+# The client `IdentityConfig` requires; no test sends a request through it.
+reqwest = { workspace = true }
+tracing-subscriber = { workspace = true }
+# The GitHub and GitLab stand-ins (loopback only; plan 01, "HTTP stand-ins").
+wiremock = { workspace = true }
+
+[[test]]
+name = "lsp_stand_in"
+harness = false

@@ -1,0 +1,8 @@
+apiVersion: ai.enterprise/v1
+kind: crew-profile
+metadata:
+  id: urn:ordin:default:crews:review-crew
+  name: Review crew
+  version: 1.0.0
+  owner: engineering-enablement
+workspace: urn:ordin:default:workspaces:cspa-431

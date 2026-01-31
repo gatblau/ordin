@@ -1,0 +1,49 @@
+[package]
+name = "ordin-claude-adapter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-hook-relay = { workspace = true }
+ordin-rules = { workspace = true }
+# `SessionSetupSource`, `SessionRecordStore` and `RuntimeAdapter` are `#[async_trait]` traits.
+async-trait = { workspace = true }
+# The event stream is a `futures` `BoxStream` (Runtime Adapter interface).
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+# `runtime_session_id` is a UUIDv7 (SA-ID-01).
+uuid = { workspace = true }
+
+# SIGTERM and SIGKILL to the session's process group (`cancel` step 2), without unsafe code here.
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+
+# On Windows, a job object holds each session's whole process tree (CLA-JOB-1).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[dev-dependencies]
+# The real services of the integration tests (plan 01, Phase 7): a real Hook Relay, MCP Front and
+# Rules Engine over a real SQLite file.
+ordin-agent-folders = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-files = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-service-api = { workspace = true }
+ordin-session-supervisor = { workspace = true }
+ordin-usage-planner = { workspace = true }
+# The model server stand-in of the harness job, on loopback (plan 01, "HTTP stand-ins").
+wiremock = { workspace = true }
+sqlx = { workspace = true }
+tokio-util = { workspace = true }
+tracing-subscriber = { workspace = true }

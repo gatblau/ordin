@@ -1,0 +1,2 @@
+# The expected Claude Code trees hold `.claude/` folders, which the root .gitignore excludes.
+!.claude

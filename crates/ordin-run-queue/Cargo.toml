@@ -1,0 +1,25 @@
+[package]
+name = "ordin-run-queue"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-journal = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Both pools of `Datastore` are sqlx pools; this crate writes its own statements (2B-1 rule 5).
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+# PostgreSQL 18 in tests (plan 01, "PostgreSQL 18 in tests"); the helper is tests/support/pg.rs.
+testcontainers = { workspace = true }

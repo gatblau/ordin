@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: urn:ordin:default:capabilities:support
+  name: Support
+  version: 1.0.0
+  owner: support-operations
+commands:
+  - urn:ordin:default:commands:triage:summarise
+skills:
+  - urn:ordin:default:skills:quality-codegen

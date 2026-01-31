@@ -1,0 +1,11 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:advisor
+  name: Agent maker
+  version: 1.0.0
+  owner: ordin-tests
+  description: Helps the person make an agent.
+  category: imported
+  audience:
+    roles: [imported]

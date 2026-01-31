@@ -1,0 +1,27 @@
+# Rules for tools and agents
+error-rule-approval-unavailable = Approval couldn't be asked for just now, so the action didn't go ahead. Try again.
+error-rule-arguments-too-large = The details of that action were too large to check, so it was stopped.
+error-rule-bad-pattern = One of the patterns is empty, over 200 characters, or not valid. Fix it and try again.
+error-rule-checker-unreachable = The content check couldn't be reached, so ordin played safe and stopped the action.
+error-rule-command-invalid = That command is empty, too long, or doesn't name a full folder location.
+error-rule-command-not-declared = That command isn't one of the checks your company's rules allow.
+error-rule-fact-unavailable = A fact needed to apply the rules couldn't be read. Try again.
+error-rule-fail-closed-not-deny = A rule set to stop on failure must say "deny". Change it and try again.
+error-rule-gate-override = A control you added has the same name as one that comes with the rules. Choose another name.
+error-rule-id-invalid = The rule's name must be between 1 and 128 characters.
+error-rule-journal-unavailable = The action couldn't be recorded, so it didn't go ahead. Try again.
+error-rule-not-an-address = That text isn't an address.
+error-rule-origin-invalid = That action came from a source with an invalid name, so it was stopped.
+error-rule-path-not-allowed = That location is protected or outside what this agent may use.
+error-rule-policy-invalid = One of the agent's rules isn't written correctly. Fix it and try again.
+error-rule-policy-widens = An agent's own rules can only be stricter, never looser than your company's rules.
+error-rule-reason-invalid = A reason for refusing must be plain words, between 1 and 500 characters.
+error-rule-ruleset-not-loaded = The rules for this workspace aren't loaded yet, so the action was stopped. Try again.
+error-rule-run-unknown = That action doesn't belong to any work in progress, so it was stopped.
+error-rule-session-mismatch = That action doesn't belong to this work, so it was stopped.
+error-rule-setting-rule-not-allowed = That kind of rule can't be kept as a setting.
+error-rule-state-unavailable = The state of a control couldn't be saved or read. Try again.
+error-rule-tool-name-invalid = That action's name was missing or longer than 128 characters, so it was stopped.
+error-rule-too-many-rules = There are too many rules about inputs. The limit is 200. Remove some and try again.
+error-rule-unbound-tool = A control names a tool or helper agent that isn't connected here.
+error-rule-unknown-argument = A rule refers to something that tool doesn't have. Check the rule and try again.

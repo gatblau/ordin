@@ -1,0 +1,14 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:acme:practice-packs:testing:trophy
+  name: trophy
+  version: 1.0.0
+  owner: legal-ops
+  category: legal
+  audience:
+    roles:
+      - lawyer
+  class: testing
+skills:
+  - urn:ordin:beta:skills:house-style

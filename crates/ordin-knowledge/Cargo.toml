@@ -1,0 +1,56 @@
+[package]
+name = "ordin-knowledge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-mcp-front = { workspace = true }
+ordin-files = { workspace = true }
+ordin-workspaces = { workspace = true }
+ordin-memory-service = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-push = { workspace = true }
+ordin-journal = { workspace = true }
+# The program-wired ports, `ToolProvider` and `KnowledgeIndex` are `#[async_trait]` traits.
+async-trait = { workspace = true }
+bytes = { workspace = true }
+# Item times of the agent profile (`IngestItem.origin_time`, `delete_older_than`).
+chrono = { workspace = true }
+# The per-source checks of `check_page` run concurrently within one 5 s budget (C-4).
+futures = { workspace = true }
+# Question-type patterns, compiled as wrightrun's `compile_pattern` (A-1).
+regex = { workspace = true }
+saphyr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Item text hashes, link-suggestion body hashes and the OKF source ids (H-4, U-1, SA-OKF-05).
+sha2 = { workspace = true }
+# Pages on SQLite; items on SQLite (single shape) and PostgreSQL (scaled shape) (SA-DB-01).
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+# Name keys are the NFC form of a name (SA-KLINK-02).
+unicode-normalization = { workspace = true }
+# Item ids (UUIDv7) and the ids of foreign concepts (UUIDv5, SA-OKF-10).
+uuid = { workspace = true }
+
+[dev-dependencies]
+# PostgreSQL 18 for the agent-profile scenarios on the scaled shape (plan 01, "PostgreSQL 18 in tests").
+testcontainers = { workspace = true }
+tracing-subscriber = { workspace = true }
+# The behavioural check: the real Push Service and its lower-phase collaborators (dev edges only).
+ordin-approval = { workspace = true }
+ordin-agent-folders = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-localisation = { workspace = true }
+ordin-projects = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-craft-toolkit = { workspace = true }
+git2 = { workspace = true }
+reqwest = { workspace = true }

@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "stop": true,
+      "file": "models/@acme/skills/review/SKILL.md",
+      "entry": "urn:ordin:acme:skills:review"
+    }
+  ]
+}

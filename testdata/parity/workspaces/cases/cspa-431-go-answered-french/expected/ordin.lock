@@ -1,0 +1,174 @@
+lockfileSchema: ordin.lock/v1
+planHash: sha256:647b4e3fe549690aa930f816e4744bbba598663f0f6db41fac6e60ae106c8a29
+targetHarness: claude_code
+composition:
+  kind: WorkspaceProfile
+  id: urn:ordin:default:workspaces:cspa-431
+  name: cspa-431
+  version: 1.0.0
+  contentHash: sha256:e32362b04721b2386758cc8a133ed9035f859fdb131bef3c0e775e0582b92334
+  repository: bundled
+  commit: "0000000000000000000000000000000000000000"
+artefacts:
+  - kind: SystemRole
+    id: urn:ordin:default:system-roles:builder
+    name: builder
+    version: 1.0.0
+    contentHash: sha256:4f17f14383030139f7918ced9d04732086457c470b7a2a3cce8491dc2fc2c30c
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:quality
+    name: quality
+    version: 1.0.0
+    contentHash: sha256:7854d35204138b1382e1ad75f0413cb9ae4a4ddab7d3ab4bc8067d18fc989dc1
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Rule
+    id: urn:ordin:default:rules:tone
+    name: tone
+    version: 1.0.0
+    contentHash: sha256:6f50f5e69761f1d2c5e547174f9e0d87231a26acfe34a2d51ce919c654369307
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: OperatingMode
+    id: urn:ordin:default:rules:modes:build
+    name: modes-build
+    version: 1.0.0
+    contentHash: sha256:4636abaaf521ae37a6e4ad08154c0db8df0b14e322350a4644acffc6a1df0ad2
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: OperatingMode
+    id: urn:ordin:default:rules:modes:review
+    name: modes-review
+    version: 1.0.0
+    contentHash: sha256:6f753c7ed98036b74f7b5d86f18b9fd2c0c288c5945339e56d07d2b5af069050
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Skill
+    id: urn:ordin:default:skills:quality:codegen
+    name: quality-codegen
+    version: 1.1.0
+    contentHash: sha256:db527259e8a9416ffbd9a6a30108087955ee7a442214e0c8f135cb03a1db435f
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ContextResource
+    id: urn:ordin:default:context-resources:glossary
+    name: glossary
+    version: 1.0.0
+    contentHash: sha256:6f040744891459416d62bace5a9a50eef4ca4f15f9e4b673aa01a15a76451012
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ToolBinding
+    id: urn:ordin:default:tool-bindings:mail
+    name: mail
+    version: 1.0.0
+    contentHash: sha256:edd90665453a9e77235d1001907fdd9cd6ddb8183a68819cd0506e5873997fcc
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Capability
+    id: urn:ordin:default:capabilities:writing
+    name: writing
+    version: 1.0.0
+    contentHash: sha256:fd699237369fda0071fda48e6017ff7993679f11e0bda4173cc432bb696b03d9
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: WorkspaceProfile
+    id: urn:ordin:default:workspaces:cspa-431
+    name: cspa-431
+    version: 1.0.0
+    contentHash: sha256:e32362b04721b2386758cc8a133ed9035f859fdb131bef3c0e775e0582b92334
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: PracticePack
+    id: urn:ordin:default:practice-packs:stack:go
+    name: stack-go
+    version: 1.0.0
+    contentHash: sha256:34515bf5d99b9f7491014555797a7674430e1787f2aea9befcab9cd9992ad7d9
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: PracticePack
+    id: urn:ordin:default:practice-packs:testing:test-pyramid
+    name: testing-test-pyramid
+    version: 1.0.0
+    contentHash: sha256:45e371af7e348688dc69d1eaa46030a1e462e6e544f192d8e81cadf443bfbe85
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: LanguageOverlay
+    id: urn:ordin:default:overlays:language:fr
+    name: language-fr
+    version: 1.0.0
+    contentHash: sha256:d659a181993287145a37228d2b1fa5ba1b752e46da566bda0029ce872e4e8d1b
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: SourceWorkflowOverlay
+    id: urn:ordin:default:overlays:source-workflow:trunk
+    name: source-workflow-trunk
+    version: 1.0.0
+    contentHash: sha256:ad28871753e2404f089b9e7b5627d37782b41e00d428895ed145df390be533dc
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: StyleOverlay
+    id: urn:ordin:default:overlays:style:plain
+    name: style-plain
+    version: 1.0.0
+    contentHash: sha256:031dc561498f1bfcfd545e09783aee5da4dc23c0879d5b9b2c12f33ed9fa975a
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: OutputContract
+    id: urn:ordin:default:output-contracts:role-dossier
+    name: role-dossier
+    version: 1.0.0
+    contentHash: sha256:5c753fdb555d5e86971bca33283b01f97e40ad9864dbaab8930e3d4bdf5fa63e
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: Memory
+    id: urn:ordin:default:memories:project
+    name: project
+    version: 1.0.0
+    contentHash: sha256:aefa2f54110164cd49f6b6409bdcde8bc8cd4b842629179cd68a2df0bec7cf20
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: ControlLoop
+    id: urn:ordin:default:rules:control-loops:cspa
+    name: control-loops-cspa
+    version: 1.0.0
+    contentHash: sha256:2d52cfcba7a7a52d6b48ea5547ce31b372df0ddd56197fa2962b0fd155bd6b8d
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+overlaysApplied:
+  - kind: SourceWorkflowOverlay
+    id: urn:ordin:default:overlays:source-workflow:trunk
+    name: source-workflow-trunk
+    version: 1.0.0
+    contentHash: sha256:ad28871753e2404f089b9e7b5627d37782b41e00d428895ed145df390be533dc
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: StyleOverlay
+    id: urn:ordin:default:overlays:style:plain
+    name: style-plain
+    version: 1.0.0
+    contentHash: sha256:031dc561498f1bfcfd545e09783aee5da4dc23c0879d5b9b2c12f33ed9fa975a
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+  - kind: LanguageOverlay
+    id: urn:ordin:default:overlays:language:fr
+    name: language-fr
+    version: 1.0.0
+    contentHash: sha256:d659a181993287145a37228d2b1fa5ba1b752e46da566bda0029ce872e4e8d1b
+    repository: bundled
+    commit: "0000000000000000000000000000000000000000"
+selections:
+  practicePacks:
+    - id: urn:ordin:default:practice-packs:stack:go
+      chosenBy: workspace-code
+    - id: urn:ordin:default:practice-packs:testing:test-pyramid
+      chosenBy: person-answer
+  overlays:
+    - id: urn:ordin:default:overlays:source-workflow:trunk
+      chosenBy: agent-default
+    - id: urn:ordin:default:overlays:style:plain
+      chosenBy: agent-default
+    - id: urn:ordin:default:overlays:language:fr
+      chosenBy: interface-language
+  pendingChoices: []

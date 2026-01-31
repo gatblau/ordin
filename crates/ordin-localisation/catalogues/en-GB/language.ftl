@@ -1,0 +1,13 @@
+language-problem-too-long = it is longer than 4,096 characters.
+language-problem-forbidden-character = it contains a hidden control character.
+language-problem-does-not-parse = its wording can't be read; check the braces and the line after the equals sign.
+language-problem-not-one-message = it holds more than one message.
+language-problem-unknown-message = this version has no message with that name.
+language-problem-id-mismatch = the message name before the equals sign was changed.
+language-problem-variable-missing = it leaves out { $name }, which the English uses.
+language-problem-variable-unknown = it uses { $name }, which the English doesn't.
+language-problem-attribute-mismatch = its parts don't match the English message's parts.
+language-problem-function-not-allowed = it uses { $name }, which isn't allowed here.
+language-problem-reference-unknown = it refers to { $id }, which doesn't exist.
+language-problem-plural-category = “{ $key }” isn't a plural form of this language.
+language-problem-language-full = this language has reached the most wording ordin keeps for one language.

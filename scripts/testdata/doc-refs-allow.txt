@@ -1,0 +1,25 @@
+# Paths cited in docs/design or docs/spec that do not exist, each with why and when the entry goes.
+# Format: <path, or folder/ for everything under it> | <reason and removal condition>
+#
+# Ahead of the build: the Playbook step that creates the path removes the entry.
+apps/desktop/capabilities/main.json | Tauri capability file; remove with the desktop capability step
+apps/server/ | the server program; remove with its Playbook step
+crates/ordin-dictation/swift | Swift helper of the dictation service; remove with its Playbook step
+crates/ordin-source-access | Playbook step for Source Access not run; remove with it
+deploy/argocd/application.yaml | server deployment; remove with its Playbook step
+deploy/container/Containerfile | server image; remove with its Playbook step
+docs/CODEOWNERS | named by the Catalogue Service spec; remove when the file is added
+docs/runbooks | no runbook written yet; remove with the first one
+memory/src/freshness | spec says on purpose it is not built; remove if it is built
+memory/src/grants | spec says on purpose it is not built; remove if it is built
+apps/desktop/catalogue | made by release-build and ignored by git; stays (PB-REL-7)
+apps/desktop/windows-runtime | filled by a Windows release-build and ignored by git; stays (PB-REL-25)
+#
+# Not paths in this repository: the text names a place elsewhere. These stay.
+.claude/ | a folder in a person's workspace, written by the installers
+../../x | an example of a refused path in the Agent Loader spec
+sandbox/audit-hmac-key | a secret name, not a file
+memory/migrations/0001 | shorthand for the first migration of a numbered range
+docs/concept/ | removed folder, named only in the append-only changelog's history
+docs/concept | as above
+.git/ | a folder inside a person's working copy, read by the Workspace Service; absent in a worktree

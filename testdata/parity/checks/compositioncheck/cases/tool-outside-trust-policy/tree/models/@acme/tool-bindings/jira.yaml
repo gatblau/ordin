@@ -1,0 +1,13 @@
+apiVersion: ai.enterprise/v1
+kind: tool-binding
+metadata:
+  id: urn:ordin:acme:tool-bindings:jira
+  name: jira
+  version: 1.0.0
+  owner: legal-ops
+bindings:
+  - name: jira-reader
+    permission: read
+    serverType: stdio
+    transport: stdio
+    type: mcp

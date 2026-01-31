@@ -1,0 +1,18 @@
+apiVersion: ai.enterprise/v1
+kind: tool-binding
+metadata:
+  id: urn:ordin:default:tool-bindings:mail
+  name: Mail
+  version: 1.0.0
+  owner: engineering-enablement
+bindings:
+  - coverageFloor: 0.75
+    envRef: MAIL_TOKEN
+    forbiddenFlags:
+      - --bcc-all
+    name: email_send
+    permission: write
+    scope: user
+    serverType: http
+    transport: http
+    type: mcp

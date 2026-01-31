@@ -1,0 +1,18 @@
+{
+  "root": "urn:ordin:default:workspaces:replaced-rule",
+  "root_version": null,
+  "target_harness": "claude_code",
+  "workspace_languages": [],
+  "interface_language": "en-GB",
+  "pack_answers": [],
+  "pack_changes": [],
+  "overlay_changes": [],
+  "replacements": [
+    {
+      "withdrawn_id": "urn:ordin:default:rules:old-tone",
+      "withdrawn_kind": "Rule",
+      "replacement_id": "urn:ordin:default:rules:tone-v2",
+      "replacement_version": null
+    }
+  ]
+}

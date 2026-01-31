@@ -1,0 +1,7 @@
+{
+  "code": "RES_PART_WITHDRAWN",
+  "detail": {
+    "part": "urn:ordin:default:rules:old-tone",
+    "replacement": "urn:ordin:default:rules:tone-v2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "codes": [
+    "memory_content_class_invalid",
+    "memory_class_conflict",
+    "memory_retention_invalid",
+    "memory_store_unresolved",
+    "repository_checked"
+  ]
+}

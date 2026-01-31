@@ -1,0 +1,67 @@
+{
+  "brand_identifier": "ordin",
+  "version": "1.2.0",
+  "strings": {
+    "en-GB": {
+      "product_name": "ordin",
+      "coordinator_name": "Ordin",
+      "about_text": "ordin runs your AI agents on your own computer, asks you before anything leaves it, and keeps a record of what each agent did."
+    }
+  },
+  "logos": {
+    "light": {"url": "file:logo-light.svg", "sha256": "c6125479624530b4e4e3b3d18a5421be326c409cb514adc3c077387489e4b90b", "media_type": "image/svg+xml"},
+    "dark": {"url": "file:logo-dark.svg", "sha256": "08b1bee82e781fcedc3ad9234eb261108553a6b7ae07fa92334a6f2e896f9651", "media_type": "image/svg+xml"}
+  },
+  "icon_set": {
+    "light": {"url": "file:icons-light.svg", "sha256": "38e0e9da7806ebc26dad09c7df4c3a2b726b05c2131a1e8de0f9e515cd96cbcb", "media_type": "image/svg+xml"},
+    "dark": {"url": "file:icons-dark.svg", "sha256": "38e0e9da7806ebc26dad09c7df4c3a2b726b05c2131a1e8de0f9e515cd96cbcb", "media_type": "image/svg+xml"}
+  },
+  "design_tokens": {
+    "color.text.light": "#17212B",
+    "color.text-muted.light": "#52606D",
+    "color.background.light": "#F2F4F7",
+    "color.surface.light": "#FFFFFF",
+    "color.accent.light": "#1F4FB8",
+    "color.on-accent.light": "#FFFFFF",
+    "color.border-control.light": "#7D8A98",
+    "color.focus.light": "#1F4FB8",
+    "color.text-secondary.light": "#3D4A57",
+    "color.accent-ink.light": "#163A88",
+    "color.accent-soft.light": "#E3EAF7",
+    "color.chip.light": "#EEF2F8",
+    "color.line.light": "#DDE2E8",
+    "color.line-strong.light": "#A9B4C1",
+    "color.primary.light": "#17212B",
+    "color.on-primary.light": "#FFFFFF",
+    "color.text.dark": "#E8EDF2",
+    "color.text-muted.dark": "#9AA6B3",
+    "color.background.dark": "#11161C",
+    "color.surface.dark": "#1A2129",
+    "color.accent.dark": "#7FA6F5",
+    "color.on-accent.dark": "#11161C",
+    "color.border-control.dark": "#647384",
+    "color.focus.dark": "#7FA6F5",
+    "color.text-secondary.dark": "#C3CCD6",
+    "color.accent-ink.dark": "#A9C3FA",
+    "color.accent-soft.dark": "#22314A",
+    "color.chip.dark": "#24303D",
+    "color.line.dark": "#2C3642",
+    "color.line-strong.dark": "#4A5868",
+    "color.primary.dark": "#E8EDF2",
+    "color.on-primary.dark": "#11161C",
+    "font.body": "Jost",
+    "space.sm": "8px",
+    "space.md": "16px",
+    "radius.md": "8px",
+    "radius.lg": "12px"
+  },
+  "fonts": [],
+  "links": {
+    "help_url": "https://github.com/gatblau/ordin#readme",
+    "support_url": "https://github.com/gatblau/ordin/issues",
+    "privacy_url": "https://github.com/gatblau/ordin/blob/main/docs/privacy.md"
+  },
+  "legal_text": {
+    "en-GB": "ordin is open-source software released under the Apache License 2.0."
+  }
+}

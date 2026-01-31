@@ -1,0 +1,20 @@
+{
+  "source": "ordin-desktop/components/RulesEngine.md, restated cases: A step gate on a tool call",
+  "set": {
+    "tools": [{ "name": "deploy", "arguments": [] }],
+    "declaration": {
+      "format-version": 1,
+      "gates": {
+        "steps": [
+          { "name": "deploy-needs-plan", "point": "before-tool", "tool": "deploy",
+            "conditions": [{ "kind": "path-absent", "path": "/plan.md" }],
+            "outcome": { "kind": "refuse" } }
+        ]
+      }
+    }
+  },
+  "calls": [
+    { "tool": "deploy", "arguments": {}, "verdict": "deny", "rule": "deploy-needs-plan" },
+    { "files": { "/plan.md": "1. Ship it." }, "tool": "deploy", "arguments": {}, "verdict": "allow" }
+  ]
+}

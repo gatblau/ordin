@@ -1,0 +1,26 @@
+[package]
+name = "ordin-caller-api"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-caller-auth = { workspace = true }
+ordin-run-queue = { workspace = true }
+ordin-files = { workspace = true }
+ordin-settings-store = { workspace = true }
+ordin-knowledge = { workspace = true }
+ordin-retention = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-telemetry = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-knowledge-query-server = { workspace = true }
+axum = { workspace = true }
+axum-server = { workspace = true }
+bytes = { workspace = true }
+hmac = { workspace = true }
+http = { workspace = true }
+sha2 = { workspace = true }
+tower-http = { workspace = true }

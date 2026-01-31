@@ -1,0 +1,34 @@
+{
+  "lockfileSchema": "ordin.lock/v1",
+  "planHash": "sha256:4d1c9f0b7e2a5c3d1f6e8a9b0c7d2e4f5a6b8c9d0e1f2a3b4c5d6e7f8a9b0c1d",
+  "targetHarness": "claude_code",
+  "composition": {
+    "kind": "WorkspaceProfile",
+    "id": "urn:ordin:default:workspaces:cspa-431",
+    "name": "cspa-431",
+    "version": "1.0.0",
+    "contentHash": "sha256:9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    "repository": "bundled",
+    "commit": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "artefacts": [
+    {
+      "kind": "Command",
+      "id": "urn:ordin:default:commands:lifecycle:apply",
+      "name": "lifecycle-apply",
+      "version": "1.2.0",
+      "contentHash": "sha256:1f2e3d4c5b6a79881726354a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8",
+      "repository": "github.com/acme/company-agents",
+      "commit": "89abcdef0123456789abcdef0123456789abcdef",
+      "loading": "registered-invocation"
+    }
+  ],
+  "overlaysApplied": [],
+  "selections": {
+    "practicePacks": [
+      { "id": "urn:ordin:default:practice-packs:stack:go", "chosenBy": "workspace-code" }
+    ],
+    "overlays": [],
+    "pendingChoices": []
+  }
+}

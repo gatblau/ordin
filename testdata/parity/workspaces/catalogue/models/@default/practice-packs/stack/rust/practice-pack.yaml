@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+metadata:
+  id: urn:ordin:default:practice-packs:stack:rust
+  name: Rust
+  version: 1.0.0
+  owner: engineering-enablement
+  class: stack
+  audience:
+    languages:
+      - rust
+toolchain:
+  coverageFloor: 80
+  forbiddenFlags:
+    - --allow-warnings

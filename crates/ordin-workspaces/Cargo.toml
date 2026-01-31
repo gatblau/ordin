@@ -1,0 +1,47 @@
+[package]
+name = "ordin-workspaces"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-files = { workspace = true }
+ordin-confluence = { workspace = true }
+ordin-sharepoint = { workspace = true }
+ordin-jira = { workspace = true }
+ordin-rules = { workspace = true }
+ordin-journal = { workspace = true }
+# `EventSink` is an `#[async_trait]` trait (Public Interface).
+async-trait = { workspace = true }
+# `save_to_inbox` and `save_generated` take `bytes::Bytes` (Public Interface).
+bytes = { workspace = true }
+# Fetches run `FETCH_CONCURRENCY` at a time (Internal Logic 4.2).
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+# The real collaborators of the tests (lower-phase crates, dev edges only).
+ordin-agent-folders = { workspace = true }
+ordin-approval = { workspace = true }
+ordin-identity = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-confluence = { workspace = true, features = ["test-support"] }
+ordin-sharepoint = { workspace = true, features = ["test-support"] }
+ordin-jira = { workspace = true, features = ["test-support"] }
+# The token file of the Identity Service in the tests.
+base64 = { workspace = true }
+# The client `IdentityConfig` and the adapters require; every request goes to a loopback stand-in.
+reqwest = { workspace = true }
+tracing-subscriber = { workspace = true }
+# The SharePoint, Confluence and Jira stand-ins (loopback only; plan 01, "HTTP stand-ins").
+wiremock = { workspace = true }

@@ -1,0 +1,29 @@
+[package]
+name = "ordin-usage-planner"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ordin-types = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-journal = { workspace = true }
+ordin-runtime-adapter = { workspace = true }
+# `PruneParticipant` is an `#[async_trait]` trait (Public Interface).
+async-trait = { workspace = true }
+# The day boundary of the daily counters is local midnight of the computer (Fixed constants).
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# SHA-256 digest of the normalised request (Internal Logic G.2).
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+# Unique temporary folder names in tests.
+uuid = { workspace = true }

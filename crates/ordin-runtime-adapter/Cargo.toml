@@ -1,0 +1,31 @@
+[package]
+name = "ordin-runtime-adapter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# The scripted adapter for other crates' tests (RuntimeAdapterInterface.md, *Feature `testkit`*).
+# Turned on only from a `[dev-dependencies]` entry, never by a normal dependency.
+testkit = []
+
+[dependencies]
+ordin-types = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+# `PauseReason::DecisionElsewhere.link` is a `url::Url` on the wire.
+url = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[[bench]]
+name = "checks"
+harness = false

@@ -1,0 +1,57 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: urn:ordin:default:workspaces:cspa-431
+  name: cspa-431
+  version: 1.0.0
+  owner: engineering-enablement
+systemRole: urn:ordin:default:system-roles:builder
+allowedOperatingModes:
+  - urn:ordin:default:rules:modes:review
+  - urn:ordin:default:rules:modes:build
+capabilities:
+  - urn:ordin:default:capabilities:writing
+contextResources:
+  - urn:ordin:default:context-resources:glossary
+controlLoop: urn:ordin:default:rules:control-loops:cspa
+defaultMode: urn:ordin:default:rules:modes:review
+defaultRules:
+  - urn:ordin:default:rules:tone
+  - urn:ordin:default:rules:quality
+fixedPracticePacks:
+  - ask:
+      class: testing
+governanceMetadata:
+  languageOverlays:
+    available:
+      - urn:ordin:default:overlays:language:en-GB
+      - urn:ordin:default:overlays:language:en-US
+      - urn:ordin:default:overlays:language:fr
+      - urn:ordin:default:overlays:language:es
+      - urn:ordin:default:overlays:language:de
+    default: urn:ordin:default:overlays:language:en-GB
+  sourceWorkflowOverlays:
+    available:
+      - urn:ordin:default:overlays:source-workflow:trunk
+    default: urn:ordin:default:overlays:source-workflow:trunk
+  styleOverlays:
+    available:
+      - urn:ordin:default:overlays:style:plain
+    default: urn:ordin:default:overlays:style:plain
+memory: urn:ordin:default:memories:project
+outputContracts:
+  - urn:ordin:default:output-contracts:role-dossier
+requiredControlLoop:
+  ids:
+    - urn:ordin:default:rules:control-loops:cspa
+  required: true
+requiredPracticePacks:
+  - atLeast: 1
+    where:
+      class: stack
+  - atLeast: 1
+    where:
+      class: testing
+requiredStyleOverlays:
+  anyOf:
+    - urn:ordin:default:overlays:style:plain
