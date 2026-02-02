@@ -13,10 +13,10 @@ This file is append-only. A decision is amended by a new entry, never by overwri
 
 **Confluence deployment, January 2026.** The user stated that the company uses **Confluence Cloud**. This settles the deployment left open in ADR-026's Status line (OQ-23): each person signs in with their own Atlassian account through Atlassian's OAuth 2.0 authorisation-code flow, with the site and the OAuth app's client identifier in the organisation profile; whether a desktop client can do this without a stored client secret is confirmation item C-12.
 
-### ADR-001: Local sessions run on the GitHub Copilot SDK for Rust, with the Copilot CLI bundled
+### ADR-001: Local sessions run on the GitHub Copilot SDK for Rust, with the Copilot CLI bundled (bundling superseded by ADR-123)
 
-- **Status.** Decided by the user, January 2026 ("Copilot mostly, yes local SDKs now"). The bundling detail is proposed. *Amended by ADR-038 (Claude is the first harness, Copilot the second) and ADR-044 (each harness signs the person in its own way; ordin attaches to the signed-in harness).*
-- **Decision.** The first local runtime adapter uses the official Copilot SDK for Rust. It drives a bundled, pinned Copilot CLI in server mode and authenticates as the signed-in GitHub user.
+- **Status.** Decided by the user, January 2026 ("Copilot mostly, yes local SDKs now"). The bundling detail is proposed. *Amended by ADR-038 (Claude is the first harness, Copilot the second) and ADR-044 (each harness signs the person in its own way; ordin attaches to the signed-in harness).* *Amended in revision 0.73.0 by ADR-123: the Copilot CLI is no longer bundled; it is the person's own install.*
+- **Decision.** The first local runtime adapter uses the official Copilot SDK for Rust. It drives a bundled, pinned Copilot CLI *(superseded in revision 0.73.0 by ADR-123: the person's own Copilot CLI)* in server mode and authenticates as the signed-in GitHub user.
 - **Context.** Most users hold Copilot seats. The Copilot SDK runs on that subscription; a third-party product may not offer claude.ai login without Anthropic's approval. The Rust SDK keeps the application single-language in its core. It does not bundle the CLI by default, so the application must.
 - **Consequences.**
   - No API key is asked of business users (G6).
@@ -1664,7 +1664,7 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
     - *Both at once on one account.* The two copies share the account's application data root and run one at a time. Each keeps its own shortcut. The Setup Assistant names the other copy in its start checks and suggests removing one, because an update reaches only the per-user copy; it removes nothing itself.
   - **Everything ordin brings or fetches lives under the application data root, in the person's account.** That is:
     - the ArtCraft apps and their CLIs (already so under ADR-016), started by ordin from there, for agents and for the person's own windows;
-    - the bundled `apm`, the Copilot CLI and the ordin hook, inside the app itself;
+    - the bundled `apm`, the Copilot CLI and the ordin hook, inside the app itself *(the Copilot CLI amended in revision 0.73.0 by ADR-123: the person's own install, not inside the app)*;
     - `gh` and `glab` are the exception in release 1 (decision of January 2026): the Project Service starts them by name from the computer's `PATH`, and the Setup Assistant does not yet place them under the data root; the language servers and the toolchains they need (R-20), the speech model and the local memory models;
     - the SQLite journal, file versions, the cached organisation profile and coding-task worktrees, as before.
     - Apart from the program files of a whole-computer install, nothing is written to `/Applications`, `/usr/local`, `/Library`, `Program Files`, `ProgramData`, `HKEY_LOCAL_MACHINE`, the system-wide `PATH` or any other location shared by every user of the computer.
@@ -3177,3 +3177,21 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
 - **Alternatives.** Cloud transcription (breaks local-only); meeting-tool integrations (need company consent); the operating systems' recognisers (none usable on Windows; macOS's serves live dictation).
 
 *Amended 2026-11-21 (approved by the user, "approve as written"; the user's decisions of 2026-11-20):* Ordin also has tools to list, read, edit, cancel, retry, import and export minutes, and to turn any recording in a workspace folder into text on the computer for its own use; a recording turned into text runs as a minutes job the person sees and can cancel, and needs the same speech-model consent and one-time notice. Recording, the two consents, the OBS password, deleting a recording, removing the speech model and removing minutes stay the person's alone. A run that writes minutes is offered the tools of server `ordin` only, so words in a meeting cannot reach another provider's tools. *Consequence:* the MCP Front gains a per-session limit to named servers.
+
+### ADR-123: The Copilot CLI is the person's own install, not shipped with ordin
+
+- **Status.** Decided by the user, 2026-02-02 ("copilot installation should be a pre-requisite to enable copilot harness in ordin"; "approve, and allow Copilot without a company profile"). **Amends ADR-001** (the installer carries the Copilot CLI) and the sidecar entries of 02, 05 and 08.
+- **Decision.**
+  - ordin never ships the Copilot CLI. A person who wants Copilot installs GitHub's Copilot CLI themselves; it is a prerequisite of the Copilot harness, as Claude Code is of the Claude harness (ADR-044).
+  - The desktop finds it the way it finds Claude Code: on `PATH`, then in the folders GitHub's installers use (C-112); checks its version against the organisation profile's tested versions; and offers Copilot only once it is found and signed in. A Copilot installed while ordin is open is found at the next check and used by the next session, with no restart.
+  - With no company profile, ordin checks every harness its build supports, Claude Code first, so a person on their own can turn Copilot on (self-service).
+  - The personal server keeps the operator's install at the profile's pinned path.
+- **Context.** ordin is open source under Apache-2.0 and its installers are public; whether GitHub's Copilot CLI may be redistributed inside them was never recorded. Claude Code was already the person's own install.
+- **Consequences.**
+  - No installer, update or build carries the Copilot CLI; its licence is outside ordin's licence check.
+  - Each person may run a different Copilot version from the one ordin was tested with (R-133); an organisation that needs one version lists it in its profile's tested versions.
+  - When Copilot is missing, ordin says "GitHub Copilot isn't on this computer yet. Install it, then choose Check again." and opens no install page.
+- **Alternatives considered.**
+  - *Bundle a pinned Copilot CLI (ADR-001 as written).* Rejected: redistribution terms unknown, and a public installer cannot be recalled.
+  - *ordin installs Copilot for the person (ADR-044's later step).* Not now: it brings the redistribution question back.
+

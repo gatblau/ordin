@@ -149,3 +149,38 @@ None outstanding for the spec set. The plan's own open assumptions (confirmation
 - **A-2** The recommendation is worked out again on every start, so moving to another computer changes it; the person's own choice is never overwritten.
 - **A-3** A settings file written before this amendment keeps its value as the person's choice.
 - **A-4** Choosing the larger model on a computer it does not suit is allowed, with a one-line warning, not refused.
+
+## Amendment audit, 2026-02-02 — The Copilot CLI is the person's own install (approved)
+
+> **Scope:** amended — `components/SetupAssistant.md` (SET-CPX-1 to SET-CPX-6), `components/CopilotLocalAdapter.md` (CPA-CPX-1 to CPA-CPX-5), `components/OrdinDesktop.md` (DSK-CPX-1 to DSK-CPX-5), `components/OrdinServer.md` (SRV-CPX-1), `components/ScreensModule.md` (SM-CPX-1), `phase-1-analysis.md` (C-112), `phase-2-architecture.md` (diagram node and external-programs line), `cross-cutting/LicenceCheck.md` (*Internal Logic* 6), `phase-5-playbook.md` (§7.5). Source: RFC 15. HLD: ADR-123, revision 0.73.0 (proposed in the same review).
+
+| # | Item | Result |
+|---|---|---|
+| 1 | Complete data models | Pass — `CopilotCliSource`, `CopilotCli { path, version }`; `CopilotAdapterConfig` without `cli_path`, `cli_version`; `DesktopPaths` without `copilot_cli` |
+| 2 | Every action has trigger, inputs, outputs, side effects, errors | Pass — `find_copilot_cli`, the probe's `locate`, `CopilotCliSource::current`, `start` step 3, the probe calls |
+| 3 | Error table per changed component | Pass — SetupAssistant (3 rows), CopilotLocalAdapter (3 rows), OrdinDesktop (row narrowed to `ordin-hook`) |
+| 4 | Codes registered | Pass — none added: `SETUP_HARNESS_MISSING`, `SETUP_HARNESS_UNTESTED`, `SETUP_HARNESS_CHECK_FAILED`, `CPA_SERVER_START_FAILED`, `CPA_PROBE_FAILED`, `CPA_HARNESS_UNTESTED`, `DSK_SIDECAR_MISSING` exist |
+| 5 | Gherkin per behaviour | Pass — SetupAssistant 7, CopilotLocalAdapter 4 (plus the amended background), OrdinDesktop 2 plus the rewritten sidecar scenario, ScreensModule 2 |
+| 6 | No unverified identifier | Pass — every type and code above is visible in the amended specs or the existing ones (`HarnessLocation { path, version }` SetupAssistant.md `:335`; `not_found` OrdinDesktop.md `:3119`; `find_claude_code` `crates/ordin-setup/src/process.rs:225`). The install folders are bound to C-112, sourced from GitHub's install documentation |
+| 7 | No banned phrase | Pass |
+| 8 | Security for every entry point | Pass — no new entry point; `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` stay out of the CLI's environment (2D-1c); ordin reads no Copilot credential (ADR-044) |
+| 9 | Long work never holds a tool call | Pass — `copilot --version` runs with a 10 s limit, as Claude Code's |
+| 10 | Build switch | Pass — the probe and `CopilotCliSource` exist only with `copilot`; a build without it is unchanged (DSK-UP-5) |
+| 11 | Playbook | Pass — §7.5 amended; Step 47's gate is unchanged (the adapter is tested against its doubles) |
+| 12 | HLD consistency | Pass — ADR-123 amends ADR-001; 02, 05, 08 and 10 amended in the same review; revision 0.73.0 |
+| 13 | Spec anchors | Not run — `make doc-ref-check` runs on the server once the draft is approved and committed |
+
+### Assumptions chosen here (the user may change any)
+
+- **A-1** The CLI is asked for at every session start (`CopilotCliSource`), so installing Copilot needs no restart; Claude Code keeps its path fixed at start (OrdinDesktop.md OQ-REC-4 (b)), unchanged here.
+- **A-2** A missing CLI at session start reuses `CPA_SERVER_START_FAILED`; no new code.
+- **A-3** No install button for Copilot, matching what Claude Code had before SM-FS-9 (RFC 15 open question 2).
+- **A-4** The personal server keeps the operator's install at the profile's pinned path (SRV-CPX-1).
+
+### Open question — resolved
+
+- **OQ-CPX-1** *Resolved 2026-02-02 by the user ("allow Copilot without a company profile"), option (b):* with no company profile, every harness with a registered probe is checked, Claude Code first (SetupAssistant.md SET-CPX-6).
+
+### Verdict
+
+Passed. Approved by the user 2026-02-02 ("approve, and allow Copilot without a company profile"), with the HLD changes of revision 0.73.0.

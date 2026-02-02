@@ -1,6 +1,6 @@
 # SPEC: ordin server
 
-> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (ADR-102) · amended January 2026 (ADR-103) · amended January 2026 (ADR-106; promoted to Approved by the user January 2026) · amended January 2026 (ADR-107; promoted to Approved by the user January 2026) · amended January 2026 (ADR-109; promoted to Approved by the user January 2026) · amended January 2026 (ADR-111; promoted to Approved by the user January 2026) · amended January 2026 (ADR-112, ADR-113; promoted to Approved by the user January 2026) · amended January 2026 (ADR-114; promoted to Approved by the user January 2026) · amended January 2026 (ADR-115)
+> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (ADR-102) · amended January 2026 (ADR-103) · amended January 2026 (ADR-106; promoted to Approved by the user January 2026) · amended January 2026 (ADR-107; promoted to Approved by the user January 2026) · amended January 2026 (ADR-109; promoted to Approved by the user January 2026) · amended January 2026 (ADR-111; promoted to Approved by the user January 2026) · amended January 2026 (ADR-112, ADR-113; promoted to Approved by the user January 2026) · amended January 2026 (ADR-114; promoted to Approved by the user January 2026) · amended January 2026 (ADR-115) · amended 2026-02-02 (ADR-123: the Copilot CLI is the person's own install; Approved by the user 2026-02-02)
 > **Mode:** greenfield
 > **derivedFromHld:** 0.66.0
 > **Crate:** `apps/server` (package `ordin-server`, binary `ordin-server`) · **Build phase:** 12 · **Programs:** P A
@@ -1658,3 +1658,13 @@ Feature: Wiring per-document read access (ADR-115)
     Then the start-up report lists the site, both space keys and "person checks: off — restricted pages are not read"
     And it contains no token, account or e-mail address
 ```
+
+## Amendment 2026-02-02 — The Copilot CLI's path reaches the adapter through `CopilotCliSource` (SRV-CPX-1)
+
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15; CopilotLocalAdapter.md CPA-CPX-2 moved the CLI path out of the adapter's configuration. **derivedFromHld:** 0.73.0. Nothing else changes for the server: its Copilot CLI is still the one at the profile's pinned path, installed by the operator.
+
+- **SRV-CPX-1** Row 5.24 passes a `CopilotCliSource` whose `current()` answers the profile's pinned path with the version `<path> --version` prints (first semantic-version token), or `None` when that file is absent; `CopilotAdapterConfig` no longer carries `cli_path` or `cli_version`. The `CopilotPort` row (`SdkCopilotPort`) starts the server with the `cli_path` the adapter passes. The adapter is still refused on the personal server while C-48 is unconfirmed (`CPA_SERVER_SIGN_IN_UNCONFIRMED`) and on the agent profile (`CPA_PROFILE_NOT_OFFERED`).
+
+### Gaps
+
+None.

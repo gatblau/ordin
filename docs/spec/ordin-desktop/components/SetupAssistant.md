@@ -1,6 +1,6 @@
 # SPEC: Setup Assistant
 
-> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (ADR-114; promoted to Approved by the user January 2026) · amended January 2026 (ADR-072) · amended January 2026 (`bundled_language_servers`, SET-REC-1; Draft, awaiting the user's approval) · amended January 2026 (the highest version started, SET-REC-2, closing OrdinDesktop.md OQ-REC-11; Approved by the user 2026-01-10) · amended January 2026 (Claude Code found outside the short PATH, SET-R1-7 and SET-R1-8; no sentence sends the person to IT, SET-R1-9; user decision)
+> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (ADR-114; promoted to Approved by the user January 2026) · amended January 2026 (ADR-072) · amended January 2026 (`bundled_language_servers`, SET-REC-1; Draft, awaiting the user's approval) · amended January 2026 (the highest version started, SET-REC-2, closing OrdinDesktop.md OQ-REC-11; Approved by the user 2026-01-10) · amended January 2026 (Claude Code found outside the short PATH, SET-R1-7 and SET-R1-8; no sentence sends the person to IT, SET-R1-9; user decision) · amended 2026-02-02 (ADR-123: the Copilot CLI is the person's own install; Approved by the user 2026-02-02)
 > **Mode:** greenfield
 > **derivedFromHld:** 0.66.0
 > **Crate:** `ordin-setup` · **Build phase:** 8 · **Programs:** D P
@@ -473,7 +473,7 @@ Event `setup_progress { progress: SetupProgress }` (2C `EventKind::SetupProgress
 | `ensure_language_server` | Project Service, through the program's `ServerInstaller` (`ensure(language, &ServerPin { name, version })` → `ensure_language_server(language, &name, &version)`) |
 | `migrations` | the programs, registering it with the Journal's `MigrationRegistry` |
 
-The bundled programs the desktop program lists in `SetupConfig.bundled_programs` include the ordin hook (`ordin-hook`, `version_args = ["--version"]`) and the Copilot CLI; step D.3 is therefore where the hook's version run happens.
+*(Amended 2026-02-02 by SET-CPX-1: the Copilot CLI is not a bundled program.)* The bundled programs the desktop program lists in `SetupConfig.bundled_programs` include the ordin hook (`ordin-hook`, `version_args = ["--version"]`) and the Copilot CLI; step D.3 is therefore where the hook's version run happens.
 
 ### Example
 
@@ -1477,6 +1477,78 @@ None.
     Given no claude on PATH or in the person's own folders
     When the guided run reaches the Harness step
     Then the step fails with SETUP_HARNESS_MISSING and "Claude Code isn't on this computer yet. Install it, then choose Check again."
+```
+
+### Gaps
+
+None.
+
+## Amendment 2026-02-02 — The Copilot CLI is the person's own, found like Claude Code (SET-CPX-1 to SET-CPX-5)
+
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15 (`docs/wip/rfc/15-copilot-cli-as-a-prerequisite.md`); user decision 2026-02-02, "copilot installation should be a pre-requisite to enable copilot harness in ordin"; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
+
+- **SET-CPX-1 Copilot is not a bundled program.** `SetupConfig.bundled_programs` never names the Copilot CLI; the desktop's list is `[ordin-hook]` in every build. The sentence in *Configuration consumed* that the bundled programs "include … the Copilot CLI" is replaced by: the desktop's bundled programs are the ordin hook alone. Step D.3 (program start check) therefore never runs the Copilot CLI.
+- **SET-CPX-2 Where `copilot` is looked for.** `ordin_setup::find_copilot_cli(path, home, local_app_data, app_data) -> Option<PathBuf>`, kept in this crate beside `find_claude_code` (SET-R1-7) so the probe and the adapter never disagree. It searches each `PATH` entry, in order, then the person's own folders, in order: `<home>/.local/bin` (GitHub's install script for a non-root install); on macOS also `/opt/homebrew/bin` and `/usr/local/bin` (Homebrew); on Windows `<LOCALAPPDATA>\Microsoft\WinGet\Links` (WinGet) and `<APPDATA>\npm` (npm). `<home>` is `HOME` (`USERPROFILE` on Windows); `<LOCALAPPDATA>` and `<APPDATA>` are the program's own `LOCALAPPDATA` and `APPDATA`; an absent variable skips its folder. The first executable file named `copilot` (`copilot.exe`, then `copilot.cmd`, on Windows) is the one used. The folders and names are *conditional on C-112*; until it is confirmed, a Copilot CLI installed elsewhere is found only on `PATH`.
+- **SET-CPX-3 The Copilot probe's `locate`.** The desktop program's Copilot `HarnessProbe` (OrdinDesktop.md DSK-CPX-3) answers `locate` with `find_copilot_cli` and `<found> --version`, run with D.1's environment, the found folder added to `PATH` as SET-R1-8 adds Claude Code's, null stdin and a 10 s timeout. Version = the first whitespace-separated token matching `^[0-9]+\.[0-9]+\.[0-9]+` *(assumed here, SA-CPX-01; conditional on C-112)*; no match → `ProbeError::Unreadable`. Nothing found → `Ok(None)`. The Harness step (C.3) and `tested_versions` then work for `copilot` exactly as for `claude_code`.
+- **SET-CPX-4 Copilot's own sentences (SET-R1-9).** For the `copilot` harness, `SETUP_HARNESS_MISSING` carries message id `setup-harness-missing-copilot`, "GitHub Copilot isn't on this computer yet. Install it, then choose Check again.", and `SETUP_HARNESS_UNTESTED` carries `setup-harness-untested-copilot`, "This version of GitHub Copilot hasn't been checked with ordin yet. Install a checked version, then try again." Neither offers an action: ordin opens no install page for Copilot (RFC 15 open question 2, settled as recommended). The codes do not change; no code is added.
+- **SET-CPX-6 No company profile: every harness this build can check is checked (user decision 2026-02-02, "allow Copilot without a company profile").** When the computer has no company profile (A.2 `ProfileState::NotUsed`, which includes `NoAddress` by SET-R1-6), the Harness and HarnessSignIn steps of C.3, the checks of D.4 and `ready_harness` walk `[claude_code, copilot]` in that order, each with an empty `tested_versions`, in place of the 2D-2 default `[claude_code]`. A harness with no registered probe is skipped as before, so a build without `copilot` and the server walk `[claude_code]` only. When a company profile is in use, its `harnesses` list alone decides, as before. Claude Code stays the first, so `default_harness` and Settings › Agents and models' *Same as my organisation* are unchanged.
+- **SET-CPX-5 Found after start.** A Copilot CLI the person installs while ordin is open is found by the next check (**Check again**, a background run, or `run_checks(BeforeSession)`), because `locate` runs on every check; nothing is cached between checks.
+
+### Assumptions chosen here
+
+- **SA-CPX-01** `copilot --version` prints the version as its first semantic-version token, as `claude --version` does. Confirmed with C-112.
+- **SA-CPX-02** The order of the person's own folders puts the install script's folder first, then the package managers', the same order as SET-R1-7.
+
+### Error Table — rows changed
+
+| Condition | Result | Code | Message id |
+|---|---|---|---|
+| `copilot` listed by the profile, no Copilot CLI found | `Failed`, no action | `SETUP_HARNESS_MISSING` | `setup-harness-missing-copilot` |
+| Copilot CLI found at a version outside a non-empty `tested_versions` | `needs_update`, `Failed`, no action | `SETUP_HARNESS_UNTESTED` | `setup-harness-untested-copilot` |
+| Copilot CLI found, `--version` output has no version token or times out | Err(retryable) in the result, Try again | `SETUP_HARNESS_CHECK_FAILED` (the existing row for unreadable output) | as for Claude Code |
+
+```gherkin
+  Scenario: Happy path — a Copilot CLI in the person's own folder is found from a short PATH (SET-CPX-2, SET-CPX-3)
+    Given the profile lists harnesses [copilot] with tested_versions []
+    And copilot is only in <home>/.local/bin and PATH is "/usr/bin:/bin:/usr/sbin:/sbin"
+    When the guided run reaches the Harness step
+    Then the step passes with the path <home>/.local/bin/copilot and its version
+    And copilot --version ran with <home>/.local/bin at the end of its PATH
+
+  Scenario: Edge case — the bundled programs never include Copilot (SET-CPX-1)
+    Given a desktop build with copilot on
+    When the program start check runs
+    Then it checks ordin-hook only
+
+  Scenario: Edge case — Copilot installed while ordin is open is found by Check again (SET-CPX-5)
+    Given the Harness step for copilot failed with SETUP_HARNESS_MISSING
+    And copilot is then placed in <home>/.local/bin
+    When the person chooses Check again
+    Then the Harness step for copilot passes
+
+  Scenario: Happy path — no company profile, Copilot installed and Claude Code not (SET-CPX-6)
+    Given the computer has no company profile and a build with copilot on
+    And no claude executable is found and copilot is in <home>/.local/bin
+    When the guided run reaches the Harness step
+    Then Claude Code's step fails with SETUP_HARNESS_MISSING
+    And Copilot's step passes with the path <home>/.local/bin/copilot
+    And the run goes on to sign in to GitHub Copilot
+
+  Scenario: Edge case — a company profile that lists Claude Code only (SET-CPX-6)
+    Given a company profile listing harnesses [claude_code] and copilot installed
+    When the guided run reaches the Harness step
+    Then Copilot is not checked
+
+  Scenario: Error path — Copilot is nowhere (SET-CPX-4)
+    Given the profile lists harnesses [copilot] and no copilot on PATH or in the person's own folders
+    When the guided run reaches the Harness step
+    Then the step fails with SETUP_HARNESS_MISSING and "GitHub Copilot isn't on this computer yet. Install it, then choose Check again."
+    And no action is offered
+
+  Scenario: Error path — an untested Copilot version (SET-CPX-4)
+    Given the profile lists copilot with tested_versions ["1.0.98"] and the installed version is "1.0.99"
+    When the guided run reaches the Harness step
+    Then the attachment is needs_update and the step fails with SETUP_HARNESS_UNTESTED and "This version of GitHub Copilot hasn't been checked with ordin yet. Install a checked version, then try again."
 ```
 
 ### Gaps

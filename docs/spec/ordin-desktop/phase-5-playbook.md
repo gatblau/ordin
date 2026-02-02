@@ -1272,7 +1272,7 @@ Tests marked `[pg]` run against a PostgreSQL 18 container (P7). No test calls a 
 - `cargo deny check licenses advisories sources` over the workspace: licences against `deny.toml` with exceptions E1 (narrowed in Step 0) and E3 only; RustSec advisories; yanked versions; sources other than crates.io. The nine crates confirmed at Step 0 — `thiserror`, `async-trait`, `serde_json`, `tokio-util`, `unicode-normalization`, `tokio-tungstenite`, `jsonwebtoken`, `rand`, `base64` — must still pass at their locked versions.
 - In `apps/desktop/ui/`: `npx license-checker-rseidelsohn --production --onlyAllow "MIT;Apache-2.0;BSD-3-Clause;ISC"` and `npm audit --omit=dev`.
 - The image build of `deploy/container/Containerfile` runs the same `cargo deny` check before compiling.
-- Programs run unmodified as separate programs — Claude Code (E2), the Copilot CLI sidecar, `jdtls`, `gh`, `glab`, the ArtCraft apps — are outside both checks and recorded in HLD 05 with their licences (LicenceCheck.md *Internal Logic* 6).
+- Programs run unmodified as separate programs — Claude Code (E2), the Copilot CLI (the person's own install, never bundled; *amended 2026-02-02, ADR-123; Approved by the user 2026-02-02*), `jdtls`, `gh`, `glab`, the ArtCraft apps — are outside both checks and recorded in HLD 05 with their licences (LicenceCheck.md *Internal Logic* 6).
 
 ### 7.6 Lint
 

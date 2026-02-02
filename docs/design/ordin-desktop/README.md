@@ -2,8 +2,8 @@
 
 > **Mode:** draft
 > **Generated from:** inline context — the user's decisions of January 2026
-> **Revision:** 0.72.0
-> **Last updated:** January 2026
+> **Revision:** 0.73.0
+> **Last updated:** 2026-02-02
 > **Status:** Draft
 
 ## Orientation

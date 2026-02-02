@@ -1,6 +1,6 @@
 # SPEC: Copilot Local Adapter
 
-> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (the start request's attachments passed to `session_setup`, CPA-REC-1, with the crew-round rule of OQ-REC-9; Approved by the user 2026-01-10)
+> **Spec set:** `ordin-desktop` · **Phase:** 3 — Component spec · **Status:** Approved (user, January 2026; Phase 6 passed) · amended January 2026 (the start request's attachments passed to `session_setup`, CPA-REC-1, with the crew-round rule of OQ-REC-9; Approved by the user 2026-01-10) · amended 2026-02-02 (ADR-123: the Copilot CLI is the person's own install; Approved by the user 2026-02-02)
 > **Mode:** greenfield
 > **derivedFromHld:** 0.66.0
 > **Crate:** `ordin-copilot-adapter` · **Build phase:** 5 · **Programs:** D P
@@ -21,7 +21,7 @@
 
 ## Purpose
 
-The Copilot Local Adapter is the second local adapter (02:543; 09 ADR-038). It runs one local agent session with the GitHub Copilot SDK for Rust (`github-copilot-sdk`) against a bundled, pinned Copilot CLI server started for that session, with the agent folder as its working folder (05:15; A-11). It checks the Copilot CLI's own sign-in through the SDK's status call (09 ADR-044), registers the MCP Front's servers for the session (09 ADR-037), sends every tool request to ordin's decision path before it executes — through the SDK's permission handler and pre-tool-use hook, both routed to the Hook Relay in process (09 ADR-045) — and turns the session's streaming events into the `RunEvent` stream the Session Supervisor consumes. It owns the SDK session identifiers and the mapping of SDK events to run events (02:547). It runs on the desktop and the personal server; the agent profile does not offer Copilot (09 ADR-097 item 2; 10 C-75).
+The Copilot Local Adapter is the second local adapter (02:543; 09 ADR-038). It runs one local agent session with the GitHub Copilot SDK for Rust (`github-copilot-sdk`) against a bundled, pinned Copilot CLI server *(superseded 2026-02-02 by CPA-CPX-1: the person's own Copilot CLI)* started for that session, with the agent folder as its working folder (05:15; A-11). It checks the Copilot CLI's own sign-in through the SDK's status call (09 ADR-044), registers the MCP Front's servers for the session (09 ADR-037), sends every tool request to ordin's decision path before it executes — through the SDK's permission handler and pre-tool-use hook, both routed to the Hook Relay in process (09 ADR-045) — and turns the session's streaming events into the `RunEvent` stream the Session Supervisor consumes. It owns the SDK session identifiers and the mapping of SDK events to run events (02:547). It runs on the desktop and the personal server; the agent profile does not offer Copilot (09 ADR-097 item 2; 10 C-75).
 
 ## Approach
 
@@ -369,7 +369,7 @@ The adapter calls only `begin_run` (R5). The run-end decision is the Hook Relay'
 
 | Item | Source | Value |
 |---|---|---|
-| Copilot CLI path and pinned version | bundled sidecar (05:15, 05 "Copilot CLI (server mode)") | absolute path; version compiled in |
+| Copilot CLI path and pinned version *(superseded 2026-02-02 by CPA-CPX-1)* | bundled sidecar (05:15, 05 "Copilot CLI (server mode)") | absolute path; version compiled in |
 | Tested versions | organisation profile `harnesses[]` with `name: copilot` | list |
 | Model per level | organisation profile `usage.level_models.copilot.<level>`; `automatic` is Copilot's own selection (2D-2) | string |
 | Stop deadline | SA-STOP-01 | 10 s |
@@ -823,3 +823,80 @@ None.
 > **Status:** Approved by the user, 2026-11-21 ("approve as written"). Every section above stays in force.
 
 - In the step that registers the session with the MCP Front, `SessionGrant.only_servers` is `StartRun.only_servers`, copied unchanged like `caller`, `scope_id` and `coding_task_id` (McpFront.md SA-MCP-SRV-01). An adopted run has `None`.
+
+## Amendment 2026-02-02 — The Copilot CLI is the person's own installation (CPA-CPX-1 to CPA-CPX-5)
+
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15 (`docs/wip/rfc/15-copilot-cli-as-a-prerequisite.md`); user decision 2026-02-02; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
+
+- **CPA-CPX-1 Purpose and configuration.** In *Purpose*, "against a bundled, pinned Copilot CLI server" reads "against the Copilot CLI the person installed, started in server mode". In *Configuration consumed*, the row *Copilot CLI path and pinned version* is replaced by: *Copilot CLI path and version* — source: `CopilotCliSource::current()` (CPA-CPX-2), asked at every `start` and every probe call — value: an absolute path and the version string the CLI printed. The row *Tested versions* is unchanged.
+- **CPA-CPX-2 The CLI is asked for, not fixed at construction.** `CopilotAdapterConfig` loses `cli_path` and `cli_version`; its other fields are unchanged. The adapter takes one more dependency, implemented by each program:
+
+  ```rust
+  /// The Copilot CLI the person installed (ADR-123). Implemented by the program.
+  #[async_trait::async_trait]
+  pub trait CopilotCliSource: Send + Sync {
+      /// The CLI to use now; `None` when none is installed.
+      async fn current(&self) -> Option<CopilotCli>;
+  }
+
+  #[derive(Debug, Clone, PartialEq, Eq)]
+  pub struct CopilotCli { pub path: std::path::PathBuf, pub version: String }
+
+  pub fn new(
+      config: CopilotAdapterConfig,
+      port: std::sync::Arc<dyn CopilotPort>,
+      cli: std::sync::Arc<dyn CopilotCliSource>,
+      mcp: std::sync::Arc<ordin_mcp_front::McpFront>,
+      hooks: std::sync::Arc<ordin_hook_relay::HookRelay>,
+      rules: std::sync::Arc<ordin_rules::RulesEngine>,
+      identity: std::sync::Arc<ordin_identity::Identity>,
+      setup: std::sync::Arc<dyn SessionSetupSource>,
+  ) -> Result<Self, CopilotAdapterError>;
+  ```
+
+  A CLI installed after the program started is used by the next `start` with no restart.
+- **CPA-CPX-3 `start` step 3 is replaced.** `cli.current()`: `None`, or a `path` that is not absolute → log `copilot.cli.missing` (fields `run_id`, `code`) and return `CPA_SERVER_START_FAILED` (`AdapterError::Unreachable`, retryable): no server is started. `Some(found)` → `found.version` not in `tested_versions` (when the list is non-empty) → `CPA_HARNESS_UNTESTED` (`AdapterError::HarnessUntested { found: found.version }`), as before. Step 4's environment adds the folder of `found.path` at the end of `PATH` when no entry is already that folder (the rule of SetupAssistant.md SET-R1-8), so a CLI installed through npm finds its Node.js runtime. Step 5 starts the server with `CliServerSpec { cli_path: found.path, … }`. `copilot.server.started` logs `found.version`.
+- **CPA-CPX-4 Probe calls.** `probe_sign_in`, `probe_start_sign_in` and `probe_repair` ask `cli.current()` first; `None` → `CPA_PROBE_FAILED` (`PortFailed { code: "CPA_PROBE_FAILED", retryable: true }`). The program's probe never reaches them in that case, because its `locate` has already answered `None` (OrdinDesktop.md DSK-CPX-3).
+- **CPA-CPX-5 No new code.** The missing-CLI path reuses `CPA_SERVER_START_FAILED` and `CPA_PROBE_FAILED`; `CPA_CONFIG_INVALID` no longer checks a CLI path, because the configuration holds none.
+
+### Error Table — rows changed
+
+| Condition | Result | Code | Maps to |
+|---|---|---|---|
+| No Copilot CLI installed at `start` (`current()` is `None` or not absolute) | `Err(retryable)` | `CPA_SERVER_START_FAILED` | `AdapterError::Unreachable` |
+| No Copilot CLI installed at a probe call | `Err(retryable)` | `CPA_PROBE_FAILED` | `CopilotAdapterError::PortFailed { code: "CPA_PROBE_FAILED", retryable: true }` |
+| CLI version not tested | `Err(permanent)` | `CPA_HARNESS_UNTESTED` | `AdapterError::HarnessUntested { found: <current().version> }` |
+
+```gherkin
+  Background (amended): the scripted CopilotPort double, a CopilotCliSource double, and test doubles of the MCP Front, the Hook Relay, the Rules Engine and Identity
+    And the CopilotCliSource double answers "/home/p/.local/bin/copilot" at version "1.0.98"
+    And the profile lists tested Copilot CLI version "1.0.98"
+
+  Scenario: Happy path — the session's server is started from the person's CLI (CPA-CPX-3)
+    When start is called with free text "Summarise the three quotes in one table"
+    Then the CLI server is started with cli_path "/home/p/.local/bin/copilot"
+    And its environment's PATH ends with "/home/p/.local/bin"
+    And copilot.server.started is logged with version "1.0.98"
+
+  Scenario: Error path — no Copilot CLI installed (CPA-CPX-3)
+    Given the CopilotCliSource double answers None
+    When start is called
+    Then start returns CPA_SERVER_START_FAILED as AdapterError::Unreachable, retryable
+    And no CLI server is started
+    And copilot.cli.missing is logged
+
+  Scenario: Edge case — a CLI installed after construction is used without a restart (CPA-CPX-2)
+    Given the CopilotCliSource double answered None at construction
+    And it now answers "/home/p/.local/bin/copilot" at version "1.0.98"
+    When start is called
+    Then the CLI server is started with cli_path "/home/p/.local/bin/copilot"
+
+  Scenario: Error path — a probe call with no CLI installed (CPA-CPX-4)
+    Given the CopilotCliSource double answers None
+    When the program's probe calls probe_sign_in
+    Then it returns CPA_PROBE_FAILED, retryable
+```
+
+### Gaps
+
+None.

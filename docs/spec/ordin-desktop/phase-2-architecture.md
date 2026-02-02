@@ -27,7 +27,7 @@ flowchart LR
         UI["Screens module<br/>(WebView)"]
         CORE["Desktop core<br/>(Rust modules)"]
         CC["Claude Code CLI<br/>(person's install)"]
-        CP["Copilot CLI server<br/>(bundled sidecar)"]
+        CP["Copilot CLI server<br/>(person's install)"]
         HK["ordin hook"]
         CR["ArtCraft CLIs and apps"]
         LS["Language servers"]
@@ -304,7 +304,7 @@ Phase = depth in the dependency graph (0 = the shared types crate; 1 = depends o
 | App Shell, Block Renderer (drawing side) | `apps/desktop/ui/` | screens module (TypeScript) | 12 | Service API (generated TypeScript types) | XL | D |
 | Architecture test | `crates/ordin-arch-test` | build check | 12 | — (reads `cargo metadata`) | S | build only |
 
-External programs, not built here: Claude Code CLI (person's install; organisation's image in A), Copilot CLI server (bundled sidecar, pinned), ArtCraft CLIs and apps, language servers (gopls, rust-analyzer, Java and TypeScript servers per Phase 1A), `gh`, `glab`.
+External programs, not built here: Claude Code CLI (person's install; organisation's image in A), Copilot CLI server (person's install, found like Claude Code; operator's install at the profile's pinned path on the personal server; *amended 2026-02-02, ADR-123; Approved by the user 2026-02-02*), ArtCraft CLIs and apps, language servers (gopls, rust-analyzer, Java and TypeScript servers per Phase 1A), `gh`, `glab`.
 
 Superseded components that get no crate: Package Catalogue's `apm` driving (ADR-082), apm CLI sidecar (ADR-082), wrightrun HTTP Adapter under that name (renamed Hosted Agent Adapter, ADR-098), Always on (a behaviour of the ordin server program, not a module).
 
