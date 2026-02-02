@@ -7239,7 +7239,9 @@ dependencies = [
  "ordin-rules",
  "ordin-types",
  "sandboxd",
+ "serde_json",
  "sha2 0.10.9",
+ "tokio",
  "tracing",
 ]
 

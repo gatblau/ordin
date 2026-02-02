@@ -16,3 +16,8 @@ getrandom = { workspace = true }
 sha2 = { workspace = true }
 tracing = { workspace = true }
 sandboxd = { path = "../../sandbox/sandbox-host" }
+
+[dev-dependencies]
+# The C-17 spike (plan 08, Phase 1) drives sandboxd's controller in-process.
+tokio = { workspace = true }
+serde_json = { workspace = true }
