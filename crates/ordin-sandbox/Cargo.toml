@@ -4,6 +4,13 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
+build = "build.rs"
+
+[features]
+default = []
+# The shell and JavaScript guests and run environment variables (Sandbox.md SH-3, SH-4);
+# off until the `sandboxd` change lands.
+extra-guests = []
 
 [dependencies]
 ordin-types = { workspace = true }
@@ -11,13 +18,30 @@ ordin-mcp-front = { workspace = true }
 ordin-rules = { workspace = true }
 ordin-identity = { workspace = true }
 ordin-journal = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
 bytes = { workspace = true }
 getrandom = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sha2 = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 sandboxd = { path = "../../sandbox/sandbox-host" }
 
+[build-dependencies]
+sha2 = { workspace = true }
+
 [dev-dependencies]
-# The C-17 spike (plan 08, Phase 1) drives sandboxd's controller in-process.
-tokio = { workspace = true }
-serde_json = { workspace = true }
+# Seeds a signed-in credential for the brokered-call scenario.
+ordin-identity = { workspace = true, features = ["test-support"] }
+# The real MCP Front over the real Rules Engine (tests/mcp_front.rs).
+ordin-approval = { workspace = true }
+ordin-organisation-profile = { workspace = true }
+ordin-service-api = { workspace = true }
+reqwest = { workspace = true }
+sqlx = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }

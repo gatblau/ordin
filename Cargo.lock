@@ -7231,18 +7231,30 @@ dependencies = [
 name = "ordin-sandbox"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "base64 0.22.1",
  "bytes",
  "getrandom 0.3.4",
+ "ordin-approval",
  "ordin-identity",
  "ordin-journal",
  "ordin-mcp-front",
+ "ordin-organisation-profile",
  "ordin-rules",
+ "ordin-service-api",
  "ordin-types",
+ "regex",
+ "reqwest 0.13.5",
  "sandboxd",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
+ "sqlx",
  "tokio",
+ "tokio-util",
  "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
