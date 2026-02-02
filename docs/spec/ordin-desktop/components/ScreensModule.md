@@ -6896,7 +6896,7 @@ Feature: Minutes live in the tree (SM-MIN-17 to SM-MIN-21)
 
 ## Amendment 2026-02-02 — Copilot's own words when it is not installed (SM-CPX-1)
 
-> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15; SetupAssistant.md SET-CPX-4; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force.
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: SetupAssistant.md SET-CPX-4; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force.
 
 - **SM-CPX-1** The words table gains `setup-harness-missing-copilot` "GitHub Copilot isn't on this computer yet. Install it, then choose Check again." and `setup-harness-untested-copilot` "This version of GitHub Copilot hasn't been checked with ordin yet. Install a checked version, then try again." `FirstStart` draws them as any failed `CheckResult` (SM-FS-5) with **Check again** only: there is no **Install GitHub Copilot** button, as SM-FS-9 already draws none for Copilot. Settings › Agents and models keeps its marks unchanged (SM-AGM-1: *Not found on this computer*, *Needs setting up*), so Copilot is offered to run agents only when it is `ready`.
 

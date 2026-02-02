@@ -1661,7 +1661,7 @@ Feature: Wiring per-document read access (ADR-115)
 
 ## Amendment 2026-02-02 — The Copilot CLI's path reaches the adapter through `CopilotCliSource` (SRV-CPX-1)
 
-> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15; CopilotLocalAdapter.md CPA-CPX-2 moved the CLI path out of the adapter's configuration. **derivedFromHld:** 0.73.0. Nothing else changes for the server: its Copilot CLI is still the one at the profile's pinned path, installed by the operator.
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: HLD ADR-123; CopilotLocalAdapter.md CPA-CPX-2 moved the CLI path out of the adapter's configuration. **derivedFromHld:** 0.73.0. Nothing else changes for the server: its Copilot CLI is still the one at the profile's pinned path, installed by the operator.
 
 - **SRV-CPX-1** Row 5.24 passes a `CopilotCliSource` whose `current()` answers the profile's pinned path with the version `<path> --version` prints (first semantic-version token), or `None` when that file is absent; `CopilotAdapterConfig` no longer carries `cli_path` or `cli_version`. The `CopilotPort` row (`SdkCopilotPort`) starts the server with the `cli_path` the adapter passes. The adapter is still refused on the personal server while C-48 is unconfirmed (`CPA_SERVER_SIGN_IN_UNCONFIRMED`) and on the agent profile (`CPA_PROFILE_NOT_OFFERED`).
 

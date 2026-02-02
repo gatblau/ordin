@@ -826,7 +826,7 @@ None.
 
 ## Amendment 2026-02-02 — The Copilot CLI is the person's own installation (CPA-CPX-1 to CPA-CPX-5)
 
-> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15 (`docs/wip/rfc/15-copilot-cli-as-a-prerequisite.md`); user decision 2026-02-02; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: user decision 2026-02-02; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
 
 - **CPA-CPX-1 Purpose and configuration.** In *Purpose*, "against a bundled, pinned Copilot CLI server" reads "against the Copilot CLI the person installed, started in server mode". In *Configuration consumed*, the row *Copilot CLI path and pinned version* is replaced by: *Copilot CLI path and version* — source: `CopilotCliSource::current()` (CPA-CPX-2), asked at every `start` and every probe call — value: an absolute path and the version string the CLI printed. The row *Tested versions* is unchanged.
 - **CPA-CPX-2 The CLI is asked for, not fixed at construction.** `CopilotAdapterConfig` loses `cli_path` and `cli_version`; its other fields are unchanged. The adapter takes one more dependency, implemented by each program:

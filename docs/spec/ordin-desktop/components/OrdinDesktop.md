@@ -3325,7 +3325,7 @@ None.
 
 ## Amendment 2026-02-02 — The Copilot CLI is the person's own, not a bundled program (DSK-CPX-1 to DSK-CPX-5)
 
-> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: RFC 15 (`docs/wip/rfc/15-copilot-cli-as-a-prerequisite.md`); user decision 2026-02-02, "copilot installation should be a pre-requisite to enable copilot harness in ordin"; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
+> **Status:** Approved by the user, 2026-02-02 ("approve, and allow Copilot without a company profile"). Source: user decision 2026-02-02, "copilot installation should be a pre-requisite to enable copilot harness in ordin"; HLD ADR-123. **derivedFromHld:** 0.73.0. Every section above stays in force except where this amendment changes it.
 
 - **DSK-CPX-1 One bundled program.** *Bundled programs* reads: `binaries/ordin-hook` only, found beside the executable as before. `tauri.conf.json` reads `"bundle": { "externalBin": ["binaries/ordin-hook"] }` in every build. DSK-UP-3 is withdrawn: no build carries `binaries/copilot`, so the bundling target needs no configuration per switch for it.
 - **DSK-CPX-2 No Copilot path beside the executable.** `DesktopPaths` loses `copilot_cli`. The Error Table row *A bundled program is missing beside the executable* names `ordin-hook` only. DSK-UP-5's row `DesktopPaths::copilot_cli` is withdrawn. The Gherkin scenario *Error path — a missing bundled program* reads: Given the `ordin-hook` program is missing beside the executable; When the person opens ordin; Then `DSK_SIDECAR_MISSING` is logged naming "ordin-hook"; And the window is still shown.

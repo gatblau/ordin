@@ -152,7 +152,7 @@ None outstanding for the spec set. The plan's own open assumptions (confirmation
 
 ## Amendment audit, 2026-02-02 — The Copilot CLI is the person's own install (approved)
 
-> **Scope:** amended — `components/SetupAssistant.md` (SET-CPX-1 to SET-CPX-6), `components/CopilotLocalAdapter.md` (CPA-CPX-1 to CPA-CPX-5), `components/OrdinDesktop.md` (DSK-CPX-1 to DSK-CPX-5), `components/OrdinServer.md` (SRV-CPX-1), `components/ScreensModule.md` (SM-CPX-1), `phase-1-analysis.md` (C-112), `phase-2-architecture.md` (diagram node and external-programs line), `cross-cutting/LicenceCheck.md` (*Internal Logic* 6), `phase-5-playbook.md` (§7.5). Source: RFC 15. HLD: ADR-123, revision 0.73.0 (proposed in the same review).
+> **Scope:** amended — `components/SetupAssistant.md` (SET-CPX-1 to SET-CPX-6), `components/CopilotLocalAdapter.md` (CPA-CPX-1 to CPA-CPX-5), `components/OrdinDesktop.md` (DSK-CPX-1 to DSK-CPX-5), `components/OrdinServer.md` (SRV-CPX-1), `components/ScreensModule.md` (SM-CPX-1), `phase-1-analysis.md` (C-112), `phase-2-architecture.md` (diagram node and external-programs line), `cross-cutting/LicenceCheck.md` (*Internal Logic* 6), `phase-5-playbook.md` (§7.5). Source: HLD ADR-123, revision 0.73.0.
 
 | # | Item | Result |
 |---|---|---|
@@ -174,7 +174,7 @@ None outstanding for the spec set. The plan's own open assumptions (confirmation
 
 - **A-1** The CLI is asked for at every session start (`CopilotCliSource`), so installing Copilot needs no restart; Claude Code keeps its path fixed at start (OrdinDesktop.md OQ-REC-4 (b)), unchanged here.
 - **A-2** A missing CLI at session start reuses `CPA_SERVER_START_FAILED`; no new code.
-- **A-3** No install button for Copilot, matching what Claude Code had before SM-FS-9 (RFC 15 open question 2).
+- **A-3** No install button for Copilot, matching what Claude Code had before SM-FS-9 (ADR-123).
 - **A-4** The personal server keeps the operator's install at the profile's pinned path (SRV-CPX-1).
 
 ### Open question — resolved
