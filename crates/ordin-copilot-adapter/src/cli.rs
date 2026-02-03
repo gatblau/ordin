@@ -415,9 +415,22 @@ impl CliServer {
     }
 
     fn session_params(session_id: &str, opts: &SessionOptions) -> Value {
+        let mut servers = opts
+            .mcp_servers
+            .get("mcpServers")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        // Every server's tools are offered: the CLI's own examples always name `"tools": ["*"]`,
+        // and a server registered without it was offered no tool by CLI 1.0.114 (plan 08 Phase 8).
+        // A `tools` list already given is kept.
+        if let Some(servers) = servers.as_object_mut() {
+            for server in servers.values_mut().filter_map(Value::as_object_mut) {
+                server.entry("tools").or_insert_with(|| json!(["*"]));
+            }
+        }
         let mut params = json!({
             "sessionId": session_id,
-            "mcpServers": opts.mcp_servers.get("mcpServers").cloned().unwrap_or_else(|| json!({})),
+            "mcpServers": servers,
             "requestPermission": true,
             "hooks": true,
             "envValueMode": "direct",
@@ -699,6 +712,35 @@ mod tests {
             })
         );
         assert_eq!(map(&mut state, "assistant.message_delta", json!({})), None);
+    }
+
+    #[test]
+    fn every_mcp_server_offers_all_its_tools_unless_it_names_them() {
+        struct Never;
+        #[async_trait::async_trait]
+        impl ToolGate for Never {
+            async fn decide(&self, _t: &str, _a: Value, _id: Option<String>) -> GateAnswer {
+                GateAnswer::Allow
+            }
+        }
+        #[async_trait::async_trait]
+        impl ToolObserver for Never {
+            async fn tool_used(&self, _t: &str, _id: Option<String>, _ok: bool) {}
+        }
+        let opts = SessionOptions {
+            model: None,
+            mcp_servers: json!({"mcpServers": {
+                "work": {"type": "stdio", "command": "/opt/w"},
+                "quotes": {"type": "stdio", "command": "/opt/q", "tools": ["price"]},
+            }}),
+            pre_tool_use: Arc::new(Never),
+            permission: Arc::new(Never),
+            post_tool_use: Arc::new(Never),
+        };
+        let params = CliServer::session_params("s1", &opts);
+        assert_eq!(params["mcpServers"]["work"]["tools"], json!(["*"]));
+        assert_eq!(params["mcpServers"]["quotes"]["tools"], json!(["price"]));
+        assert_eq!(params["mcpServers"]["work"]["command"], "/opt/w");
     }
 
     #[test]
