@@ -10,6 +10,8 @@ pub mod dashboard_export;
 pub mod error;
 pub mod groups;
 pub mod hosts;
+#[cfg(feature = "copilot")]
+pub mod hosts_copilot;
 pub mod hosts_home;
 pub mod hosts_knowledge;
 pub mod hosts_run;
@@ -104,11 +106,27 @@ mod service_api_rows_tests;
     ))
 ))]
 mod sandbox_tests;
+// The wiring tests also run with `copilot`, whose row 3.33 is constructed (plan 08 Phase 7).
+#[cfg(all(
+    test,
+    feature = "copilot",
+    not(any(
+        feature = "sandbox",
+        feature = "dictation",
+        feature = "slack",
+        feature = "mail",
+        feature = "authoring",
+        feature = "handover",
+        feature = "telegram",
+        feature = "hosted-agents",
+        feature = "knowledge-agents"
+    ))
+))]
+mod copilot_tests;
 #[cfg(all(
     test,
     not(any(
         feature = "dictation",
-        feature = "copilot",
         feature = "slack",
         feature = "mail",
         feature = "authoring",

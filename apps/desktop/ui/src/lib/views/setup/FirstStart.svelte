@@ -79,6 +79,12 @@
         <ErrorLine error={model.pages.error} onretry={() => void model.pages.retry()} />
       {/if}
 
+      {#if model.showCheckAgain}
+        <div class="install">
+          <button type="button" class="primary" onclick={() => void model.runGuided()}>{t('setup-check-again')}</button>
+        </div>
+      {/if}
+
       {#if model.showSignIn}
         <div class="sign-in">
           <button type="button" class="primary" disabled={model.signingIn} onclick={() => void model.signIn()}>

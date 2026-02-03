@@ -24,7 +24,7 @@ pub use assistant::{bundled_language_servers, migrations, SetupAssistant};
 pub use error::{SetupError, ALL_CODES};
 pub use ordin_journal::{MigrationStep, ModuleMigrations};
 pub use ordin_types::domain::identity::{HarnessAttachment, HarnessAttachmentState, HarnessKind};
-pub use process::{find_claude_code, ClaudeCodeProbe};
+pub use process::{find_claude_code, find_copilot_cli, ClaudeCodeProbe};
 pub use tools::missing_path_tools;
 pub use types::{
     AppUpdater, BundledProgram, CheckKind, CheckOutcome, CheckResult, CheckTrigger,

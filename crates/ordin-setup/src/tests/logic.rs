@@ -313,3 +313,87 @@ fn the_probe_environment_carries_windows_own_folders() {
         assert!(!names.contains(&credential), "{names:?}");
     }
 }
+
+// SET-CPX-2: `copilot` on `PATH` first, then the home folder's `.local/bin`; nothing found is `None`.
+#[cfg(unix)]
+#[test]
+fn find_copilot_cli_takes_path_first_then_the_home_local_bin() {
+    use crate::process::find_copilot_cli;
+    let (on_path, path) = path_with(&["copilot"]);
+    let home = TempDir::new();
+    let bin = home.path().join(".local").join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    write_script(&bin.join("copilot"), "exit 0");
+    assert_eq!(
+        find_copilot_cli(Some(&path), Some(home.path()), None, None),
+        Some(on_path.path().join("copilot"))
+    );
+    let (_empty, none) = path_with(&[]);
+    assert_eq!(
+        find_copilot_cli(Some(&none), Some(home.path()), None, None),
+        Some(bin.join("copilot"))
+    );
+    let empty_home = TempDir::new();
+    assert_eq!(
+        find_copilot_cli(Some(&none), Some(empty_home.path()), None, None),
+        None
+    );
+}
+
+// SET-CPX-2: the folders after `PATH`; Homebrew's on macOS, WinGet's and npm's on Windows, each
+// skipped when its variable is absent.
+#[test]
+fn copilot_cli_folders_follow_the_install_routes() {
+    use crate::process::copilot_cli_folders;
+    let home = PathBuf::from(if cfg!(windows) {
+        "C:/Users/p"
+    } else {
+        "/home/p"
+    });
+    let local = PathBuf::from("C:/Users/p/AppData/Local");
+    let roaming = PathBuf::from("C:/Users/p/AppData/Roaming");
+    let folders = copilot_cli_folders(Some(&home), Some(&local), Some(&roaming));
+    assert_eq!(folders[0], home.join(".local").join("bin"));
+    if cfg!(target_os = "macos") {
+        assert_eq!(
+            &folders[1..],
+            [
+                PathBuf::from("/opt/homebrew/bin"),
+                PathBuf::from("/usr/local/bin")
+            ]
+        );
+    } else if cfg!(windows) {
+        assert_eq!(
+            &folders[1..],
+            [
+                local.join("Microsoft").join("WinGet").join("Links"),
+                roaming.join("npm")
+            ]
+        );
+        assert_eq!(copilot_cli_folders(None, None, None), Vec::<PathBuf>::new());
+    } else {
+        assert_eq!(folders.len(), 1);
+    }
+}
+
+// SET-CPX-2: on Windows `copilot.exe` is taken before `copilot.cmd`, and `copilot.cmd` (npm) alone is
+// found in `<APPDATA>\npm`.
+#[cfg(windows)]
+#[test]
+fn find_copilot_cli_takes_exe_then_cmd_on_windows() {
+    use crate::process::find_copilot_cli;
+    let roaming = TempDir::new();
+    let npm = roaming.path().join("npm");
+    std::fs::create_dir_all(&npm).expect("npm");
+    std::fs::write(npm.join("copilot.cmd"), b"@echo 1.0.98").expect("cmd");
+    let none = OsString::new();
+    assert_eq!(
+        find_copilot_cli(Some(&none), None, None, Some(roaming.path())),
+        Some(npm.join("copilot.cmd"))
+    );
+    std::fs::write(npm.join("copilot.exe"), b"").expect("exe");
+    assert_eq!(
+        find_copilot_cli(Some(&none), None, None, Some(roaming.path())),
+        Some(npm.join("copilot.exe"))
+    );
+}

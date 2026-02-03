@@ -73,6 +73,9 @@ export function resultButton(action: PersonAction | null | undefined): ResultBut
   }
 }
 
+/** The sentence id the Setup Assistant gives a missing Copilot CLI (SetupAssistant.md SET-CPX-4). */
+const COPILOT_MISSING = 'setup-harness-missing-copilot';
+
 const NO_PROGRESS: SetupProgress = { done: 0, total: 0, running: false, steps: [] };
 
 export class FirstStartModel {
@@ -157,7 +160,13 @@ export class FirstStartModel {
 
   /** Claude Code is not on this computer: **Install Claude Code** and **Check again** are drawn (SM-FS-9). */
   get showInstall(): boolean {
-    return this.harness === 'claude_code' && this.failedResults.some((r) => r.code === 'SETUP_HARNESS_MISSING');
+    return this.harness === 'claude_code' && this.failedResults.some((r) => r.code === 'SETUP_HARNESS_MISSING' && r.message_id !== COPILOT_MISSING);
+  }
+
+  /** GitHub Copilot is not on this computer: **Check again** only, no install button (SM-CPX-1, ADR-123). */
+  // spec: ordin-desktop/components/ScreensModule#SM-CPX-1
+  get showCheckAgain(): boolean {
+    return !this.showInstall && this.failedResults.some((r) => r.message_id === COPILOT_MISSING);
   }
 
   /** **Install Claude Code**: `app.open_web_page { page: "claude_code_install" }` (SM-FS-9). */

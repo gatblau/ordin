@@ -14,9 +14,6 @@ pub struct DesktopPaths {
     /// Socket path (macOS) or pipe name (Windows).
     pub hook_endpoint: String,
     pub hook_program: PathBuf,
-    /// Resolved only in a build with `copilot` (DSK-UP-5, `DesktopPaths::copilot_cli` seam).
-    #[cfg(feature = "copilot")]
-    pub copilot_cli: PathBuf,
     pub preferences: PathBuf,
 }
 
@@ -49,8 +46,6 @@ impl DesktopPaths {
             hook_endpoint: hook_endpoint(&run, installation_id),
             run,
             hook_program: exe_dir.join(program_file("ordin-hook")),
-            #[cfg(feature = "copilot")]
-            copilot_cli: exe_dir.join(program_file("copilot")),
             preferences: data_root.join("preferences.json"),
             data_root,
         }
@@ -78,17 +73,14 @@ impl DesktopPaths {
         Ok(())
     }
 
-    /// The bundled programs of this build that are not beside the executable (step 4: each is
-    /// logged as `DSK_SIDECAR_MISSING` and start continues). `copilot` is checked only in a build with
-    /// the `copilot` switch.
+    /// The bundled programs that are not beside the executable (step 4: each is logged as
+    /// `DSK_SIDECAR_MISSING` and start continues). `ordin-hook` is the only one in every build: the
+    /// Copilot CLI is the person's own (DSK-CPX-1, DSK-CPX-2).
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CPX-2
     pub fn missing_sidecars(&self) -> Vec<&'static str> {
         let mut missing = Vec::new();
         if !self.hook_program.is_file() {
             missing.push("ordin-hook");
-        }
-        #[cfg(feature = "copilot")]
-        if !self.copilot_cli.is_file() {
-            missing.push("copilot");
         }
         missing
     }
@@ -174,17 +166,13 @@ mod tests {
         assert_eq!(paths.log_missing_sidecars().first(), Some(&"ordin-hook"));
         std::fs::write(&paths.hook_program, b"").expect("hook");
         let missing = paths.missing_sidecars();
-        assert!(!missing.contains(&"ordin-hook"));
-        #[cfg(feature = "copilot")]
-        assert_eq!(missing, vec!["copilot"]);
-        #[cfg(not(feature = "copilot"))]
         assert!(missing.is_empty());
     }
 
-    // OrdinDesktop.md amendment January 2026 (ADR-114).
-    #[cfg(not(feature = "copilot"))]
+    // OrdinDesktop.md amendment January 2026 (ADR-114); DSK-CPX-1, DSK-CPX-2: no build looks for a
+    // Copilot CLI beside the executable, `copilot` on or off.
     #[test]
-    fn edge_case_copilot_is_not_offered_without_its_switch() {
+    fn edge_case_copilot_is_never_a_bundled_program() {
         let dir = TempDir::new("no-copilot");
         let paths = DesktopPaths::new(dir.path().join("root"), dir.path(), "id");
         std::fs::write(&paths.hook_program, b"").expect("hook");

@@ -458,13 +458,10 @@ pub fn rows() -> Vec<Row> {
     rows
 }
 
-/// `SetupConfig.bundled_programs` by name (DSK-UP-5, seam *Setup Assistant*).
+/// `SetupConfig.bundled_programs` by name: `ordin-hook` in every build (DSK-CPX-5, SET-CPX-1).
+// spec: ordin-desktop/components/OrdinDesktop#DSK-CPX-5
 pub fn bundled_program_names() -> Vec<&'static str> {
-    #[allow(unused_mut)]
-    let mut names = vec!["ordin-hook"];
-    #[cfg(feature = "copilot")]
-    names.push("copilot");
-    names
+    vec!["ordin-hook"]
 }
 
 /// The build switches of this build, for the `start` log line's `features` (amendment January 2026,

@@ -73,6 +73,17 @@ fn arg(mut result: CheckResult, key: &str, value: &str) -> CheckResult {
     result
 }
 
+/// `SETUP_HARNESS_MISSING` and `SETUP_HARNESS_UNTESTED` for the `copilot` harness carry Copilot's own
+/// sentence ids; the codes do not change (SET-CPX-4). Claude Code keeps the code's own id.
+// spec: ordin-desktop/components/SetupAssistant#SET-CPX-4
+fn harness_failed(kind: HarnessKind, code: &str) -> CheckResult {
+    let mut result = failed(CheckKind::Harness, code, None);
+    if kind == HarnessKind::CopilotCli {
+        result.message_id = Some(format!("{}-copilot", message_id(code)));
+    }
+    arg(result, "harness", harness_words(kind))
+}
+
 fn harness_words(kind: HarnessKind) -> &'static str {
     match kind {
         HarnessKind::ClaudeCode => "Claude Code",
@@ -293,11 +304,7 @@ impl Inner {
             Ok(Some(found)) => found,
             Ok(None) | Err(ProbeError::NotFound) => {
                 return Ok(HarnessCheck {
-                    harness: arg(
-                        failed(CheckKind::Harness, "SETUP_HARNESS_MISSING", None),
-                        "harness",
-                        words,
-                    ),
+                    harness: harness_failed(kind, "SETUP_HARNESS_MISSING"),
                     sign_in: None,
                     ready: false,
                 })
@@ -366,11 +373,7 @@ impl Inner {
             )
             .await?;
             return Ok(HarnessCheck {
-                harness: arg(
-                    failed(CheckKind::Harness, "SETUP_HARNESS_UNTESTED", None),
-                    "harness",
-                    words,
-                ),
+                harness: harness_failed(kind, "SETUP_HARNESS_UNTESTED"),
                 sign_in: None,
                 ready: false,
             });

@@ -216,7 +216,14 @@ async fn start_wires_every_module_of_the_build_with_no_switch() {
             Provider::OrdinHost,
         ]
     );
-    assert_eq!(m.adapters, [Adapter::Claude]);
+    assert_eq!(
+        m.adapters,
+        [
+            Adapter::Claude,
+            #[cfg(feature = "copilot")]
+            Adapter::Copilot,
+        ]
+    );
     assert!(
         m.mcp_started,
         "the MCP Front started after bind_ref_resolver"

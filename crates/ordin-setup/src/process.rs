@@ -226,6 +226,59 @@ pub fn find_claude_code(path: Option<&OsStr>, home: Option<&Path>) -> Option<Pat
     find_claude_in(path, &claude_code_folders(home))
 }
 
+/// The folders searched for `copilot` after `PATH` (SET-CPX-2), in order: `<home>/.local/bin` (the
+/// install script), on macOS `/opt/homebrew/bin` and `/usr/local/bin` (Homebrew), on Windows
+/// `<LOCALAPPDATA>\Microsoft\WinGet\Links` (WinGet) and `<APPDATA>\npm` (npm). An absent variable
+/// skips its folder. Conditional on C-112.
+// spec: ordin-desktop/components/SetupAssistant#SET-CPX-2
+pub(crate) fn copilot_cli_folders(
+    home: Option<&Path>,
+    local_app_data: Option<&Path>,
+    app_data: Option<&Path>,
+) -> Vec<PathBuf> {
+    let mut folders: Vec<PathBuf> = home
+        .into_iter()
+        .map(|home| home.join(".local").join("bin"))
+        .collect();
+    if cfg!(target_os = "macos") {
+        folders.push(PathBuf::from("/opt/homebrew/bin"));
+        folders.push(PathBuf::from("/usr/local/bin"));
+    }
+    if cfg!(windows) {
+        folders.extend(local_app_data.map(|d| d.join("Microsoft").join("WinGet").join("Links")));
+        folders.extend(app_data.map(|d| d.join("npm")));
+    }
+    folders
+}
+
+/// `copilot` (`copilot.exe`, then `copilot.cmd`, on Windows) in the `PATH` entries, then in `extra`.
+pub(crate) fn find_copilot_in(path: Option<&OsStr>, extra: &[PathBuf]) -> Option<PathBuf> {
+    let names: &[&str] = if cfg!(windows) {
+        &["copilot.exe", "copilot.cmd"]
+    } else {
+        &["copilot"]
+    };
+    find_on_path(path, names).or_else(|| {
+        extra
+            .iter()
+            .flat_map(|dir| names.iter().map(move |name| dir.join(name)))
+            .find(|candidate| is_executable_file(candidate))
+    })
+}
+
+/// The Copilot CLI the person installed: `copilot` on `path`, else in the person's own folders of
+/// SET-CPX-2; `None` when it is in neither. Kept beside [`find_claude_code`] so the desktop's probe and
+/// the adapter's CLI source never disagree (ADR-123).
+// spec: ordin-desktop/components/SetupAssistant#SET-CPX-2
+pub fn find_copilot_cli(
+    path: Option<&OsStr>,
+    home: Option<&Path>,
+    local_app_data: Option<&Path>,
+    app_data: Option<&Path>,
+) -> Option<PathBuf> {
+    find_copilot_in(path, &copilot_cli_folders(home, local_app_data, app_data))
+}
+
 /// `path` with `folder` added at the end when no entry is already that folder (SET-R1-8), so what
 /// `claude` itself starts from its own folder is found. A folder that cannot be joined into a `PATH`
 /// leaves `path` as it was.

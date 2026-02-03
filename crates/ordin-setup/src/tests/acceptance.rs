@@ -619,3 +619,150 @@ async fn edge_case_a_failed_step_says_why() {
         .filter(|s| s.state != StepState::Failed)
         .all(|s| s.problem.is_none()));
 }
+
+// ---------------------------------------------------------------- SET-CPX (ADR-123)
+
+/// Where the stand-in probe says Copilot is: an absolute path on this platform.
+#[cfg(unix)]
+const COPILOT_AT: &str = "/home/p/.local/bin/copilot";
+#[cfg(windows)]
+const COPILOT_AT: &str = "C:/Users/p/AppData/Roaming/npm/copilot.cmd";
+
+/// A Copilot probe found at `<home>/.local/bin/copilot`, signed in.
+fn copilot_probe(env: &Env) -> std::sync::Arc<FakeProbe> {
+    let probe = FakeProbe::new(
+        HarnessKind::CopilotCli,
+        "1.0.98",
+        HarnessSignIn::SignedIn {
+            method: Some("github".to_owned()),
+        },
+    );
+    *lock(&probe.location) = Ok(Some(crate::types::HarnessLocation {
+        path: COPILOT_AT.into(),
+        version: "1.0.98".to_owned(),
+    }));
+    env.setup.register_probe(probe.clone());
+    probe
+}
+
+// Scenario: Happy path — no company profile, Copilot installed and Claude Code not (SET-CPX-6)
+#[tokio::test]
+async fn set_cpx_6_no_company_profile_walks_claude_code_then_copilot() {
+    let env = Env::new().await;
+    *lock(&env.profile.status) = ProfileState::NotUsed;
+    *lock(&env.claude.location) = Ok(None);
+    let copilot = copilot_probe(&env);
+    let report = env.setup.run_guided().await.expect("guided");
+    assert!(report.ready);
+    assert_eq!(
+        result(&report, CheckKind::Harness).outcome,
+        CheckOutcome::Passed
+    );
+    let attachments = env.setup.harness_attachments().await.expect("attachments");
+    let copilot_attachment = attachments
+        .iter()
+        .find(|a| a.harness == HarnessKind::CopilotCli)
+        .expect("copilot attachment");
+    assert_eq!(copilot_attachment.state, HarnessAttachmentState::Ready);
+    assert_eq!(copilot_attachment.location, COPILOT_AT);
+    assert!(!attachments
+        .iter()
+        .any(|a| a.harness == HarnessKind::ClaudeCode));
+    assert_eq!(copilot.sign_ins.load(Ordering::SeqCst), 0);
+}
+
+// SET-CPX-6: with no company profile, Claude Code stays first and decides when it is ready.
+#[tokio::test]
+async fn set_cpx_6_no_company_profile_keeps_claude_code_first() {
+    let env = Env::new().await;
+    *lock(&env.profile.status) = ProfileState::NoAddress;
+    copilot_probe(&env);
+    let report = env.setup.run_guided().await.expect("guided");
+    assert!(report.ready);
+    let attachments = env.setup.harness_attachments().await.expect("attachments");
+    assert_eq!(attachments.len(), 1);
+    assert_eq!(attachments[0].harness, HarnessKind::ClaudeCode);
+}
+
+// Scenario: Edge case — a company profile that lists Claude Code only (SET-CPX-6)
+#[tokio::test]
+async fn set_cpx_6_a_company_profile_listing_claude_code_only_never_checks_copilot() {
+    let env = Env::new().await;
+    env.profile
+        .edit(|d| d.harnesses = vec![harness(HarnessName::ClaudeCode, &[])]);
+    *lock(&env.claude.location) = Ok(None);
+    copilot_probe(&env);
+    let report = env.setup.run_guided().await.expect("guided");
+    assert!(!report.ready);
+    let r = result(&report, CheckKind::Harness);
+    assert_eq!(r.message_id.as_deref(), Some("setup-harness-missing"));
+    let attachments = env.setup.harness_attachments().await.expect("attachments");
+    assert!(!attachments
+        .iter()
+        .any(|a| a.harness == HarnessKind::CopilotCli));
+}
+
+// Scenario: Error path — Copilot is nowhere (SET-CPX-4)
+#[tokio::test]
+async fn set_cpx_4_copilot_is_nowhere() {
+    let env = Env::new().await;
+    env.profile
+        .edit(|d| d.harnesses = vec![harness(HarnessName::Copilot, &[])]);
+    let copilot = copilot_probe(&env);
+    *lock(&copilot.location) = Ok(None);
+    let report = env.setup.run_guided().await.expect("guided");
+    let r = result(&report, CheckKind::Harness);
+    assert_eq!(r.code.as_deref(), Some("SETUP_HARNESS_MISSING"));
+    assert_eq!(
+        r.message_id.as_deref(),
+        Some("setup-harness-missing-copilot")
+    );
+    assert_eq!(r.action, None);
+    assert!(!report.ready);
+}
+
+// Scenario: Error path — an untested Copilot version (SET-CPX-4)
+#[tokio::test]
+async fn set_cpx_4_an_untested_copilot_version() {
+    let env = Env::new().await;
+    env.profile
+        .edit(|d| d.harnesses = vec![harness(HarnessName::Copilot, &["1.0.98"])]);
+    let copilot = copilot_probe(&env);
+    *lock(&copilot.location) = Ok(Some(crate::types::HarnessLocation {
+        path: COPILOT_AT.into(),
+        version: "1.0.99".to_owned(),
+    }));
+    let report = env.setup.run_guided().await.expect("guided");
+    let r = result(&report, CheckKind::Harness);
+    assert_eq!(r.code.as_deref(), Some("SETUP_HARNESS_UNTESTED"));
+    assert_eq!(
+        r.message_id.as_deref(),
+        Some("setup-harness-untested-copilot")
+    );
+    assert_eq!(r.action, None);
+    let attachment = &env.setup.harness_attachments().await.expect("a")[0];
+    assert_eq!(attachment.state, HarnessAttachmentState::NeedsUpdate);
+}
+
+// Scenario: Edge case — Copilot installed while ordin is open is found by Check again (SET-CPX-5)
+#[tokio::test]
+async fn set_cpx_5_copilot_installed_while_open_is_found_by_check_again() {
+    let env = Env::new().await;
+    env.profile
+        .edit(|d| d.harnesses = vec![harness(HarnessName::Copilot, &[])]);
+    let copilot = copilot_probe(&env);
+    let found = lock(&copilot.location).clone();
+    *lock(&copilot.location) = Ok(None);
+    let first = env.setup.run_guided().await.expect("guided");
+    assert_eq!(
+        result(&first, CheckKind::Harness).code.as_deref(),
+        Some("SETUP_HARNESS_MISSING")
+    );
+    *lock(&copilot.location) = found;
+    let again = env.setup.run_guided().await.expect("check again");
+    assert_eq!(
+        result(&again, CheckKind::Harness).outcome,
+        CheckOutcome::Passed
+    );
+    assert!(again.ready);
+}

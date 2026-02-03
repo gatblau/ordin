@@ -195,6 +195,9 @@ pub struct Modules {
     pub jira: Option<Arc<JiraAdapter>>,
     pub projects: Option<Arc<ProjectService>>,
     pub claude: Option<Arc<ClaudeLocalAdapter>>,
+    /// Row 3.33, behind `copilot`.
+    #[cfg(feature = "copilot")]
+    pub copilot: Option<Arc<ordin_copilot_adapter::CopilotLocalAdapter>>,
     pub workspaces: Option<Arc<WorkspaceService>>,
     pub catalogue: Option<Arc<CatalogueService>>,
     pub push: Option<Arc<PushService>>,
@@ -1105,6 +1108,74 @@ impl ModuleRunner {
         Ok(())
     }
 
+    /// Row 3.33 (DSK-CPX-4): the adapter asks the program for the person's Copilot CLI at every
+    /// session start and probe call; `CliCopilotPort` starts it from the `CliServerSpec` the adapter
+    /// passes, never from a path beside the executable.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CPX-4
+    #[cfg(feature = "copilot")]
+    fn copilot_row(&mut self) -> Result<(), StartError> {
+        use ordin_copilot_adapter::{CliCopilotPort, CopilotAdapterConfig, CopilotLocalAdapter};
+        let row = Row::CopilotAdapter;
+        let tested_versions = earlier(&self.modules.profile, row)?
+            .current()
+            .document
+            .harnesses
+            .iter()
+            .find(|h| h.name == HarnessName::Copilot)
+            .map(|h| h.tested_versions.clone())
+            .unwrap_or_default();
+        let setup = Arc::new(crate::hosts_run::DesktopCopilotSessionSetup {
+            inner: Arc::new(DesktopSessionSetup {
+                late: self.late.clone(),
+                installers: earlier(&self.modules.installers, row)?,
+                usage: earlier(&self.modules.usage, row)?,
+                agent_folders: earlier(&self.modules.agent_folders, row)?,
+                journal: earlier(&self.modules.journal, row)?,
+                files: earlier(&self.modules.files, row)?,
+                projects: earlier(&self.modules.projects, row)?,
+            }),
+        });
+        let copilot = CopilotLocalAdapter::new(
+            CopilotAdapterConfig {
+                tested_versions,
+                app_data_root: self.data_root(),
+                profile: ProgramProfile::Desktop,
+                stop_deadline: Duration::from_secs(10),
+            },
+            Arc::new(CliCopilotPort::new()),
+            Arc::new(crate::hosts_copilot::DesktopCopilotCli {
+                lookup: crate::hosts_copilot::CopilotLookup::from_process(),
+            }),
+            earlier(&self.modules.mcp_front, row)?,
+            earlier(&self.modules.hook_relay, row)?,
+            earlier(&self.modules.rules, row)?,
+            earlier(&self.modules.identity, row)?,
+            setup,
+        )
+        .map_err(|e| StartError::ModuleFailed {
+            module: row.module(),
+            code: e.code().to_owned(),
+        })?;
+        self.modules.copilot = Some(Arc::new(copilot));
+        Ok(())
+    }
+
+    /// `setup_assistant.register_probe(<Copilot HarnessProbe>)`, right after row 3.43 (DSK-CPX-3,
+    /// DSK-CPX-5). Nothing is located at start: with no Copilot CLI installed, start completes and
+    /// nothing is logged for Copilot.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CPX-3
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CPX-5
+    #[cfg(feature = "copilot")]
+    fn register_copilot_probe(&mut self) -> Result<(), StartError> {
+        let setup = earlier(&self.modules.setup, Row::Setup)?;
+        let adapter = earlier(&self.modules.copilot, Row::CopilotAdapter)?;
+        setup.register_probe(Arc::new(crate::hosts_copilot::DesktopCopilotProbe {
+            lookup: crate::hosts_copilot::CopilotLookup::from_process(),
+            adapter,
+        }));
+        Ok(())
+    }
+
     /// Row 3.35.
     async fn workspaces_row(&mut self) -> Result<(), StartError> {
         let row = Row::Workspaces;
@@ -1570,6 +1641,11 @@ impl ModuleRunner {
                 Row::ClaudeAdapter,
                 earlier(&self.modules.claude, Row::ClaudeAdapter)?,
             ),
+            #[cfg(feature = "copilot")]
+            Adapter::Copilot => (
+                Row::CopilotAdapter,
+                earlier(&self.modules.copilot, Row::CopilotAdapter)?,
+            ),
             #[allow(unreachable_patterns)]
             _ => {
                 return Err(StartError::ModuleFailed {
@@ -1585,11 +1661,16 @@ impl ModuleRunner {
         Ok(())
     }
 
-    /// `usage.set_harnesses(..)`: `copilot` off, the Claude Local Adapter's only (DSK-UP-5).
+    /// `usage.set_harnesses(..)`: `copilot` off, the Claude Local Adapter's only; `copilot` on, both
+    /// local adapters' (DSK-UP-5).
     fn set_harnesses(&mut self) -> Result<(), StartError> {
         let row = Row::UsagePlanner;
         let claude = earlier(&self.modules.claude, Row::ClaudeAdapter)?;
-        earlier(&self.modules.usage, row)?.set_harnesses(vec![claude.harness_models()]);
+        #[allow(unused_mut)]
+        let mut harnesses = vec![claude.harness_models()];
+        #[cfg(feature = "copilot")]
+        harnesses.push(earlier(&self.modules.copilot, Row::CopilotAdapter)?.harness_models());
+        earlier(&self.modules.usage, row)?.set_harnesses(harnesses);
         Ok(())
     }
 
@@ -1729,6 +1810,8 @@ impl StepRunner for ModuleRunner {
                 Row::Jira => self.jira_row(),
                 Row::Projects => self.projects_row().await,
                 Row::ClaudeAdapter => self.claude_row(),
+                #[cfg(feature = "copilot")]
+                Row::CopilotAdapter => self.copilot_row(),
                 Row::Workspaces => self.workspaces_row().await,
                 Row::Catalogue => self.catalogue_row(),
                 Row::Push => self.push_row(),
@@ -1767,7 +1850,8 @@ impl StepRunner for ModuleRunner {
             Step::BindRefResolver => self.bind_ref_resolver(),
             Step::StartMcpFront => self.start_mcp_front().await,
             Step::RegisterUpdater => self.register_updater(),
-            // The Copilot probe is behind `copilot`: not wired yet.
+            #[cfg(feature = "copilot")]
+            Step::RegisterCopilotProbe => self.register_copilot_probe(),
             #[allow(unreachable_patterns)]
             _ => Err(StartError::ModuleFailed {
                 module: "ordin-desktop",

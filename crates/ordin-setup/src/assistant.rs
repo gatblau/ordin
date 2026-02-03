@@ -10,7 +10,7 @@ use std::time::Duration;
 use futures::future::{BoxFuture, Shared};
 use futures::FutureExt;
 use ordin_journal::{Datastore, ModuleMigrations};
-use ordin_organisation_profile::{HarnessName, LanguageServerEntry, SnapshotSource};
+use ordin_organisation_profile::{HarnessName, LanguageServerEntry, ProfileState, SnapshotSource};
 use ordin_types::domain::identity::{HarnessAttachment, HarnessKind};
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
@@ -409,8 +409,21 @@ impl Inner {
             .cloned()
     }
 
-    /// `document.harnesses` in order as harness kinds, without `copilot` on the server (C-48).
+    /// `document.harnesses` in order as harness kinds, without `copilot` on the server (C-48). With no
+    /// company profile, `[claude_code, copilot]` with no tested versions (SET-CPX-6); a harness with no
+    /// registered probe is skipped by the callers, so a build without `copilot` checks Claude Code only.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CPX-6
     pub(crate) fn listed_harnesses(&self) -> Vec<(HarnessKind, Vec<String>)> {
+        if matches!(
+            self.ports.profile.status().state,
+            ProfileState::NotUsed | ProfileState::NoAddress
+        ) {
+            let mut kinds = vec![(HarnessKind::ClaudeCode, Vec::new())];
+            if self.program != SetupProgram::PersonalServer {
+                kinds.push((HarnessKind::CopilotCli, Vec::new()));
+            }
+            return kinds;
+        }
         let snapshot = self.ports.profile.current();
         snapshot
             .document

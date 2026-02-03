@@ -450,6 +450,89 @@ impl SessionSetupSource for DesktopSessionSetup {
     }
 }
 
+// ---------------------------------------------------------------- SessionSetupSource (row 3.33)
+
+/// `SessionSetupSource` of the Copilot Local Adapter over the same modules as the Claude one: the
+/// `Session` lease held for the run's life, the Installers' `HarnessLaunch::Copilot`, the crew run's
+/// charter and the attachments. `CopilotSessionSetup` carries no granted folders, so no grant is
+/// applied and attachments are checked against the agent folder only (OrdinDesktop.md
+/// `SessionSetupSource` row). `model` is `None` (DSK-REC-7); no package server (DSK-REC-28).
+#[cfg(feature = "copilot")]
+pub struct DesktopCopilotSessionSetup {
+    pub inner: Arc<DesktopSessionSetup>,
+}
+
+#[cfg(feature = "copilot")]
+fn copilot_setup_error(error: SessionSetupError) -> ordin_copilot_adapter::SessionSetupError {
+    ordin_copilot_adapter::SessionSetupError { code: error.code }
+}
+
+#[cfg(feature = "copilot")]
+#[async_trait::async_trait]
+impl ordin_copilot_adapter::SessionSetupSource for DesktopCopilotSessionSetup {
+    async fn session_setup(
+        &self,
+        run_id: RunId,
+        agent_instance_id: AgentInstanceId,
+        attachments: &[ArtefactId],
+    ) -> Result<ordin_copilot_adapter::CopilotSessionSetup, ordin_copilot_adapter::SessionSetupError>
+    {
+        let this = &self.inner;
+        // DSK-REC-8: the `Session` lease first, held for the run's life.
+        let lease = this
+            .agent_folders
+            .lock(agent_instance_id, LockMode::Session)
+            .await
+            .map_err(|e| copilot_setup_error(setup_error(e.code())))?;
+        let record = this
+            .installers
+            .record(agent_instance_id)
+            .await
+            .map_err(|e| copilot_setup_error(setup_error(e.code())))?;
+        let HarnessLaunch::Copilot { working_dir } = record.launch else {
+            let error = InstallError::HarnessUnsupported {
+                harness: record.harness,
+            };
+            return Err(copilot_setup_error(setup_error(error.code())));
+        };
+        let supervisor = this
+            .late
+            .supervisor
+            .get()
+            .ok_or_else(|| copilot_setup_error(setup_error(START_FAILED)))?;
+        let view = supervisor
+            .get(run_id)
+            .await
+            .map_err(|e| copilot_setup_error(setup_error(e.code())))?;
+        let run = view.run;
+        let crew_charter_id = this
+            .crew_charter(run.origin)
+            .await
+            .map_err(copilot_setup_error)?;
+        let attachment_paths = attachment_paths(
+            this.as_ref(),
+            AttachmentRun {
+                run_id,
+                crew_round: matches!(run.origin, RunOrigin::CrewRound { .. }),
+                agent_folder: &working_dir,
+                extra_dirs: &[],
+            },
+            attachments,
+        )
+        .await
+        .map_err(copilot_setup_error)?;
+        this.late.runs.hold(run_id, agent_instance_id, lease);
+        Ok(ordin_copilot_adapter::CopilotSessionSetup {
+            agent_folder: working_dir,
+            model: None,
+            attachment_paths,
+            package_servers: Vec::new(),
+            resume_session_id: run.runtime_session_id,
+            crew_charter_id,
+        })
+    }
+}
+
 // ---------------------------------------------------------------- attachments (DSK-REC-26, 29)
 
 /// The reads DSK-REC-26 steps 2 and 3 make for one attached artefact; each error is the owner's code.

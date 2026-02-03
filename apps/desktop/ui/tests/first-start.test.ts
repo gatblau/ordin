@@ -375,3 +375,39 @@ describe('Claude Code is not on this computer (SM-FS-9)', () => {
     expect(transport.sentOf('app.open_web_page')).toHaveLength(2);
   });
 });
+
+// SM-CPX-1 (ADR-123): GitHub Copilot is the person's own install; ordin opens no install page for it.
+describe('GitHub Copilot is not on this computer (SM-CPX-1)', () => {
+  it('Error path — GitHub Copilot is not installed: its sentence and Check again, no install button', async () => {
+    let guided!: ReturnType<typeof firstStart>;
+    const { app, transport } = await appWith((t) => {
+      guided = firstStart(t);
+    });
+    app.firstStart.begin();
+    guided.answer(ok(report(false, [{ ...failed('SETUP_HARNESS_MISSING', null, 'harness'), message_id: 'setup-harness-missing-copilot' }])));
+    await settle();
+    const out = text(html(FirstStart, { model: app.firstStart }, app));
+    expect(out).toContain("GitHub Copilot isn't on this computer yet. Install it, then choose Check again.");
+    expect(out).toContain('Check again');
+    expect(out).not.toContain('Install Claude Code');
+    expect(out).not.toMatch(/Install GitHub Copilot/);
+    expect(app.firstStart.showInstall).toBe(false);
+    expect(app.firstStart.showCheckAgain).toBe(true);
+    void app.firstStart.runGuided();
+    await settle();
+    expect(transport.sentOf('setup.run_guided')).toHaveLength(2);
+    expect(transport.sentOf('app.open_web_page')).toHaveLength(0);
+  });
+
+  it('an untested GitHub Copilot draws its own sentence', async () => {
+    let guided!: ReturnType<typeof firstStart>;
+    const { app } = await appWith((t) => {
+      guided = firstStart(t);
+    });
+    app.firstStart.begin();
+    guided.answer(ok(report(false, [{ ...failed('SETUP_HARNESS_UNTESTED', null, 'harness'), message_id: 'setup-harness-untested-copilot' }])));
+    await settle();
+    const out = text(html(FirstStart, { model: app.firstStart }, app));
+    expect(out).toContain("This version of GitHub Copilot hasn't been checked with ordin yet. Install a checked version, then try again.");
+  });
+});
