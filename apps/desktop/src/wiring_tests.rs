@@ -116,7 +116,7 @@ pub(crate) fn context() -> CallContext {
     }
 }
 
-fn rule_set(agent: AgentInstanceId, folder: &std::path::Path) -> InstanceRuleSet {
+pub(crate) fn rule_set(agent: AgentInstanceId, folder: &std::path::Path) -> InstanceRuleSet {
     InstanceRuleSet {
         agent_instance_id: agent,
         package_name: "analyst".to_owned(),
@@ -136,7 +136,7 @@ fn rule_set(agent: AgentInstanceId, folder: &std::path::Path) -> InstanceRuleSet
     }
 }
 
-fn start_facts(run: RunId, agent: AgentInstanceId) -> RunStartFacts {
+pub(crate) fn start_facts(run: RunId, agent: AgentInstanceId) -> RunStartFacts {
     RunStartFacts {
         run_id: run,
         agent_instance_id: agent,
@@ -207,6 +207,8 @@ async fn start_wires_every_module_of_the_build_with_no_switch() {
     assert_eq!(
         m.providers,
         [
+            #[cfg(feature = "sandbox")]
+            Provider::Sandbox,
             Provider::MemoryService,
             Provider::CraftToolkit,
             Provider::Projects,

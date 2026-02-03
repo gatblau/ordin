@@ -13,6 +13,8 @@ pub mod hosts;
 pub mod hosts_home;
 pub mod hosts_knowledge;
 pub mod hosts_run;
+#[cfg(feature = "sandbox")]
+pub mod hosts_sandbox;
 #[cfg(feature = "team-knowledge")]
 pub mod hosts_team;
 pub mod http;
@@ -85,10 +87,26 @@ mod lifecycle_tests;
     ))
 ))]
 mod service_api_rows_tests;
+// The wiring tests also run with `sandbox`, whose row 3.27 is constructed (plan 08 Phase 5).
+#[cfg(all(
+    test,
+    feature = "sandbox",
+    not(any(
+        feature = "dictation",
+        feature = "copilot",
+        feature = "slack",
+        feature = "mail",
+        feature = "authoring",
+        feature = "handover",
+        feature = "telegram",
+        feature = "hosted-agents",
+        feature = "knowledge-agents"
+    ))
+))]
+mod sandbox_tests;
 #[cfg(all(
     test,
     not(any(
-        feature = "sandbox",
         feature = "dictation",
         feature = "copilot",
         feature = "slack",

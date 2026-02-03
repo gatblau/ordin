@@ -180,6 +180,9 @@ pub struct Modules {
     pub installers: Option<Arc<Installers>>,
     pub supervisor: Option<Arc<SessionSupervisor>>,
     pub mcp_front: Option<Arc<McpFront>>,
+    /// Row 3.27, behind `sandbox`.
+    #[cfg(feature = "sandbox")]
+    pub sandbox: Option<Arc<ordin_sandbox::Sandbox>>,
     pub inspector: Option<Arc<PackageInspector>>,
     pub files: Option<Arc<FileService>>,
     pub hook_relay: Option<Arc<HookRelay>>,
@@ -886,6 +889,38 @@ impl ModuleRunner {
         Ok(())
     }
 
+    /// Row 3.27: `Sandbox::start` over the MCP Front, the program's `SandboxGrants` (SPEC-GAP-37) and
+    /// `PlaceFiles`, Identity and the Journal; the idle limit is the profile's
+    /// `sandbox.session_idle_minutes`. The Sandbox never fails start: a fault leaves it offering no
+    /// tools, with its status logged by the Sandbox itself.
+    // spec: ordin-desktop/components/Sandbox#SA-RECON-05
+    #[cfg(feature = "sandbox")]
+    async fn sandbox_row(&mut self) -> Result<(), StartError> {
+        let row = Row::Sandbox;
+        let idle_minutes = earlier(&self.modules.profile, row)?
+            .current()
+            .document
+            .sandbox
+            .session_idle_minutes;
+        let front = earlier(&self.modules.mcp_front, row)?;
+        let sandbox = ordin_sandbox::Sandbox::start(ordin_sandbox::SandboxDeps {
+            dispatch: front,
+            grants: Arc::new(crate::hosts_sandbox::DesktopSandboxGrants),
+            identity: earlier(&self.modules.identity, row)?,
+            journal: (*self.journal(row)?).clone(),
+            place_files: Arc::new(crate::hosts_sandbox::DesktopPlaceFiles {
+                files: earlier(&self.modules.files, row)?,
+                agent_folders: earlier(&self.modules.agent_folders, row)?,
+            }),
+            session_idle: Duration::from_secs(u64::from(idle_minutes) * 60),
+            data_root: self.data_root(),
+            log_level: "info".to_owned(),
+        })
+        .await;
+        self.modules.sandbox = Some(sandbox);
+        Ok(())
+    }
+
     /// Row 3.28 (SPEC-GAP-14).
     async fn memory_row(&mut self) -> Result<(), StartError> {
         let row = Row::MemoryService;
@@ -1488,6 +1523,11 @@ impl ModuleRunner {
     // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-31
     fn register_provider(&mut self, provider: Provider) -> Result<(), StartError> {
         let (row, tools) = match provider {
+            #[cfg(feature = "sandbox")]
+            Provider::Sandbox => (
+                Row::Sandbox,
+                earlier(&self.modules.sandbox, Row::Sandbox)?.tool_provider(),
+            ),
             Provider::MemoryService => (
                 Row::MemoryService,
                 earlier(&self.modules.memory, Row::MemoryService)?.tool_provider(),
@@ -1681,6 +1721,8 @@ impl StepRunner for ModuleRunner {
                 Row::Files => self.files_row().await,
                 Row::HookRelay => self.hook_relay_row(),
                 Row::CrewOrchestrator => self.crew_row(),
+                #[cfg(feature = "sandbox")]
+                Row::Sandbox => self.sandbox_row().await,
                 Row::MemoryService => self.memory_row().await,
                 Row::CraftToolkit => self.craft_row().await,
                 Row::Confluence => self.confluence_row(),

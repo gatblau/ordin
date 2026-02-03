@@ -352,6 +352,11 @@ impl Core {
         if let Some(craft) = &m.craft {
             bounded("craft.shutdown", STEP_BOUND, craft.shutdown()).await;
         }
+        // Step 10.3: the Sandbox after the Craft Toolkit, before the File Service (SA-STOP-01).
+        #[cfg(feature = "sandbox")]
+        if let Some(sandbox) = &m.sandbox {
+            bounded("sandbox.shutdown", STEP_BOUND, sandbox.shutdown()).await;
+        }
         if let Some(files) = &m.files {
             bounded("files.shutdown", STEP_BOUND, files.shutdown()).await;
         }
