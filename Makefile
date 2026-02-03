@@ -141,8 +141,11 @@ test:
 .PHONY: harness-test
 ## Run the harness test job against the real Claude Code at the pinned version. Not in `check`:
 ## Claude Code updates itself, and that must not break every commit.
+## The Copilot half needs the Copilot CLI at the pinned version on PATH, signed in with a
+## Copilot licence (plan 08 Phase 8).
 harness-test:
 	cargo test -p ordin-claude-adapter --test harness -- --ignored
+	cargo test -p ordin-copilot-adapter --test harness -- --ignored
 
 .PHONY: e2e-test
 ## Run the R1 scripted end-to-end job (plan 01 Phase 13): the desktop core driven through the Service API with the
