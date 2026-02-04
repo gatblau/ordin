@@ -3,11 +3,13 @@
 //! `wiremock` Atlassian site (success, 401, a wrong site), every later request sent to the site with Basic
 //! authentication, and the token never in a log line or a reply.
 //!
-//! The log subscriber is installed per test on the test's own thread with `set_default`.
+//! The log subscriber is installed once for the whole test binary with `set_global_default`. A per-thread
+//! `set_default` let another test thread cache a log call site as having no listener, so the line was
+//! sometimes dropped (flaky `confluence_token_checked`).
 
 mod support;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
@@ -24,19 +26,33 @@ const API_TOKEN: &str = "ATATT3xFfGF0-confluence-api-token-0001";
 #[derive(Clone, Default)]
 struct Capture(Arc<Mutex<Vec<u8>>>);
 
+/// Where a test's lines start in the binary's one capture.
+struct Mark(usize);
+
 impl Capture {
-    fn text(&self) -> String {
-        String::from_utf8(self.0.lock().unwrap().clone()).unwrap()
+    /// The binary's capture, installed as the global subscriber on first use.
+    fn global() -> &'static Capture {
+        static CAPTURE: OnceLock<Capture> = OnceLock::new();
+        CAPTURE.get_or_init(|| {
+            let capture = Capture::default();
+            let writer = capture.clone();
+            let subscriber = tracing_subscriber::fmt()
+                .event_format(ordin_types::log::JsonLineFormat)
+                .with_max_level(tracing::Level::TRACE)
+                .with_writer(move || writer.clone())
+                .finish();
+            let _ = tracing::subscriber::set_global_default(subscriber);
+            capture
+        })
     }
 
-    fn install(&self) -> tracing::subscriber::DefaultGuard {
-        let writer = self.clone();
-        let subscriber = tracing_subscriber::fmt()
-            .event_format(ordin_types::log::JsonLineFormat)
-            .with_max_level(tracing::Level::TRACE)
-            .with_writer(move || writer.clone())
-            .finish();
-        tracing::subscriber::set_default(subscriber)
+    fn mark(&self) -> Mark {
+        Mark(self.0.lock().unwrap().len())
+    }
+
+    /// Everything written since `mark`, by this test or any other running at the same time.
+    fn text_since(&self, mark: &Mark) -> String {
+        String::from_utf8_lossy(&self.0.lock().unwrap()[mark.0..]).into_owned()
     }
 }
 
@@ -114,13 +130,12 @@ async fn happy_path_a_checked_token_is_kept_and_signs_every_later_request() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"results": []})))
         .mount(&env.mock)
         .await;
-    let capture = Capture::default();
-    let guard = capture.install();
+    let capture = Capture::global();
+    let mark = capture.mark();
 
     let person = connect(&env, HOST).await.expect("accepted");
     let found = env.adapter.find_locations("rates", 5).await;
 
-    drop(guard);
     assert_eq!(person.display_name, "Sam Lee");
     assert_eq!(person.account_id, "5b10a2844c20165700ede21g");
     assert!(found.expect("a read with the API token").is_empty());
@@ -141,7 +156,7 @@ async fn happy_path_a_checked_token_is_kept_and_signs_every_later_request() {
         ]
     );
     // The token is in no log line and no reply.
-    let text = capture.text();
+    let text = capture.text_since(&mark);
     assert!(text.contains("confluence_token_checked"), "{text}");
     assert!(!text.contains(API_TOKEN), "{text}");
     assert!(!text.contains(&basic()), "{text}");
