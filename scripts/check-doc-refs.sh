@@ -56,7 +56,17 @@ dangling() {
 
 files="$(mktemp)"
 trap 'rm -f "$files"' EXIT
-git ls-files -co --exclude-standard >"$files"
+# A failed listing must stop the check, not pass it: in a container that cannot reach the repository's
+# git data (a worktree whose `.git` points outside the mount) the list came back empty and the check
+# reported 0 anchors and passed (plan 08 FU-027).
+if ! git ls-files -co --exclude-standard >"$files"; then
+  echo "doc-ref-check: git could not list the files of $root; nothing was checked" >&2
+  exit 2
+fi
+if [ ! -s "$files" ]; then
+  echo "doc-ref-check: git listed no files in $root; nothing was checked" >&2
+  exit 2
+fi
 
 # ---- anchors in source
 
