@@ -1327,3 +1327,198 @@ async fn security_a_minutes_run_is_offered_exactly_keep_minutes() {
         .tools_changed(&ServerName::new("knowledge").unwrap());
     assert_eq!(bridge.list().await, ["keep_minutes"]);
 }
+
+mod sa_mcp_ht {
+    //! McpFront.md amendment 2026-02-04: the harness route in process for Copilot's declared
+    //! tools (SA-MCP-HT-1 to SA-MCP-HT-4).
+
+    use super::*;
+
+    async fn journalled_tools(env: &Env, run: ordin_types::RunId) -> Vec<(String, String)> {
+        sqlx::query_as(
+            "SELECT tool, COALESCE(decision, '') FROM tool_requests WHERE run_id = ?1 ORDER BY requested_at",
+        )
+        .bind(run.to_string())
+        .fetch_all(env.store.sqlite().expect("SQLite"))
+        .await
+        .expect("tool requests")
+    }
+
+    // Scenario: A harness call in process runs the full pipeline (SA-MCP-HT-2)
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-2
+    #[tokio::test]
+    async fn a_harness_call_in_process_runs_the_full_pipeline() {
+        let (env, sandbox, _m) = started(|_| {}).await;
+        sandbox.set_behaviour(Behaviour::Text("ran".to_owned()));
+        let session = env.open(&[], &[]).await;
+        // python_sandbox is offered but not sandbox_callable: the Sandbox route refuses it.
+        let via_sandbox = env
+            .front
+            .dispatch(
+                session.run,
+                key("sandbox", "python_sandbox"),
+                q("print(1)"),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(via_sandbox.code.as_deref(), Some("MCP_TOOL_NOT_OFFERED"));
+        let answer = env
+            .front
+            .dispatch_harness(
+                session.run,
+                key("sandbox", "python_sandbox"),
+                q("print(1)"),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(!answer.is_error, "{answer:?}");
+        assert_eq!(answer.text, "ran");
+        assert_eq!(sandbox.call_count(), 1);
+        assert_eq!(
+            sandbox.calls.lock().unwrap()[0].0.via,
+            ordin_mcp_front::CallVia::Harness
+        );
+        let call_id = sandbox.calls.lock().unwrap()[0].0.call_id;
+        let request = env
+            .journal
+            .tool_request(call_id)
+            .await
+            .unwrap()
+            .expect("journalled");
+        assert_eq!(request.tool, "mcp__sandbox__python_sandbox");
+        assert_eq!(
+            request.decision,
+            Some(ordin_types::domain::runs::ToolRequestDecision::Allow)
+        );
+        assert_eq!(
+            request.state,
+            ordin_types::domain::runs::ToolRequestState::Executed
+        );
+        // The first line is the refused Sandbox-route call; the last is the harness call.
+        let line = log_lines(&["mcp_front.call", &session.run.to_string()])
+            .pop()
+            .expect("a call line");
+        let fields: Value = serde_json::from_str(&line).expect("a JSON line");
+        assert_eq!(fields["via"], "harness");
+    }
+
+    // Plan 08 Phase 12 behavioural check: a non-sandbox-callable `work` tool is journalled with
+    // its mcp__ name and the Rules Engine's decision; a denied call never reaches the provider.
+    #[tokio::test]
+    async fn a_work_tool_is_journalled_and_a_denied_call_is_not_run() {
+        let (env, sandbox, _m) = started(|_| {}).await;
+        let session = env.open(&["python_sandbox"], &[]).await;
+        let plan = env
+            .front
+            .dispatch_harness(
+                session.run,
+                key("work", "plan"),
+                json!({"action": "state", "steps": ["Read the quotes", "Compare the rates", "Write the summary"]}),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(!plan.is_error, "{plan:?}");
+        assert_eq!(
+            journalled_tools(&env, session.run).await,
+            [("mcp__work__plan".to_owned(), "allow".to_owned())]
+        );
+        let denied = env
+            .front
+            .dispatch_harness(
+                session.run,
+                key("sandbox", "python_sandbox"),
+                q("print(1)"),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(denied.is_error);
+        assert_eq!(denied.code.as_deref(), Some("MCP_DENIED"));
+        assert_eq!(sandbox.call_count(), 0);
+        assert_eq!(env.tool_requests(session.run).await, 2);
+    }
+
+    // Scenario: A cancelled harness call returns its result (SA-MCP-HT-2)
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-2
+    #[tokio::test]
+    async fn a_cancelled_harness_call_returns_its_result() {
+        let (env, _s, memory) = started(|_| {}).await;
+        memory.set_behaviour(Behaviour::Sleep(
+            Duration::from_secs(60),
+            "never".to_owned(),
+        ));
+        let session = env.open(&[], &[]).await;
+        let cancel = CancellationToken::new();
+        let call = {
+            let cancel = cancel.clone();
+            let front = env.front.clone();
+            let run = session.run;
+            tokio::spawn(async move {
+                front
+                    .dispatch_harness(run, key("memory", "recall"), q("slow"), cancel)
+                    .await
+            })
+        };
+        let waited = std::time::Instant::now();
+        while memory.call_count() == 0 {
+            assert!(
+                waited.elapsed() < Duration::from_secs(15),
+                "the call never started"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        cancel.cancel();
+        let answer = tokio::time::timeout(Duration::from_secs(10), call)
+            .await
+            .expect("the cancelled call returns")
+            .unwrap()
+            .unwrap();
+        assert!(answer.is_error);
+        assert_eq!(answer.code.as_deref(), Some("MCP_CALL_CANCELLED"));
+        assert!(memory.tokens.lock().unwrap()[0].is_cancelled());
+    }
+
+    // Scenario: The harness route lists every offered tool (SA-MCP-HT-1)
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-1
+    #[tokio::test]
+    async fn the_harness_route_lists_every_offered_tool() {
+        let (env, _s, _m) = started(|_| {}).await;
+        let session = env.open(&[], &[]).await;
+        let listed: Vec<(String, String, bool)> = env
+            .front
+            .harness_tools(session.run)
+            .unwrap()
+            .into_iter()
+            .map(|(k, s)| (k.server.to_string(), k.tool, s.sandbox_callable))
+            .collect();
+        assert!(listed.contains(&("memory".to_owned(), "recall".to_owned(), true)));
+        assert!(listed.contains(&("sandbox".to_owned(), "python_sandbox".to_owned(), false)));
+        let mut sorted = listed.clone();
+        sorted.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
+        assert_eq!(listed, sorted, "sorted by server then tool");
+        // The Sandbox route still lists only the sandbox-callable ones.
+        let sandbox_only = env.front.session_tools(session.run).unwrap();
+        assert!(sandbox_only.len() < listed.len());
+        assert!(sandbox_only.iter().all(|(_, s)| s.sandbox_callable));
+        // An unknown session is MCP_SESSION_UNKNOWN on both methods.
+        let unknown = ordin_types::RunId::new();
+        assert!(matches!(
+            env.front.harness_tools(unknown),
+            Err(McpError::SessionUnknown { .. })
+        ));
+        assert!(matches!(
+            env.front
+                .dispatch_harness(
+                    unknown,
+                    key("memory", "recall"),
+                    q("x"),
+                    CancellationToken::new()
+                )
+                .await,
+            Err(McpError::SessionUnknown { .. })
+        ));
+    }
+}

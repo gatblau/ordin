@@ -742,4 +742,43 @@ impl ToolDispatch for McpFront {
         )
         .await)
     }
+
+    // The offered map is a BTreeMap keyed by server then tool, so iteration is already sorted.
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-1
+    fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError> {
+        let session = self
+            .inner
+            .session(run_id)
+            .ok_or(McpError::SessionUnknown { run_id })?;
+        let offered = lock(&session.offered);
+        Ok(offered
+            .iter()
+            .map(|(key, (_, spec))| (key.clone(), spec.clone()))
+            .collect())
+    }
+
+    // A cancelled call returns its MCP_CALL_CANCELLED result, so the caller can answer the harness.
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-2
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError> {
+        let session = self
+            .inner
+            .session(run_id)
+            .ok_or(McpError::SessionUnknown { run_id })?;
+        Ok(call::run_call(
+            &self.inner,
+            &session,
+            key,
+            arguments,
+            crate::provider::CallVia::Harness,
+            Some(cancel),
+            None,
+        )
+        .await)
+    }
 }

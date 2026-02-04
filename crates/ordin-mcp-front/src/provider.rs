@@ -212,6 +212,22 @@ pub trait ToolDispatch: Send + Sync {
         arguments: serde_json::Value,
         cancel: CancellationToken,
     ) -> Result<ToolCallResult, McpError>;
+
+    /// Every tool in the session's offered map, sorted by server then tool, whatever its
+    /// `sandbox_callable`. Err only `MCP_SESSION_UNKNOWN`.
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-1
+    fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError>;
+
+    /// Runs one call with the pipeline of a bridge `tools/call` (`via = Harness`, no progress
+    /// token). Err only for session-level failures (`MCP_SESSION_UNKNOWN`).
+    // spec: ordin-desktop/components/McpFront#SA-MCP-HT-1
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError>;
 }
 
 /// Where a block announced as `block_available` is kept, so `ordin.block` returns it whole.

@@ -350,6 +350,21 @@ impl ToolDispatch for Dispatch {
                 code: None,
             }))
     }
+
+    // The Sandbox never uses the harness route; the double only satisfies the trait.
+    fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError> {
+        self.session_tools(run_id)
+    }
+
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError> {
+        self.dispatch(run_id, key, arguments, cancel).await
+    }
 }
 
 // ---- the fixture ----
