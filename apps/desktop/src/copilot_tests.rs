@@ -31,6 +31,18 @@ fn place_stub(home: &Path, version: &str) -> std::path::PathBuf {
     let file = bin.join("copilot");
     std::fs::write(&file, format!("#!/bin/sh\necho '{version}'\n")).expect("stub");
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).expect("mode");
+    // A child another test thread forks while the stub is open for writing inherits that descriptor
+    // until it calls exec, and running the stub meanwhile fails with ETXTBSY ("text file busy"),
+    // which the lookup reads as "not installed". Wait until the stub runs before handing it over.
+    const ETXTBSY: i32 = 26;
+    for _ in 0..100 {
+        match std::process::Command::new(&file).output() {
+            Err(error) if error.raw_os_error() == Some(ETXTBSY) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            _ => break,
+        }
+    }
     file
 }
 
