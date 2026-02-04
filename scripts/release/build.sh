@@ -75,7 +75,9 @@ if [ "$CROSS" = 1 ]; then
   LOG_NAME="build-$PLATFORM.log"
 else
   BUNDLE="${RELEASE_BUNDLE_DIR:-$ROOT/target/release/bundle}"
-  LOG_NAME="build.log"
+  # A build on the Windows machine names its log as the cross build does: the Mac brings it back beside
+  # the macOS build's build.log (make release-build-windows-remote).
+  if [ "$IS_MAC" = 1 ]; then LOG_NAME="build.log"; else LOG_NAME="build-$PLATFORM.log"; fi
 fi
 mkdir -p "$OUT"
 LOG="$OUT/$LOG_NAME"
