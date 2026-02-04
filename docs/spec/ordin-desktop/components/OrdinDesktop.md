@@ -3378,7 +3378,7 @@ None.
 
 ## Amendment 2026-02-04 — The assistant chosen at first start, and a choice of Copilot honoured (DSK-CHO-1 to DSK-CHO-4)
 
-> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17 (`docs/wip/rfc/17-choose-the-assistant-at-first-start.md`); user decision 2026-02-04 ("go with your recommendations": ordin restarts itself once after the first-start answer). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: HLD ADR-125; user decision 2026-02-04 ("go with your recommendations": ordin restarts itself once after the first-start answer). **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
 
 Evidence read: `apps/desktop/src/agent_settings.rs:139-151` (`in_this_version` accepts Claude Code only, so `harness_to_use` replaces a person's choice of Copilot with the organisation's harness); `apps/desktop/src/wiring.rs:788-798` (row 3.19 fixes the Session Supervisor's `local_adapter` at start), `:1463-1466` (Package Catalogue `ProfileHarness.chosen`), `:1494` (Ordin Host `harness`); `apps/desktop/src/core.rs:29-33`, `:400-404` (`QuitReason`, `AfterQuit::Restart`); `apps/desktop/Cargo.toml` (the `copilot` switch is on by default).
 

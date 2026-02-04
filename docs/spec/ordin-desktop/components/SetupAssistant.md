@@ -1557,7 +1557,7 @@ None.
 
 ## Amendment 2026-02-04 — The person chooses the assistant at first start (SET-CHO-1 to SET-CHO-7)
 
-> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17 (`docs/wip/rfc/17-choose-the-assistant-at-first-start.md`), acceptance criteria 1–5 and 8; user decision 2026-02-04 ("go with your recommendations": the answer takes effect by ordin starting again once; criterion 7, an assistant without a licence, is specified later from the probe's evidence). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: HLD ADR-125, acceptance criteria 1–5 and 8; user decision 2026-02-04 ("go with your recommendations": the answer takes effect by ordin starting again once; criterion 7, an assistant without a licence, is specified later from the probe's evidence). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
 
 - **SET-CHO-1 The person's choice, read through a port.** This crate owns a second hub trait beside `HarnessProbe` (ADR-100 hub pattern), registered by the desktop program only:
 
