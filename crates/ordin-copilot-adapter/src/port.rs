@@ -73,6 +73,42 @@ pub struct SessionOptions {
     pub permission: Arc<dyn ToolGate>,
     /// Called after every tool call.
     pub post_tool_use: Arc<dyn ToolObserver>,
+    /// Tools ordin declares in `session.create` and `session.resume` (`tools`).
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+    pub host_tools: Vec<HostTool>,
+    /// Answers every call the CLI sends for a declared tool.
+    pub host_tool_handler: Arc<dyn HostToolHandler>,
+}
+
+/// A tool ordin declares to the CLI and answers itself.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+#[derive(Debug, Clone, PartialEq)]
+pub struct HostTool {
+    /// `mcp__<server>__<tool>`.
+    pub name: String,
+    pub description: String,
+    /// JSON Schema, `"type": "object"` at the root.
+    pub parameters: serde_json::Value,
+}
+
+/// Answers the CLI's calls of declared tools.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+#[async_trait::async_trait]
+pub trait HostToolHandler: Send + Sync {
+    async fn call(
+        &self,
+        name: &str,
+        arguments: serde_json::Value,
+        cancel: tokio_util::sync::CancellationToken,
+    ) -> HostToolAnswer;
+}
+
+/// What the CLI is told a declared tool's call produced.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HostToolAnswer {
+    Success { text: String },
+    Failure { text: String },
 }
 
 #[async_trait::async_trait]

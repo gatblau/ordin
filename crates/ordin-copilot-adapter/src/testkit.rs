@@ -11,8 +11,8 @@ use futures::stream::{BoxStream, StreamExt};
 use tokio::sync::mpsc;
 
 use crate::port::{
-    CliServerSpec, CopilotAuthStatus, CopilotEvent, CopilotPort, CopilotServer, PortError,
-    SessionOptions, ToolGate, ToolObserver,
+    CliServerSpec, CopilotAuthStatus, CopilotEvent, CopilotPort, CopilotServer, HostTool,
+    HostToolAnswer, HostToolHandler, PortError, SessionOptions, ToolGate, ToolObserver,
 };
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -27,6 +27,9 @@ pub struct SessionGates {
     pub pre_tool_use: Arc<dyn ToolGate>,
     pub permission: Arc<dyn ToolGate>,
     pub post_tool_use: Arc<dyn ToolObserver>,
+    /// The tools the session declared (CPA-HT-1).
+    pub host_tools: Vec<HostTool>,
+    pub host_tool_handler: Arc<dyn HostToolHandler>,
 }
 
 /// What the double was asked, and what it answers. Every field is shared by all servers it starts.
@@ -79,6 +82,34 @@ impl Script {
             .is_some_and(|tx| tx.send(event).is_ok())
     }
 
+    /// The tools a session declared, by name, once created or resumed.
+    pub fn declared(&self, session_id: &str) -> Vec<String> {
+        self.gates(session_id)
+            .map(|g| g.host_tools.iter().map(|t| t.name.clone()).collect())
+            .unwrap_or_default()
+    }
+
+    /// Sends one declared-tool call as the CLI would and returns the answer; a session the double
+    /// does not hold is answered as `CliCopilotPort` answers it.
+    pub async fn call_tool(
+        &self,
+        session_id: &str,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> HostToolAnswer {
+        match self.gates(session_id) {
+            Some(gates) => {
+                gates
+                    .host_tool_handler
+                    .call(name, arguments, tokio_util::sync::CancellationToken::new())
+                    .await
+            }
+            None => HostToolAnswer::Failure {
+                text: "This tool is not offered to this session.".to_owned(),
+            },
+        }
+    }
+
     pub fn sent_texts(&self) -> Vec<String> {
         lock(&self.sent).iter().map(|(_, t)| t.clone()).collect()
     }
@@ -96,6 +127,8 @@ impl Script {
                 pre_tool_use: opts.pre_tool_use.clone(),
                 permission: opts.permission.clone(),
                 post_tool_use: opts.post_tool_use.clone(),
+                host_tools: opts.host_tools.clone(),
+                host_tool_handler: opts.host_tool_handler.clone(),
             },
         );
     }

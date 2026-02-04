@@ -16,6 +16,7 @@
 //! | events | notifications `session.event` (`sessionId`, `event.type`, `event.data`) |
 //! | permission gate | event `permission.requested` → request `session.permissions.handlePendingPermissionRequest` |
 //! | pre- and post-tool-use | server request `hooks.invoke` (`preToolUse`, `postToolUse`, `postToolUseFailure`) → `{ "output": … }` |
+//! | declared tools | `tools` in `session.create` / `session.resume`; event `external_tool.requested` → request `session.tools.handlePendingToolCall` (CPA-HT-1) |
 //! | `stop` | standard input closed; the child is killed after the deadline |
 
 use std::collections::{BTreeMap, HashMap};
@@ -33,7 +34,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::port::{
     CliServerSpec, CopilotAuthStatus, CopilotEvent, CopilotPort, CopilotServer, GateAnswer,
-    PortError, SessionOptions, ToolGate, ToolObserver,
+    HostToolAnswer, HostToolHandler, PortError, SessionOptions, ToolGate, ToolObserver,
 };
 
 /// How long one request waits for its reply (the turn itself is streamed, not awaited).
@@ -42,6 +43,8 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_MESSAGE: usize = 64 * 1024 * 1024;
 /// JSON-RPC "method not found".
 const METHOD_NOT_FOUND: i64 = -32601;
+/// The answer to a declared-tool call for a session this connection does not hold (CPA-HT-1).
+const NOT_OFFERED: &str = "This tool is not offered to this session.";
 
 /// The production `CopilotPort` (*Public Interface*: the program passes it to `new`).
 #[derive(Debug, Default, Clone)]
@@ -123,6 +126,7 @@ struct SessionRoute {
     pre_tool_use: Arc<dyn ToolGate>,
     permission: Arc<dyn ToolGate>,
     post_tool_use: Arc<dyn ToolObserver>,
+    host_tool_handler: Arc<dyn HostToolHandler>,
     /// The event receiver, until `events` takes it.
     pending: Option<mpsc::UnboundedReceiver<(String, Value)>>,
 }
@@ -275,6 +279,12 @@ impl Connection {
             let request = data.clone();
             tokio::spawn(async move { connection.decide_permission(&session, request).await });
         }
+        if kind == "external_tool.requested" {
+            let connection = self.clone();
+            let session = session_id.clone();
+            let request = data.clone();
+            tokio::spawn(async move { connection.answer_tool_call(&session, request).await });
+        }
         if let Some(route) = lock(&self.0.sessions).get(&session_id) {
             let _ = route.events.send((kind, data));
         }
@@ -301,6 +311,42 @@ impl Connection {
         let params = json!({"sessionId": session_id, "requestId": request_id, "result": result});
         let _ = self
             .call("session.permissions.handlePendingPermissionRequest", params)
+            .await;
+    }
+
+    /// `external_tool.requested`: the session's handler answers on its own task, and the answer goes
+    /// back to the CLI. A session this connection does not hold is answered with a failure.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+    async fn answer_tool_call(&self, session_id: &str, data: Value) {
+        let Some(request_id) = text(&data, "requestId") else {
+            return;
+        };
+        let handler = lock(&self.0.sessions)
+            .get(session_id)
+            .map(|route| route.host_tool_handler.clone());
+        let answer = match handler {
+            Some(handler) => {
+                let name = text(&data, "toolName").unwrap_or_default();
+                let arguments = data.get("arguments").cloned().unwrap_or(Value::Null);
+                handler
+                    .call(&name, arguments, tokio_util::sync::CancellationToken::new())
+                    .await
+            }
+            None => HostToolAnswer::Failure {
+                text: NOT_OFFERED.to_owned(),
+            },
+        };
+        let (text_result, kind) = match answer {
+            HostToolAnswer::Success { text } => (text, "success"),
+            HostToolAnswer::Failure { text } => (text, "failure"),
+        };
+        let params = json!({
+            "sessionId": session_id,
+            "requestId": request_id,
+            "result": {"textResultForLlm": text_result, "resultType": kind},
+        });
+        let _ = self
+            .call("session.tools.handlePendingToolCall", params)
             .await;
     }
 
@@ -409,6 +455,7 @@ impl CliServer {
                 pre_tool_use: opts.pre_tool_use.clone(),
                 permission: opts.permission.clone(),
                 post_tool_use: opts.post_tool_use.clone(),
+                host_tool_handler: opts.host_tool_handler.clone(),
                 pending: Some(pending),
             },
         );
@@ -437,6 +484,21 @@ impl CliServer {
         });
         if let Some(model) = &opts.model {
             params["model"] = json!(model);
+        }
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+        if !opts.host_tools.is_empty() {
+            params["tools"] = Value::Array(
+                opts.host_tools
+                    .iter()
+                    .map(|tool| {
+                        json!({
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.parameters,
+                        })
+                    })
+                    .collect(),
+            );
         }
         params
     }
@@ -736,11 +798,66 @@ mod tests {
             pre_tool_use: Arc::new(Never),
             permission: Arc::new(Never),
             post_tool_use: Arc::new(Never),
+            host_tools: vec![],
+            host_tool_handler: Arc::new(Answer(HostToolAnswer::Success { text: "-".into() })),
         };
         let params = CliServer::session_params("s1", &opts);
         assert_eq!(params["mcpServers"]["work"]["tools"], json!(["*"]));
         assert_eq!(params["mcpServers"]["quotes"]["tools"], json!(["price"]));
         assert_eq!(params["mcpServers"]["work"]["command"], "/opt/w");
+        assert!(
+            params.get("tools").is_none(),
+            "no declared tool, no `tools`"
+        );
+    }
+
+    /// Answers every declared-tool call with one fixed answer, recording the names.
+    struct Answer(HostToolAnswer);
+
+    #[async_trait::async_trait]
+    impl HostToolHandler for Answer {
+        async fn call(
+            &self,
+            _name: &str,
+            _arguments: Value,
+            _cancel: tokio_util::sync::CancellationToken,
+        ) -> HostToolAnswer {
+            self.0.clone()
+        }
+    }
+
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
+    #[test]
+    fn declared_tools_are_sent_as_tools() {
+        struct Never;
+        #[async_trait::async_trait]
+        impl ToolGate for Never {
+            async fn decide(&self, _t: &str, _a: Value, _id: Option<String>) -> GateAnswer {
+                GateAnswer::Allow
+            }
+        }
+        #[async_trait::async_trait]
+        impl ToolObserver for Never {
+            async fn tool_used(&self, _t: &str, _id: Option<String>, _ok: bool) {}
+        }
+        let opts = SessionOptions {
+            model: None,
+            mcp_servers: json!({}),
+            pre_tool_use: Arc::new(Never),
+            permission: Arc::new(Never),
+            post_tool_use: Arc::new(Never),
+            host_tools: vec![crate::port::HostTool {
+                name: "mcp__work__report".into(),
+                description: "Reports.".into(),
+                parameters: json!({"type": "object"}),
+            }],
+            host_tool_handler: Arc::new(Answer(HostToolAnswer::Success { text: "-".into() })),
+        };
+        let params = CliServer::session_params("s1", &opts);
+        assert_eq!(
+            params["tools"],
+            json!([{"name": "mcp__work__report", "description": "Reports.", "parameters": {"type": "object"}}])
+        );
     }
 
     #[test]
@@ -805,6 +922,9 @@ mod tests {
                 pre_tool_use: deny.clone(),
                 permission: deny,
                 post_tool_use: Arc::new(Observer(used.clone())),
+                host_tool_handler: Arc::new(Answer(HostToolAnswer::Failure {
+                    text: "Not in this workspace.".into(),
+                })),
                 pending: Some(pending),
             },
         );
@@ -859,6 +979,26 @@ mod tests {
         );
         assert_eq!(lock(&asked).as_slice(), ["bash", "shell"]);
 
+        // A declared-tool call is answered by the session's handler (CPA-HT-1).
+        write_frame(&mut their_write, json!({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": "s1",
+            "event": {"type": "external_tool.requested", "data": {"requestId": "t1", "toolName": "mcp__work__report", "arguments": {}}}}})).await;
+        let answer = read_message(&mut their_read).await.unwrap();
+        assert_eq!(answer["method"], "session.tools.handlePendingToolCall");
+        assert_eq!(
+            answer["params"],
+            json!({"sessionId": "s1", "requestId": "t1",
+                   "result": {"textResultForLlm": "Not in this workspace.", "resultType": "failure"}})
+        );
+        // One for a session this connection does not hold is answered with a failure.
+        write_frame(&mut their_write, json!({"jsonrpc": "2.0", "method": "session.event", "params": {"sessionId": "other",
+            "event": {"type": "external_tool.requested", "data": {"requestId": "t2", "toolName": "mcp__work__report"}}}})).await;
+        let answer = read_message(&mut their_read).await.unwrap();
+        assert_eq!(answer["params"]["requestId"], "t2");
+        assert_eq!(
+            answer["params"]["result"],
+            json!({"textResultForLlm": NOT_OFFERED, "resultType": "failure"})
+        );
+
         let mut events = lock(&connection.0.sessions)
             .get_mut("s1")
             .unwrap()
@@ -866,6 +1006,7 @@ mod tests {
             .take()
             .unwrap();
         assert_eq!(events.recv().await.unwrap().0, "permission.requested");
+        assert_eq!(events.recv().await.unwrap().0, "external_tool.requested");
         drop(their_write);
         drop(their_read);
         assert!(

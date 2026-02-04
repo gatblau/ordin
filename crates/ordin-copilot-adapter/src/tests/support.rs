@@ -13,6 +13,7 @@ use ordin_hook_relay::{HookRelayError, HookSessionEnv, HookSessionEvent, HookSes
 use ordin_identity::CredError;
 use ordin_mcp_front::{
     McpError, McpServerLaunch, ProgramProfile, ServerName, SessionGrant, SessionMcpConfig,
+    ToolCallResult, ToolKey, ToolSpec,
 };
 use ordin_rules::{RulesError, RunStartDecision, RunStartFacts, StartOutcome};
 use ordin_runtime_adapter::{
@@ -121,6 +122,22 @@ pub struct McpDouble {
     pub closed: Mutex<Vec<RunId>>,
     pub error: Mutex<Option<McpError>>,
     pub servers: Mutex<Vec<&'static str>>,
+    /// What `harness_tools` lists: `(server, tool)`.
+    pub offered: Mutex<Vec<(&'static str, String)>>,
+    /// Every `dispatch_harness` call: `(run, server, tool, arguments)`.
+    pub dispatched: Mutex<Vec<(RunId, String, String, serde_json::Value)>>,
+    /// What `dispatch_harness` returns; `None` waits for the call's cancel and returns the
+    /// pipeline's `MCP_CALL_CANCELLED` result.
+    pub answer: Mutex<Option<Result<ToolCallResult, McpError>>>,
+}
+
+pub fn tool_result(is_error: bool, text: &str) -> ToolCallResult {
+    ToolCallResult {
+        is_error,
+        text: text.to_owned(),
+        structured: None,
+        code: None,
+    }
 }
 
 impl McpDouble {
@@ -167,6 +184,52 @@ impl McpPort for McpDouble {
     async fn close_session(&self, run_id: RunId) -> Result<(), McpError> {
         self.closed.lock().unwrap().push(run_id);
         Ok(())
+    }
+    fn harness_tools(&self, _run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError> {
+        Ok(self
+            .offered
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(server, tool)| {
+                (
+                    ToolKey {
+                        server: ServerName::new(*server).unwrap(),
+                        tool: tool.clone(),
+                    },
+                    ToolSpec {
+                        name: tool.clone(),
+                        description: format!("The {tool} tool."),
+                        input_schema: serde_json::json!({"type": "object"}),
+                        argument_form: "{}".into(),
+                        sandbox_callable: false,
+                        plain: "Used a tool".into(),
+                    },
+                )
+            })
+            .collect())
+    }
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError> {
+        self.dispatched.lock().unwrap().push((
+            run_id,
+            key.server.as_str().to_owned(),
+            key.tool.clone(),
+            arguments,
+        ));
+        let answer = self.answer.lock().unwrap().clone();
+        match answer {
+            Some(answer) => answer,
+            None => {
+                cancel.cancelled().await;
+                Ok(tool_result(true, "The call was cancelled."))
+            }
+        }
     }
 }
 

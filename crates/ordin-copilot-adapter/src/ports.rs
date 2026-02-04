@@ -9,16 +9,32 @@ use ordin_hook_relay::{
     HookRelay, HookRelayError, HookSessionEnv, HookSessionEvent, HookSessionSpec,
 };
 use ordin_identity::{CredError, IdentityService};
-use ordin_mcp_front::{McpError, McpFront, SessionGrant, SessionMcpConfig};
+use ordin_mcp_front::{
+    McpError, McpFront, SessionGrant, SessionMcpConfig, ToolCallResult, ToolDispatch, ToolKey,
+    ToolSpec,
+};
 use ordin_rules::{RulesEngine, RulesError, RunStartDecision, RunStartFacts};
 use ordin_types::domain::identity::CredentialKind;
 use ordin_types::wire::hook::{HookMessage, HookReply};
 use ordin_types::RunId;
+use tokio_util::sync::CancellationToken;
 
 #[async_trait::async_trait]
 pub(crate) trait McpPort: Send + Sync {
     async fn open_session(&self, grant: SessionGrant) -> Result<SessionMcpConfig, McpError>;
     async fn close_session(&self, run_id: RunId) -> Result<(), McpError>;
+    /// Every tool the session is offered (McpFront.md SA-MCP-HT-1).
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+    fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError>;
+    /// One declared-tool call through the MCP Front's pipeline (McpFront.md SA-MCP-HT-1).
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError>;
 }
 
 #[async_trait::async_trait]
@@ -28,6 +44,18 @@ impl McpPort for McpFront {
     }
     async fn close_session(&self, run_id: RunId) -> Result<(), McpError> {
         McpFront::close_session(self, run_id).await
+    }
+    fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError> {
+        ToolDispatch::harness_tools(self, run_id)
+    }
+    async fn dispatch_harness(
+        &self,
+        run_id: RunId,
+        key: ToolKey,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolCallResult, McpError> {
+        ToolDispatch::dispatch_harness(self, run_id, key, arguments, cancel).await
     }
 }
 

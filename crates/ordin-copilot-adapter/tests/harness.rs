@@ -1,8 +1,9 @@
 //! The Copilot compatibility proof (plan 08 Phase 8): tests that drive the REAL Copilot CLI through
 //! `CliCopilotPort`, ordin's own speaker of the CLI's JSON-RPC. They settle C-01 and C-60 (the CLI
 //! loads what the Copilot Installer writes), C-02 and C-27 (every tool request reaches ordin's gate
-//! and a deny blocks it, for the CLI's own tools and an MCP server's), C-03 (two sessions in two folders at once) and C-05 (a session resumes
-//! after the CLI restarts) (`docs/design/ordin-desktop/10-risks.md`).
+//! and a deny blocks it, for the CLI's own tools and for ordin's tools declared to it, CPA-HT-1),
+//! C-03 (two sessions in two folders at once) and C-05 (a session resumes after the CLI restarts)
+//! (`docs/design/ordin-desktop/10-risks.md`).
 //!
 //! They are `#[ignore]`, so the ordinary suite stays independent of the CLI; `make harness-test`
 //! runs them. When run they fail, never skip, if the CLI is missing, its version differs from
@@ -24,8 +25,8 @@ use std::time::Duration;
 
 use futures::stream::{BoxStream, StreamExt};
 use ordin_copilot_adapter::{
-    CliCopilotPort, CliServerSpec, CopilotEvent, CopilotPort, CopilotServer, GateAnswer,
-    SessionOptions, ToolGate, ToolObserver,
+    CliCopilotPort, CliServerSpec, CopilotEvent, CopilotPort, CopilotServer, GateAnswer, HostTool,
+    HostToolAnswer, HostToolHandler, SessionOptions, ToolGate, ToolObserver,
 };
 use serde_json::{json, Value};
 
@@ -48,9 +49,9 @@ const ALLOWED: &[&str] = &[
     "NO_PROXY",
 ];
 
-/// The Copilot CLI version this job holds the adapter to: the version the proof first passed on
-/// (2026-02-03, plan 08 Phase 8).
-const PINNED: &str = "1.0.114";
+/// The Copilot CLI version this job holds the adapter to: the version on the licensed Mac when the
+/// declared tools were added (2026-02-04, plan 08 Phase 13; first proof on 1.0.114).
+const PINNED: &str = "1.0.115";
 
 /// The real CLI on `PATH`, at the pinned version. A missing CLI or another version is a failure of
 /// the job.
@@ -163,16 +164,83 @@ struct Live {
 }
 
 fn options(pre: &Arc<Gate>, permission: &Arc<Gate>) -> SessionOptions {
-    options_with(pre, permission, json!({}))
+    options_with(pre, permission, Vec::new(), Declared::new(true))
 }
 
-fn options_with(pre: &Arc<Gate>, permission: &Arc<Gate>, mcp_servers: Value) -> SessionOptions {
+fn options_with(
+    pre: &Arc<Gate>,
+    permission: &Arc<Gate>,
+    host_tools: Vec<HostTool>,
+    handler: Arc<Declared>,
+) -> SessionOptions {
     SessionOptions {
         model: None,
-        mcp_servers,
+        mcp_servers: json!({}),
         pre_tool_use: pre.clone(),
         permission: permission.clone(),
         post_tool_use: Arc::new(Ran(Mutex::new(Vec::new()))),
+        host_tools,
+        host_tool_handler: handler,
+    }
+}
+
+/// Stands in for the MCP Front behind a declared tool: records each call and answers it, running it
+/// (the marker) only when it allows. The real pipeline behind it is `tests/real_services.rs`'s.
+struct Declared {
+    allow: bool,
+    calls: Mutex<Vec<(String, Value)>>,
+}
+
+impl Declared {
+    fn new(allow: bool) -> Arc<Declared> {
+        Arc::new(Declared {
+            allow,
+            calls: Mutex::new(Vec::new()),
+        })
+    }
+    fn calls(&self) -> Vec<(String, Value)> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+/// The marker an allowed call returns; the model is asked to repeat it.
+const RAN: &str = "ORDIN-DECLARED-TOOL-RAN";
+
+#[async_trait::async_trait]
+impl HostToolHandler for Declared {
+    async fn call(
+        &self,
+        name: &str,
+        arguments: Value,
+        _cancel: tokio_util::sync::CancellationToken,
+    ) -> HostToolAnswer {
+        self.calls
+            .lock()
+            .unwrap()
+            .push((name.to_owned(), arguments));
+        if self.allow {
+            HostToolAnswer::Success {
+                text: format!("Note saved: {RAN}"),
+            }
+        } else {
+            HostToolAnswer::Failure {
+                text: "Not in this workspace.".into(),
+            }
+        }
+    }
+}
+
+/// One declared tool in the shape the adapter builds it (CPA-HT-2).
+fn note_tool() -> HostTool {
+    HostTool {
+        name: "mcp__work__note_save".into(),
+        description: "Saves a short note in ordin. Use it whenever the person asks to save a note."
+            .into(),
+        parameters: json!({
+            "type": "object",
+            "properties": {"text": {"type": "string", "description": "The note"}},
+            "required": ["text"]
+        }),
     }
 }
 
@@ -195,14 +263,25 @@ async fn server(cli: &Path, folder: &Path) -> Box<dyn CopilotServer> {
 
 impl Live {
     async fn start(cli: &Path, folder: &Path, allow: bool) -> Live {
-        Live::start_with(cli, folder, allow, json!({})).await
+        Live::start_with(cli, folder, allow, Vec::new(), Declared::new(allow)).await
     }
 
-    async fn start_with(cli: &Path, folder: &Path, allow: bool, mcp_servers: Value) -> Live {
+    async fn start_with(
+        cli: &Path,
+        folder: &Path,
+        allow: bool,
+        host_tools: Vec<HostTool>,
+        handler: Arc<Declared>,
+    ) -> Live {
         let server = server(cli, folder).await;
         let (pre_tool_use, permission) = (Gate::new(allow), Gate::new(allow));
         let session_id = server
-            .create_session(options_with(&pre_tool_use, &permission, mcp_servers))
+            .create_session(options_with(
+                &pre_tool_use,
+                &permission,
+                host_tools,
+                handler,
+            ))
             .await
             .expect("session.create");
         let events = server.events(&session_id);
@@ -387,279 +466,54 @@ async fn a_session_resumes_after_the_cli_restarts() {
     assert!(reply.contains("PELICAN-42"), "reply: {reply}");
 }
 
-/// A minimal MCP server on standard input and output (newline-delimited JSON-RPC), standing in for
-/// one of the MCP Front's servers. Its one tool, `save_note`, creates the file named in
-/// `ORDIN_PROOF_MARK`, so the test can tell whether the call ran. It names `/usr/bin/sed` in full:
-/// the CLI may start it with only the environment given here, which has no `PATH`. Every line it
-/// receives goes to `<mark>.log`, which a failure prints: it tells a server the CLI never started from
-/// one it started but never asked for its tools.
-const MCP_SERVER: &str = r#"#!/bin/sh
-printf 'started\n' >> "$ORDIN_PROOF_MARK.log"
-reply() { printf '{"jsonrpc":"2.0","id":%s,"result":%s}\n' "$1" "$2"; }
-while IFS= read -r line; do
-  printf '%s\n' "$line" >> "$ORDIN_PROOF_MARK.log"
-  id=$(printf '%s' "$line" | /usr/bin/sed -nE 's/.*"id"[[:space:]]*:[[:space:]]*([0-9]+|"[^"]*").*/\1/p')
-  [ -z "$id" ] && continue
-  case "$line" in
-    *'"initialize"'*)
-      version=$(printf '%s' "$line" | /usr/bin/sed -nE 's/.*"protocolVersion"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p')
-      reply "$id" "{\"protocolVersion\":\"${version:-2024-11-05}\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"ordinproof\",\"version\":\"1\"}}" ;;
-    *'"tools/list"'*)
-      reply "$id" '{"tools":[{"name":"save_note","description":"Saves a short note for ordin.","inputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}}]}' ;;
-    *'"tools/call"'*)
-      : > "$ORDIN_PROOF_MARK"
-      reply "$id" '{"content":[{"type":"text","text":"Note saved."}]}' ;;
-    *) reply "$id" '{}' ;;
-  esac
-done
-"#;
+const NOTE_PROMPT: &str = "Use the mcp__work__note_save tool to save the note hello. Call it \
+    once, then repeat exactly what the tool answered.";
 
-/// The MCP server, in the shape the MCP Front gives the adapter (`SessionMcpConfig::to_mcp_servers_json`).
-/// What the stand-in received, for a failure message.
-fn mcp_log(mark: &Path) -> String {
-    let log = mark.with_extension("log");
-    std::fs::read_to_string(&log).unwrap_or_else(|_| "the MCP server was never started".to_owned())
-}
-
-fn mcp_servers(dir: &Path, mark: &Path) -> Value {
-    let script = dir.join("ordinproof-mcp.sh");
-    std::fs::write(&script, MCP_SERVER).expect("the MCP server script");
-    json!({"mcpServers": {"ordinproof": {
-        "type": "stdio",
-        "command": "/bin/sh",
-        "args": [script.to_string_lossy()],
-        "env": {"ORDIN_PROOF_MARK": mark.to_string_lossy()},
-    }}})
-}
-
-const MCP_PROMPT: &str = "Use the save_note tool of the ordinproof MCP server to save the note \
-    hello. Call it once, then say whether it worked.";
-
-/// C-02 (MCP half): a tool of an MCP server registered for the session reaches ordin's gate before it
-/// runs, and a deny blocks it.
+/// C-02 (ordin's tools, CPA-HT-1): a tool ordin declares reaches ordin, whatever the organisation's
+/// MCP policy, and ordin's refusal reaches the model; the tool never runs. The CLI's own gates allow,
+/// so the refusal is ordin's answer to the call, as the Rules Engine's is in the adapter.
 #[tokio::test]
 #[ignore = "drives the real Copilot CLI; run by make harness-test"]
-async fn an_mcp_tool_reaches_the_gate_and_a_deny_blocks_it() {
+async fn a_declared_tool_reaches_ordin_and_a_refusal_blocks_it() {
     let cli = pinned_copilot();
-    let dir = TempDir::new("mcpd");
-    let (work, tools) = (dir.0.join("work"), dir.0.join("tools"));
-    std::fs::create_dir_all(&work).expect("work");
-    std::fs::create_dir_all(&tools).expect("tools");
-    let mark = tools.join("note-saved");
-    let mut live = Live::start_with(&cli, &work, false, mcp_servers(&tools, &mark)).await;
-    let reply = live.turn(MCP_PROMPT).await;
+    let dir = TempDir::new("hostd");
+    let handler = Declared::new(false);
+    let mut live = Live::start_with(&cli, &dir.0, true, vec![note_tool()], handler.clone()).await;
+    let reply = live.turn(NOTE_PROMPT).await;
     let gated = live.gated();
     live.stop().await;
-    assert!(!mark.exists(), "a denied MCP tool ran; gate saw {gated:?}");
+    let calls = handler.calls();
     assert!(
-        gated.iter().any(|(tool, _)| tool.contains("save_note")),
-        "the MCP tool never reached the gate: {gated:?}; the model said: {reply}; the MCP server \
-         received: {}",
-        mcp_log(&mark)
+        calls.iter().any(|(name, _)| name == "mcp__work__note_save"),
+        "the declared tool never reached ordin: {calls:?}; gates saw {gated:?}; the model said: {reply}"
     );
+    assert!(
+        !reply.contains(RAN),
+        "a refused call reported running: {reply}"
+    );
+    println!("[declared tool, refused] gates saw {gated:?} (assumption A-4); model said: {reply}");
 }
 
-/// The same MCP server, allowed: the tool runs. Without it the deny test above could pass because the
-/// CLI never offered the tool at all.
+/// The same declared tool, allowed: ordin's answer reaches the model. Without it the refusal test
+/// above could pass because the CLI never offered the tool at all.
 #[tokio::test]
 #[ignore = "drives the real Copilot CLI; run by make harness-test"]
-async fn an_allowed_mcp_tool_runs() {
+async fn an_allowed_declared_tool_runs_and_its_answer_reaches_the_model() {
     let cli = pinned_copilot();
-    let dir = TempDir::new("mcpa");
-    let (work, tools) = (dir.0.join("work"), dir.0.join("tools"));
-    std::fs::create_dir_all(&work).expect("work");
-    std::fs::create_dir_all(&tools).expect("tools");
-    let mark = tools.join("note-saved");
-    let mut live = Live::start_with(&cli, &work, true, mcp_servers(&tools, &mark)).await;
-    let reply = live.turn(MCP_PROMPT).await;
+    let dir = TempDir::new("hosta");
+    let handler = Declared::new(true);
+    let mut live = Live::start_with(&cli, &dir.0, true, vec![note_tool()], handler.clone()).await;
+    let reply = live.turn(NOTE_PROMPT).await;
     let gated = live.gated();
     live.stop().await;
-    assert!(
-        mark.exists(),
-        "the allowed MCP tool never ran; gate saw {gated:?}; the model said: {reply}; the MCP server \
-         received: {}",
-        mcp_log(&mark)
-    );
-}
-
-// ---- the host-tool probe ----
-
-/// One `Content-Length`-framed message from the CLI; `None` at the end of the stream.
-async fn probe_read(
-    reader: &mut tokio::io::BufReader<tokio::process::ChildStdout>,
-) -> Option<Value> {
-    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
-    let mut length = None;
-    loop {
-        let mut line = String::new();
-        if reader.read_line(&mut line).await.ok()? == 0 {
-            return None;
-        }
-        let line = line.trim_end();
-        if line.is_empty() {
-            break;
-        }
-        if let Some(value) = line.strip_prefix("Content-Length:") {
-            length = value.trim().parse::<usize>().ok();
-        }
-    }
-    let mut body = vec![0u8; length?];
-    reader.read_exact(&mut body).await.ok()?;
-    serde_json::from_slice(&body).ok()
-}
-
-async fn probe_write(stdin: &mut tokio::process::ChildStdin, message: Value) {
-    use tokio::io::AsyncWriteExt;
-    let body = serde_json::to_vec(&message).expect("json");
-    stdin
-        .write_all(format!("Content-Length: {}\r\n\r\n", body.len()).as_bytes())
-        .await
-        .expect("write");
-    stdin.write_all(&body).await.expect("write");
-    stdin.flush().await.expect("flush");
-}
-
-/// A tool ordin declares itself in `session.create` `tools` and answers over the CLI connection
-/// (`external_tool.requested` → `session.tools.handlePendingToolCall`), with no MCP server. Proves
-/// whether such a tool reaches ordin where the organisation's MCP registry policy blocks MCP
-/// servers (plan 08 RISK-COPILOT-MCP). Uses the raw protocol: the adapter does not offer host tools.
-#[tokio::test]
-#[ignore = "drives the real Copilot CLI; run by make harness-test"]
-async fn host_probe_a_tool_ordin_declares_reaches_ordin() {
-    // A diagnostic, not part of the proof: it runs on whichever CLI version is on `PATH`.
-    let path = std::env::var_os("PATH").expect("PATH");
-    let cli = std::env::split_paths(&path)
-        .map(|dir| dir.join("copilot"))
-        .find(|candidate| candidate.is_file())
-        .expect("the probe needs the Copilot CLI on PATH");
-    let dir = TempDir::new("host");
-    let mut child = tokio::process::Command::new(&cli)
-        .args(["--server", "--stdio", "--no-auto-update"])
-        .env_clear()
-        .envs(environment(&cli))
-        .current_dir(&dir.0)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("start the CLI");
-    let mut stdin = child.stdin.take().expect("stdin");
-    let mut reader = tokio::io::BufReader::new(child.stdout.take().expect("stdout"));
-    let session_id = format!("host-{}", std::process::id());
-    let tool = json!({
-        "name": "ordin_save_note",
-        "description": "Saves a short note in ordin. Use it whenever the person asks to save a note.",
-        "parameters": {
-            "type": "object",
-            "properties": {"text": {"type": "string", "description": "The note"}},
-            "required": ["text"]
-        }
-    });
-    let calls = [
-        ("connect", json!({})),
-        (
-            "session.create",
-            json!({
-                "sessionId": session_id,
-                "tools": [tool],
-                "requestPermission": true,
-                "hooks": false,
-                "envValueMode": "direct",
-            }),
-        ),
-        (
-            "session.send",
-            json!({"sessionId": session_id, "prompt": "Use the ordin_save_note tool to save the note hello. Call it once, then repeat exactly what the tool answered."}),
-        ),
-    ];
-    let mut notes: Vec<String> = Vec::new();
-    let mut requested: Vec<Value> = Vec::new();
-    let mut next_id = 100;
-    let reply = tokio::time::timeout(TURN, async {
-        for (id, (method, params)) in calls.into_iter().enumerate() {
-            probe_write(
-                &mut stdin,
-                json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}),
-            )
-            .await;
-            loop {
-                let message = probe_read(&mut reader).await?;
-                if message.get("id") == Some(&json!(id)) && message.get("method").is_none() {
-                    if let Some(error) = message.get("error") {
-                        notes.push(format!("{method} refused: {error}"));
-                    }
-                    break;
-                }
-            }
-        }
-        let mut reply = String::new();
-        while let Some(message) = probe_read(&mut reader).await {
-            // A request from the CLI: none is offered here.
-            if let (Some(id), Some(method)) = (message.get("id"), message["method"].as_str()) {
-                notes.push(format!("CLI asked {method}"));
-                probe_write(
-                    &mut stdin,
-                    json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": "not offered"}}),
-                )
-                .await;
-                continue;
-            }
-            let event = &message["params"]["event"];
-            let data = &event["data"];
-            match event["type"].as_str() {
-                Some("permission.requested") => {
-                    notes.push(format!("permission asked: {}", data["permissionRequest"]["kind"]));
-                    next_id += 1;
-                    probe_write(
-                        &mut stdin,
-                        json!({"jsonrpc": "2.0", "id": next_id, "method": "session.permissions.handlePendingPermissionRequest",
-                               "params": {"sessionId": session_id, "requestId": data["requestId"], "result": {"kind": "approve-once"}}}),
-                    )
-                    .await;
-                }
-                Some("external_tool.requested") => {
-                    requested.push(data.clone());
-                    next_id += 1;
-                    probe_write(
-                        &mut stdin,
-                        json!({"jsonrpc": "2.0", "id": next_id, "method": "session.tools.handlePendingToolCall",
-                               "params": {"sessionId": session_id, "requestId": data["requestId"],
-                                          "result": {"textResultForLlm": "Saved by ordin: ORDIN-HOST-TOOL-OK", "resultType": "success"}}}),
-                    )
-                    .await;
-                }
-                Some("assistant.message") => {
-                    reply = data["content"].as_str().unwrap_or_default().to_owned()
-                }
-                Some("session.idle") => return Some(reply),
-                Some(kind) if kind.contains("error") || kind.contains("tool") => {
-                    notes.push(format!("{kind}: {data}"))
-                }
-                _ => {}
-            }
-        }
-        None
-    })
-    .await;
-    let _ = child.start_kill();
-    let reply = match reply {
-        Ok(Some(reply)) => reply,
-        Ok(None) => "the CLI closed its output".to_owned(),
-        Err(_) => "no end of turn within the deadline".to_owned(),
-    };
-    println!(
-        "[host tool] requests to ordin: {requested:?}\n  notes: {notes:?}\n  model said: {reply}"
+    assert_eq!(
+        handler.calls().len(),
+        1,
+        "one call; gates saw {gated:?}; model said: {reply}"
     );
     assert!(
-        requested.iter().any(|r| r["toolName"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("ordin_save_note")),
-        "the declared tool never reached ordin; notes: {notes:?}; model said: {reply}"
+        reply.contains(RAN),
+        "ordin's answer never reached the model: {reply}"
     );
-    assert!(
-        reply.contains("ORDIN-HOST-TOOL-OK"),
-        "the answer never reached the model: {reply}"
-    );
+    println!("[declared tool, allowed] gates saw {gated:?} (assumption A-4)");
 }

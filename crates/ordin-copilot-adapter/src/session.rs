@@ -7,14 +7,17 @@ use std::time::Instant;
 
 use futures::stream::BoxStream;
 use ordin_hook_relay::{HookSessionEvent, HookSessionSpec};
-use ordin_mcp_front::{McpError, SessionGrant};
+use ordin_mcp_front::{McpError, SessionGrant, ToolKey};
 use ordin_rules::{RunStartFacts, StartOutcome};
 use ordin_runtime_adapter::{HarnessKind, RunEndReason, StartInput, ToolCaller};
+use ordin_types::RunId;
+use tokio_util::sync::CancellationToken;
 
 use crate::adapter::Inner;
 use crate::error::Failure;
 use crate::gate::{RelayGate, RelayObserver, ServerNames};
-use crate::port::{CopilotEvent, SessionOptions};
+use crate::port::{CopilotEvent, HostTool, HostToolAnswer, HostToolHandler, SessionOptions};
+use crate::ports::McpPort;
 use crate::run::{cut, lock, run_log, Run, MAX_FINAL_MESSAGE};
 
 /// A session that runs: its two event streams, subscribed before the first turn was sent.
@@ -77,21 +80,17 @@ pub(crate) fn first_turn(run: &Run, input: &StartInput, command: Option<&str>) -
     text
 }
 
-/// Step 8: the MCP Front's servers JSON with the package servers merged in; `Err` names a package
-/// server whose name an MCP Front server already has.
-pub(crate) fn merged_servers(
-    front: serde_json::Value,
+/// Step 8: the servers JSON passed to the CLI, which holds only the package servers; the MCP
+/// Front's are declared as tools instead (CPA-HT-2). `Err` names a package server whose name an MCP
+/// Front server already has (`CPA_SERVER_NAME_CLASH`, unchanged).
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+pub(crate) fn package_servers(
+    front: &[String],
     packages: &[crate::config::PackageMcpServer],
 ) -> Result<serde_json::Value, String> {
-    let mut servers = match front {
-        serde_json::Value::Object(mut json) => match json.remove("mcpServers") {
-            Some(serde_json::Value::Object(servers)) => servers,
-            _ => serde_json::Map::new(),
-        },
-        _ => serde_json::Map::new(),
-    };
+    let mut servers = serde_json::Map::new();
     for package in packages {
-        if servers.contains_key(&package.name) {
+        if front.contains(&package.name) || servers.contains_key(&package.name) {
             return Err(package.name.clone());
         }
         servers.insert(
@@ -105,6 +104,108 @@ pub(crate) fn merged_servers(
         );
     }
     Ok(serde_json::json!({ "mcpServers": servers }))
+}
+
+/// The longest tool name the CLI is given (CPA-HT-2).
+const MAX_HOST_TOOL_NAME: usize = 64;
+/// CPA-HT-3's answers where the pipeline gave none.
+const NOT_OFFERED: &str = "This tool is not offered to this session.";
+const NOT_RUN: &str = "This tool could not be run.";
+
+/// The declared tools of a session, each with the key it maps back to.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+pub(crate) fn host_tools(
+    run: &Run,
+    offered: Vec<(ToolKey, ordin_mcp_front::ToolSpec)>,
+) -> Vec<(HostTool, ToolKey)> {
+    offered
+        .into_iter()
+        .filter_map(|(key, spec)| {
+            let name = format!("mcp__{}__{}", key.server.as_str(), key.tool);
+            if name.chars().count() > MAX_HOST_TOOL_NAME {
+                run_log!(
+                    warn,
+                    run,
+                    "copilot.host_tool_skipped",
+                    server = key.server.as_str(),
+                    tool = key.tool.as_str()
+                );
+                return None;
+            }
+            let tool = HostTool {
+                name,
+                description: spec.description,
+                parameters: spec.input_schema,
+            };
+            Some((tool, key))
+        })
+        .collect()
+}
+
+/// Answers the CLI's calls of a session's declared tools through the MCP Front (CPA-HT-3). The Rules
+/// Engine decides inside `dispatch_harness`; this adds no decision of its own.
+pub(crate) struct FrontToolHandler {
+    pub run_id: RunId,
+    pub correlation_id: String,
+    pub mcp: Arc<dyn McpPort>,
+    pub declared: std::collections::HashMap<String, ToolKey>,
+    /// The run's token; each call gets a child of it (CPA-HT-5).
+    pub calls: CancellationToken,
+}
+
+#[async_trait::async_trait]
+impl HostToolHandler for FrontToolHandler {
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-5
+    async fn call(
+        &self,
+        name: &str,
+        arguments: serde_json::Value,
+        cancel: CancellationToken,
+    ) -> HostToolAnswer {
+        let Some(key) = self.declared.get(name).cloned() else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                run_id = %self.run_id,
+                correlation_id = %self.correlation_id,
+                code = "MCP_TOOL_NOT_OFFERED",
+                "copilot.host_tool.refused"
+            );
+            return HostToolAnswer::Failure {
+                text: NOT_OFFERED.to_owned(),
+            };
+        };
+        let token = self.calls.child_token();
+        // The port's own token (the connection's) also ends the call.
+        let watch = {
+            let token = token.clone();
+            tokio::spawn(async move {
+                cancel.cancelled().await;
+                token.cancel();
+            })
+        };
+        let result = self
+            .mcp
+            .dispatch_harness(self.run_id, key, arguments, token)
+            .await;
+        watch.abort();
+        match result {
+            Ok(result) if !result.is_error => HostToolAnswer::Success { text: result.text },
+            Ok(result) => HostToolAnswer::Failure { text: result.text },
+            Err(error) => {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    run_id = %self.run_id,
+                    correlation_id = %self.correlation_id,
+                    code = error.code(),
+                    "copilot.host_tool.failed"
+                );
+                HostToolAnswer::Failure {
+                    text: NOT_RUN.to_owned(),
+                }
+            }
+        }
+    }
 }
 
 impl Inner {
@@ -226,20 +327,42 @@ impl Inner {
                 .collect(),
         };
         *lock(&run.front_servers) = names.front.clone();
-        let mcp_servers = merged_servers(
-            mcp_config.to_mcp_servers_json(),
-            &lock(&run.package_servers),
-        )
-        .map_err(|name| {
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+        let mcp_servers =
+            package_servers(&names.front, &lock(&run.package_servers)).map_err(|name| {
+                run_log!(
+                    warn,
+                    run,
+                    "copilot.session.open_failed",
+                    code = "CPA_SERVER_NAME_CLASH",
+                    server = name.as_str()
+                );
+                Failure::unreachable("CPA_SERVER_NAME_CLASH", false)
+            })?;
+
+        // The MCP Front's tools are declared, read again on every create and resume (CPA-HT-6).
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-6
+        let offered = self.mcp.harness_tools(run.run_id).map_err(|error| {
             run_log!(
                 warn,
                 run,
                 "copilot.session.open_failed",
-                code = "CPA_SERVER_NAME_CLASH",
-                server = name.as_str()
+                code = "CPA_MCP_OPEN_FAILED",
+                mcp_code = error.code()
             );
-            Failure::unreachable("CPA_SERVER_NAME_CLASH", false)
+            Failure::unreachable("CPA_MCP_OPEN_FAILED", true)
         })?;
+        let declared = host_tools(run, offered);
+        let handler = Arc::new(FrontToolHandler {
+            run_id: run.run_id,
+            correlation_id: run.correlation_id.clone(),
+            mcp: self.mcp.clone(),
+            declared: declared
+                .iter()
+                .map(|(tool, key)| (tool.name.clone(), key.clone()))
+                .collect(),
+            calls: run.calls.clone(),
+        });
 
         // Step 9.
         let gate = Arc::new(RelayGate {
@@ -257,6 +380,8 @@ impl Inner {
                 run_id: run.run_id,
                 hooks: self.hooks.clone(),
             }),
+            host_tools: declared.into_iter().map(|(tool, _)| tool).collect(),
+            host_tool_handler: handler,
         };
         let server = run
             .server()
@@ -314,6 +439,8 @@ impl Inner {
     /// Clean-up: the relay and MCP sessions (errors logged), the CLI server, the package servers'
     /// secrets.
     pub(crate) async fn close_session(&self, run: &Run) {
+        // Every declared-tool call still running is answered as cancelled (CPA-HT-5).
+        run.calls.cancel();
         let (mcp, hook) = {
             let mut registered = lock(&run.registered);
             let flags = (registered.mcp, registered.hook);

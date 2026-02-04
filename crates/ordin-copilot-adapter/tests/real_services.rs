@@ -16,7 +16,8 @@ use ordin_approval::{ApprovalConfig, ApprovalService};
 use ordin_copilot_adapter::{
     CliServerSpec, CopilotAdapterConfig, CopilotAuthStatus, CopilotCli, CopilotCliSource,
     CopilotEvent, CopilotLocalAdapter, CopilotPort, CopilotServer, CopilotSessionSetup, GateAnswer,
-    PortError, SessionOptions, SessionSetupError, SessionSetupSource, ToolGate,
+    HostToolAnswer, HostToolHandler, PortError, SessionOptions, SessionSetupError,
+    SessionSetupSource, ToolGate,
 };
 use ordin_hook_relay::{HookRelay, HookRelayConfig, NoPlaces};
 use ordin_journal::{
@@ -217,6 +218,9 @@ impl RefResolver for AnyRef {
 #[derive(Default)]
 struct Session {
     pre_tool_use: Mutex<Option<Arc<dyn ToolGate>>>,
+    /// The declared tools and their handler (CPA-HT-1).
+    host_tools: Mutex<Vec<String>>,
+    host_tool_handler: Mutex<Option<Arc<dyn HostToolHandler>>>,
     events: Mutex<Option<mpsc::UnboundedSender<CopilotEvent>>>,
     receiver: Mutex<Option<mpsc::UnboundedReceiver<CopilotEvent>>>,
     sent: Mutex<Vec<String>>,
@@ -250,6 +254,9 @@ impl CopilotServer for TestServer {
     }
     async fn create_session(&self, opts: SessionOptions) -> Result<String, PortError> {
         *self.0.pre_tool_use.lock().unwrap() = Some(opts.pre_tool_use.clone());
+        *self.0.host_tools.lock().unwrap() =
+            opts.host_tools.iter().map(|t| t.name.clone()).collect();
+        *self.0.host_tool_handler.lock().unwrap() = Some(opts.host_tool_handler.clone());
         let (tx, rx) = mpsc::unbounded_channel();
         *self.0.events.lock().unwrap() = Some(tx);
         *self.0.receiver.lock().unwrap() = Some(rx);
@@ -677,5 +684,50 @@ async fn a_denied_tool_is_refused_by_the_real_rules_engine_and_the_turn_end_comp
         port.0.sent.lock().unwrap()[0],
         "Summarise the three quotes in one table"
     );
+    stack.stop().await;
+}
+
+/// CPA-HT-3 through the real services: a declared `work` tool's call goes through the real MCP Front
+/// and is decided by the real Rules Engine, journalled under its `mcp__` name (plan 08 Phase 13
+/// behavioural check).
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+#[tokio::test]
+async fn a_declared_tool_call_is_decided_by_the_real_rules_engine() {
+    let dir = TempDir::new();
+    let port = TestPort::default();
+    let stack = Stack::start(&dir.0, port.clone()).await;
+    let run = stack.start_run(Authority::DocumentOnly).await;
+    gate_of(&port.0).await;
+    let declared = port.0.host_tools.lock().unwrap().clone();
+    assert!(
+        declared.iter().any(|name| name == "mcp__work__plan"),
+        "the MCP Front's work tools are declared: {declared:?}"
+    );
+    let handler = port
+        .0
+        .host_tool_handler
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("the handler");
+    let answer = handler
+        .call(
+            "mcp__work__plan",
+            serde_json::json!({"action": "state", "steps": ["Read the quotes", "Compare the rates", "Write the summary"]}),
+            CancellationToken::new(),
+        )
+        .await;
+    let rows = stack.requests(run).await;
+    assert_eq!(
+        rows.len(),
+        1,
+        "one journalled request: {rows:?}; answer {answer:?}"
+    );
+    assert_eq!(rows[0].0, "mcp__work__plan");
+    assert!(!rows[0].1.is_empty(), "the Rules Engine decided: {rows:?}");
+    match (&answer, rows[0].1.as_str()) {
+        (HostToolAnswer::Success { .. }, "allow") | (HostToolAnswer::Failure { .. }, _) => {}
+        other => panic!("answer and decision disagree: {other:?}"),
+    }
     stack.stop().await;
 }

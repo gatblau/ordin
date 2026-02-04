@@ -1,5 +1,6 @@
 //! One test per Gherkin scenario of CopilotLocalAdapter.md, its January 2026 amendment (CPA-REC-1)
-//! and its 2026-02-02 amendment (CPA-CPX-1 to CPA-CPX-5).
+//! its 2026-02-02 amendment (CPA-CPX-1 to CPA-CPX-5) and its 2026-02-04 amendment (CPA-HT-1 to
+//! CPA-HT-7).
 
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -12,9 +13,10 @@ use ordin_types::{ApprovalId, ArtefactId};
 use super::support::*;
 use crate::adapter::{CopilotLocalAdapter, Host, Services};
 use crate::error::CopilotAdapterError;
-use crate::port::{CopilotEvent, GateAnswer};
+use crate::port::{CopilotEvent, GateAnswer, HostToolAnswer};
 use crate::testkit::ScriptedCopilotPort;
 use ordin_hook_relay::HookSessionEvent;
+use ordin_mcp_front::McpError;
 
 // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CPX-3
 #[tokio::test]
@@ -29,8 +31,10 @@ async fn happy_path_free_text_runs_to_completion() {
     assert_eq!(started[0].working_folder, h.dir.0.join("agent"));
     let created = h.script().created.lock().unwrap().clone();
     let servers = &created[0].1["mcpServers"];
-    assert!(servers.get("work").is_some() && servers.get("memory").is_some());
-    assert_eq!(servers["work"]["args"][1], "work");
+    assert!(
+        servers.get("work").is_none() && servers.get("memory").is_none(),
+        "the MCP Front's servers are declared as tools, not launched (CPA-HT-2)"
+    );
 
     h.script().emit(
         &session,
@@ -389,5 +393,189 @@ async fn a_probe_call_with_no_cli_installed() {
     assert_eq!(
         (error.code(), error.retryable()),
         ("CPA_PROBE_FAILED", true)
+    );
+}
+
+// ---- 2026-02-04 amendment: ordin's own tools as declared tools ----
+
+fn offer_work_and_knowledge(h: &Harness) {
+    *h.mcp.offered.lock().unwrap() = vec![
+        ("work", "report".to_owned()),
+        ("knowledge", "note_write".to_owned()),
+    ];
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+#[tokio::test]
+async fn ordins_tools_are_declared_not_launched() {
+    let h = Harness::new();
+    offer_work_and_knowledge(&h);
+    h.setup.setup.lock().unwrap().package_servers = vec![crate::config::PackageMcpServer {
+        name: "quotes".into(),
+        command: "/opt/pkg/quotes".into(),
+        args: vec![],
+        env: Default::default(),
+    }];
+    let (_, session) = h.start_live("Report.").await;
+    assert_eq!(
+        h.script().declared(&session),
+        ["mcp__work__report", "mcp__knowledge__note_write"]
+    );
+    let created = h.script().created.lock().unwrap().clone();
+    let servers = created[0].1["mcpServers"].as_object().unwrap().clone();
+    assert_eq!(servers.keys().collect::<Vec<_>>(), ["quotes"]);
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+#[tokio::test]
+async fn a_tool_name_over_64_characters_is_not_declared() {
+    let h = Harness::new();
+    let long = "t".repeat(60);
+    *h.mcp.offered.lock().unwrap() = vec![("work", "report".to_owned()), ("work", long.clone())];
+    let (handle, session) = h.start_live("Report.").await;
+    assert_eq!(h.script().declared(&session), ["mcp__work__report"]);
+    expect_log(&[
+        &handle.run_id.to_string(),
+        "copilot.host_tool_skipped",
+        &long,
+    ])
+    .await;
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+#[tokio::test]
+async fn a_declared_tools_call_runs_through_the_mcp_front() {
+    let h = Harness::new();
+    offer_work_and_knowledge(&h);
+    *h.mcp.answer.lock().unwrap() = Some(Ok(tool_result(false, "Reported.")));
+    let (handle, session) = h.start_live("Report.").await;
+    let answer = h
+        .script()
+        .call_tool(
+            &session,
+            "mcp__work__report",
+            serde_json::json!({"title": "Q3"}),
+        )
+        .await;
+    assert_eq!(
+        answer,
+        HostToolAnswer::Success {
+            text: "Reported.".into()
+        }
+    );
+    let dispatched = h.mcp.dispatched.lock().unwrap().clone();
+    assert_eq!(dispatched.len(), 1);
+    assert_eq!(dispatched[0].0, handle.run_id);
+    assert_eq!(
+        (dispatched[0].1.as_str(), dispatched[0].2.as_str()),
+        ("work", "report")
+    );
+    assert_eq!(dispatched[0].3, serde_json::json!({"title": "Q3"}));
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+#[tokio::test]
+async fn a_denied_call_is_answered_as_a_failure() {
+    let h = Harness::new();
+    offer_work_and_knowledge(&h);
+    *h.mcp.answer.lock().unwrap() = Some(Ok(tool_result(true, "Not in this workspace.")));
+    let (_, session) = h.start_live("Report.").await;
+    let answer = h
+        .script()
+        .call_tool(&session, "mcp__work__report", serde_json::json!({}))
+        .await;
+    assert_eq!(
+        answer,
+        HostToolAnswer::Failure {
+            text: "Not in this workspace.".into()
+        }
+    );
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-3
+#[tokio::test]
+async fn an_unknown_name_or_a_session_error_is_answered_with_the_specs_sentence() {
+    let h = Harness::new();
+    offer_work_and_knowledge(&h);
+    *h.mcp.answer.lock().unwrap() = Some(Err(McpError::SessionUnknown {
+        run_id: ordin_types::RunId::new(),
+    }));
+    let (handle, session) = h.start_live("Report.").await;
+    let unknown = h
+        .script()
+        .call_tool(&session, "mcp__work__delete_all", serde_json::json!({}))
+        .await;
+    assert_eq!(
+        unknown,
+        HostToolAnswer::Failure {
+            text: "This tool is not offered to this session.".into()
+        }
+    );
+    assert!(
+        h.mcp.dispatched.lock().unwrap().is_empty(),
+        "no call for an unknown name"
+    );
+    expect_log(&[&handle.run_id.to_string(), "MCP_TOOL_NOT_OFFERED"]).await;
+    let failed = h
+        .script()
+        .call_tool(&session, "mcp__work__report", serde_json::json!({}))
+        .await;
+    assert_eq!(
+        failed,
+        HostToolAnswer::Failure {
+            text: "This tool could not be run.".into()
+        }
+    );
+    expect_log(&[
+        &handle.run_id.to_string(),
+        "copilot.host_tool.failed",
+        "MCP_SESSION_UNKNOWN",
+    ])
+    .await;
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-5
+#[tokio::test]
+async fn a_call_in_progress_at_cancel_is_answered() {
+    let h = std::sync::Arc::new(Harness::new());
+    offer_work_and_knowledge(&h);
+    let (handle, session) = h.start_live("Report.").await;
+    let call = tokio::spawn({
+        let h = h.clone();
+        let session = session.clone();
+        async move {
+            h.script()
+                .call_tool(&session, "mcp__work__report", serde_json::json!({}))
+                .await
+        }
+    });
+    for _ in 0..500 {
+        if !h.mcp.dispatched.lock().unwrap().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    h.adapter.cancel(&ctx(), &handle).await.expect("cancel");
+    let answer = tokio::time::timeout(Duration::from_secs(5), call)
+        .await
+        .expect("the call is answered")
+        .unwrap();
+    assert!(
+        matches!(answer, HostToolAnswer::Failure { .. }),
+        "{answer:?}"
+    );
+}
+
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-6
+#[tokio::test]
+async fn a_resumed_session_keeps_the_declared_tools() {
+    let h = Harness::new();
+    offer_work_and_knowledge(&h);
+    h.setup.setup.lock().unwrap().resume_session_id = Some("sess_8f3a2c".into());
+    let handle = h.start(free_text("Carry on.")).await.expect("start");
+    assert_eq!(handle.runtime_session_id.as_deref(), Some("sess_8f3a2c"));
+    assert_eq!(
+        h.script().declared("sess_8f3a2c"),
+        ["mcp__work__report", "mcp__knowledge__note_write"]
     );
 }

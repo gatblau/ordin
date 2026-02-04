@@ -19,7 +19,7 @@ use crate::env::{server_environment, ParentEnv};
 use crate::gate::{classify, ServerNames};
 use crate::models::CopilotModels;
 use crate::port::CopilotEvent;
-use crate::session::merged_servers;
+use crate::session::package_servers;
 use crate::testkit::ScriptedCopilotPort;
 use ordin_runtime_adapter::HarnessModels;
 
@@ -56,22 +56,23 @@ fn the_environment_is_an_allow_list_with_the_clis_folder_last_on_path() {
 }
 
 #[test]
-fn package_servers_are_merged_into_the_mcp_servers_json() {
-    let front = serde_json::json!({"mcpServers": {"work": {"type": "stdio"}}});
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+fn only_package_servers_are_passed_in_the_mcp_servers_json() {
+    let front = vec!["work".to_owned()];
     let package = crate::config::PackageMcpServer {
         name: "quotes".into(),
         command: PathBuf::from("/opt/q"),
         args: vec!["--fast".into()],
         env: [("KEY".to_owned(), "secret".to_owned())].into(),
     };
-    let merged = merged_servers(front.clone(), std::slice::from_ref(&package)).unwrap();
+    let merged = package_servers(&front, std::slice::from_ref(&package)).unwrap();
     assert_eq!(merged["mcpServers"]["quotes"]["command"], "/opt/q");
-    assert!(merged["mcpServers"]["work"].is_object());
+    assert!(merged["mcpServers"].get("work").is_none());
     let clash = crate::config::PackageMcpServer {
         name: "work".into(),
         ..package.clone()
     };
-    assert_eq!(merged_servers(front, &[clash]).unwrap_err(), "work");
+    assert_eq!(package_servers(&front, &[clash]).unwrap_err(), "work");
     assert!(
         !format!("{package:?}").contains("secret"),
         "env values are never printed"

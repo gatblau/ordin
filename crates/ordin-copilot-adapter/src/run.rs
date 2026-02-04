@@ -106,6 +106,9 @@ pub(crate) struct Run {
     pub server: Mutex<Option<Arc<dyn CopilotServer>>>,
     /// The MCP Front's server names for this session (origin classification).
     pub front_servers: Mutex<Vec<String>>,
+    /// The parent of every declared-tool call's token; cancelled when the session is taken down.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-5
+    pub calls: tokio_util::sync::CancellationToken,
     /// The Copilot session id, once created or resumed (step 9).
     session_id: Mutex<Option<String>>,
     /// A hook held for a person's approval (`HookSessionEvent::Holding`), cleared by `Decided`.
@@ -150,6 +153,7 @@ impl Run {
             registered: Mutex::new(Registered::default()),
             server: Mutex::new(None),
             front_servers: Mutex::new(Vec::new()),
+            calls: tokio_util::sync::CancellationToken::new(),
             session_id: Mutex::new(None),
             holding: Mutex::new(None),
             events: Mutex::new(Vec::new()),
