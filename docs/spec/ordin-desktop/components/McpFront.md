@@ -1504,3 +1504,56 @@ None.
     Then its offered map holds only keys of server "ordin"
     And its SessionMcpConfig launches only server "ordin"
 ```
+
+## Amendment 2026-02-04 — A harness route in process for Copilot's declared tools (SA-MCP-HT-1 to SA-MCP-HT-4)
+
+> **Status:** Approved by the user, 2026-02-04 ("proceed with recommendations"). Source: RFC 16; HLD ADR-124. **derivedFromHld:** 0.74.0. Every section above stays in force except where this amendment changes it.
+
+- **SA-MCP-HT-1 Two methods on `ToolDispatch`.** The trait the Sandbox already uses (SA-RECON-05) gains a harness route, with the same rules except where stated:
+
+  ```rust
+  #[async_trait]
+  pub trait ToolDispatch: Send + Sync {
+      // session_tools and dispatch: unchanged.
+
+      /// Every tool in the session's offered map, sorted by server then tool, whatever its
+      /// `sandbox_callable`. Err only `MCP_SESSION_UNKNOWN`.
+      fn harness_tools(&self, run_id: RunId) -> Result<Vec<(ToolKey, ToolSpec)>, McpError>;
+
+      /// Runs one call with the pipeline of a bridge `tools/call` (`via = Harness`, no progress
+      /// token). Err only for session-level failures (`MCP_SESSION_UNKNOWN`).
+      async fn dispatch_harness(
+          &self,
+          run_id: RunId,
+          key: ToolKey,
+          arguments: serde_json::Value,
+          cancel: CancellationToken,
+      ) -> Result<ToolCallResult, McpError>;
+  }
+  ```
+- **SA-MCP-HT-2 Pipeline.** `dispatch_harness` runs *Internal Logic* E steps 12–22 exactly as a bridge `tools/call` does: step 14 checks the offered map only (no `sandbox_callable` test), step 17 builds the `ToolCall` with tool `mcp__<server>__<tool>` and origin `OrdinMcpFront { server }`, and step 22(a) does not apply (no progress token). Cancelling `cancel` ends the call with `MCP_CALL_CANCELLED` in the returned `ToolCallResult`. Unlike the bridge, which sends nothing for a cancelled call, the result is returned so the caller can answer the harness.
+- **SA-MCP-HT-3 Sessions.** A Copilot session is still opened with `open_session`, which builds its offered map and returns its `SessionMcpConfig`. The caller may launch none of the returned servers. `tools_changed` updates the offered map as before. With no bridge connection, no `notifications/tools/list_changed` is sent.
+- **SA-MCP-HT-4 No new code, no new provider change.** Every outcome uses the existing `MCP_` codes, and no `ToolProvider` changes.
+
+```gherkin
+  Scenario: A harness call in process runs the full pipeline (SA-MCP-HT-2)
+    Given a session for run R with work.report offered and not sandbox_callable
+    When dispatch_harness is called for R with work.report and valid arguments
+    Then the Rules Engine decides a ToolCall with tool "mcp__work__report" and origin OrdinMcpFront
+    And the provider is called once and the result is returned
+
+  Scenario: A cancelled harness call returns its result (SA-MCP-HT-2)
+    Given a dispatch_harness call waiting on a slow provider
+    When its cancel token is cancelled
+    Then the call returns a ToolCallResult with code MCP_CALL_CANCELLED
+
+  Scenario: The harness route lists every offered tool (SA-MCP-HT-1)
+    Given a session whose offered map holds one sandbox_callable tool and one other
+    When harness_tools is called
+    Then both are listed, sorted by server then tool
+```
+
+### Gaps
+
+None.
+

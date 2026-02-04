@@ -993,7 +993,7 @@ Before a new version applies its first migration the Journal copies the datastor
 - **Claude Code CLI.** The person's installed, unmodified Claude Code, at a version the profile lists as tested, signed in through its own flow, and started per session by the Claude Local Adapter (ADR-038, ADR-044). Not bundled in the first step; later installed by the Setup Assistant from the vendor's installer.
   *Amended in revision 0.43.0 (ADR-097, ADR-098): in the agent profile it is added to the server image by the deploying organisation from Anthropic's installer, at the version ordin pins, and runs with the organisation's key (C-81).*
 - **ordin hook.** ordin's signed Rust program that each harness runs before every tool call (ADR-045).
-- **Copilot CLI server.** *Amended in revision 0.73.0 (ADR-123):* the person's own Copilot CLI, found and checked like Claude Code and started in server mode, one per local session; ordin does not ship it. On the personal server, the operator's install at the profile's pinned path. *(Until revision 0.72.0: the bundled Copilot CLI, pinned to a tested version, ADR-001.)*
+- **Copilot CLI server.** *Amended in revision 0.73.0 (ADR-123):* the person's own Copilot CLI, found and checked like Claude Code and started in server mode, one per local session; ordin does not ship it. On the personal server, the operator's install at the profile's pinned path. *(Until revision 0.72.0: the bundled Copilot CLI, pinned to a tested version, ADR-001.)* *Amended in revision 0.74.0 (ADR-124):* ordin's own tools reach a Copilot session as tools ordin declares when the session starts, answered over the CLI connection through the MCP Front's pipeline; package MCP servers stay MCP.
 
 ### Placement of the four control loops
 

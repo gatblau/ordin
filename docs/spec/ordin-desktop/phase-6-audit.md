@@ -184,3 +184,35 @@ None outstanding for the spec set. The plan's own open assumptions (confirmation
 ### Verdict
 
 Passed. Approved by the user 2026-02-02 ("approve, and allow Copilot without a company profile"), with the HLD changes of revision 0.73.0.
+
+## Amendment audit, 2026-02-04 — Copilot receives ordin's own tools as declared tools (approved)
+
+> **Scope:** amended — `components/CopilotLocalAdapter.md` (CPA-HT-1 to CPA-HT-7), `components/McpFront.md` (SA-MCP-HT-1 to SA-MCP-HT-4). `components/OrdinDesktop.md` is unchanged: the adapter already receives the `McpFront` it needs (CPA-CPX-2), and nothing new is wired. Source: RFC 16; HLD ADR-124, revision 0.74.0.
+
+| # | Item | Result |
+|---|---|---|
+| 1 | Complete data models | Pass — `HostTool`, `HostToolAnswer`, `HostToolHandler`, `SessionOptions` fields; `ToolDispatch::harness_tools`, `dispatch_harness` |
+| 2 | Every action has trigger, inputs, outputs, side effects, errors | Pass — declaration at `start` and `resume`, answering a call, cancel |
+| 3 | Error table per changed component | Pass — no new rows: every outcome maps to existing `MCP_` and `CPA_` codes (CPA-HT-7, SA-MCP-HT-4) |
+| 4 | Codes registered | Pass — none added |
+| 5 | Gherkin per behaviour | Pass — CopilotLocalAdapter 5, McpFront 3 |
+| 6 | No unverified identifier | Pass — `ToolDispatch`, `ToolSpec`, `ToolCallResult`, `CallVia` (`crates/ordin-mcp-front/src/provider.rs:35-56`, `:202`; `crates/ordin-mcp-front/src/types.rs:172`); the CLI wire names `tools`, `external_tool.requested`, `session.tools.handlePendingToolCall`, `textResultForLlm`, `resultType` were read from the published `github-copilot-sdk` 1.0.35 crate (its session and types modules) and confirmed against CLI 1.0.115 by `crates/ordin-copilot-adapter/tests/harness.rs` `host_probe_a_tool_ordin_declares_reaches_ordin` |
+| 7 | No banned phrase | Pass |
+| 8 | Security for every entry point | Pass — the new entry is the CLI connection ordin already owns; every call is decided by the Rules Engine in the pipeline (ADR-037 enforcement at the server kept); arguments and outputs are never logged (step 21) |
+| 9 | Long work never holds a tool call | Pass — the pipeline's `call_timeout` and cancel apply unchanged |
+| 10 | Build switch | Pass — behind `copilot`, as the adapter |
+| 11 | Playbook | Pass — no new step; plan 08 gains a build phase before Phase 11 |
+| 12 | HLD consistency | Pass — ADR-124 amends ADR-037 for Copilot; 02, 08, 10 amended; revision 0.74.0 |
+| 13 | Spec anchors | Not run — `make doc-ref-check` runs on the server once approved and committed |
+
+### Assumptions chosen here (the user may change any)
+
+- **A-1** Host tool names are `mcp__<server>__<tool>`, the name the Rules Engine and the Hook Relay already match, so one rule covers both harnesses (RFC 16 OQ-3). A name over 64 characters is skipped and logged. The 64-character limit is the common model-API function-name limit, assumed for the CLI.
+- **A-2** Tools added mid-session reach the next session. Withdrawn ones are refused by the pipeline (RFC 16 OQ-1). Whether the CLI can replace declared tools during a session is unverified.
+- **A-3** Progress reaches the journal and screens only (RFC 16 OQ-4).
+- **A-4** If the CLI asks permission for a declared tool, the existing classification as `OrdinMcpFront` answers it (RFC 16 OQ-2). The proof run records whether it asks.
+
+### Verdict
+
+Passed. Approved by the user 2026-02-04 ("proceed with recommendations"), with the HLD changes of revision 0.74.0.
+

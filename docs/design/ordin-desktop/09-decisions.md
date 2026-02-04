@@ -3195,3 +3195,21 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
   - *Bundle a pinned Copilot CLI (ADR-001 as written).* Rejected: redistribution terms unknown, and a public installer cannot be recalled.
   - *ordin installs Copilot for the person (ADR-044's later step).* Not now: it brings the redistribution question back.
 
+### ADR-124: Copilot receives ordin's own tools as tools ordin declares, not as MCP servers
+
+- **Status.** Decided by the user, 2026-02-04 ("proceed with recommendations"), from RFC 16 (plan 08 Phase 8 evidence). **Amends ADR-037** for the Copilot harness only.
+- **Decision.**
+  - In a Copilot session, the tools the MCP Front offers that session are declared by ordin itself when the session starts (the Copilot CLI's host tools), each under the name `mcp__<server>__<tool>` with the provider's description and input schema. The CLI sends each call back to ordin over the connection ordin already holds, and ordin runs it through the MCP Front's own call pipeline, so the Rules Engine decides every call inside the MCP Front, as ADR-037 requires.
+  - No provider is written for Copilot: the MCP Front offers one in-process route for a harness, beside the one the Sandbox already uses (SA-RECON-05).
+  - MCP servers declared by an agent's package still reach Copilot as MCP servers. Claude Code is unchanged: it takes ordin's tools through MCP, having no host-tool route (ADR-038).
+- **Context.** On a company Copilot licence whose organisation sets the MCP registry policy to registry only, the CLI in server mode drops every MCP server outside the registry with no error; ordin's servers never start (C-113). On the same licence, a tool ordin declares reaches ordin and its answer reaches the model. The policy governs MCP servers, not tools the host declares.
+- **Consequences.**
+  - ordin's tools work in Copilot whatever the organisation's MCP policy.
+  - Tools withdrawn mid-session are refused by the pipeline (`MCP_TOOL_NOT_OFFERED`); tools added mid-session reach the next session, as for a server not launched (SA-RECON-02).
+  - MCP progress notifications have no host-tool counterpart: progress reaches the journal and the screens, not the model.
+  - A package's own MCP servers may still be blocked by such a policy (R-134).
+- **Alternatives considered.**
+  - *Keep MCP for Copilot.* Rejected: ordin's tools are lost wherever the registry policy is on.
+  - *A REST service the agent calls with its shell tool.* Rejected: the model sees no tool list or schemas, the Rules Engine sees only a shell command, and a credential would be exposed to the agent.
+  - *Custom tools written per harness (ADR-037's rejected alternative).* Not this: providers are not rewritten; one pipeline serves both routes.
+

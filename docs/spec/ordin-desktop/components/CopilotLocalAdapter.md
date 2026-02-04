@@ -900,3 +900,84 @@ None.
 ### Gaps
 
 None.
+
+## Amendment 2026-02-04 — ordin's own tools as declared tools (CPA-HT-1 to CPA-HT-7)
+
+> **Status:** Approved by the user, 2026-02-04 ("proceed with recommendations"). Source: RFC 16; HLD ADR-124 (C-113). **derivedFromHld:** 0.74.0. Every section above stays in force except where this amendment changes it.
+
+- **CPA-HT-1 The port declares and answers tools.** `SessionOptions` gains two fields, and the port gains one trait:
+
+  ```rust
+  pub struct SessionOptions {
+      // model, mcp_servers, pre_tool_use, permission, post_tool_use: unchanged.
+      /// Tools ordin declares in `session.create` and `session.resume` (`tools`).
+      pub host_tools: Vec<HostTool>,
+      /// Answers every call the CLI sends for a declared tool.
+      pub host_tool_handler: std::sync::Arc<dyn HostToolHandler>,
+  }
+
+  #[derive(Debug, Clone, PartialEq)]
+  pub struct HostTool {
+      /// `mcp__<server>__<tool>`.
+      pub name: String,
+      pub description: String,
+      /// JSON Schema, `"type": "object"` at the root.
+      pub parameters: serde_json::Value,
+  }
+
+  #[async_trait::async_trait]
+  pub trait HostToolHandler: Send + Sync {
+      async fn call(
+          &self,
+          name: &str,
+          arguments: serde_json::Value,
+          cancel: tokio_util::sync::CancellationToken,
+      ) -> HostToolAnswer;
+  }
+
+  #[derive(Debug, Clone, PartialEq, Eq)]
+  pub enum HostToolAnswer { Success { text: String }, Failure { text: String } }
+  ```
+
+  `CliCopilotPort` sends `host_tools` as `tools: [{ "name", "description", "parameters" }]` in `session.create` and `session.resume`. On the event `external_tool.requested` (`requestId`, `toolName`, `arguments`) it calls the handler in its own task, then sends `session.tools.handlePendingToolCall { sessionId, requestId, result: { textResultForLlm, resultType: "success" | "failure" } }`. A request for a session it does not hold is answered `resultType: "failure"`, text "This tool is not offered to this session." The scripted double records the declared tools and lets a test send a call.
+- **CPA-HT-2 `start` step 8 changes.** After `mcp.open_session(..)`, the adapter reads `ToolDispatch::harness_tools(run_id)` (McpFront.md SA-MCP-HT-1) and builds one `HostTool` per key: name `mcp__<server>__<tool>`, the spec's `description` and `input_schema`. A name longer than 64 characters is not declared and is logged `warn` `copilot.host_tool_skipped` {`run_id`, `server`, `tool`}. The MCP servers JSON passed to the CLI then holds **only** the package servers (with `tools: ["*"]`); the MCP Front's `SessionMcpConfig` servers are not passed, and their bridge is never started for a Copilot session. `CPA_SERVER_NAME_CLASH` is unchanged.
+- **CPA-HT-3 Answering a call.** The handler maps the name back to its `ToolKey` from the declared set (an unknown name → `Failure { "This tool is not offered to this session." }`, logged with `MCP_TOOL_NOT_OFFERED`), then calls `dispatch_harness(run_id, key, arguments, cancel)`. `Ok(result)` → `Success { text }` when `!result.is_error`, otherwise `Failure { text }`. `Err(McpError)` → `Failure { "This tool could not be run." }`, logged with the error's code. The Rules Engine decides inside `dispatch_harness`. The adapter adds no decision of its own.
+- **CPA-HT-4 The gates.** When the CLI also raises `permission.requested` or the pre-tool-use hook for a declared tool, `RelayGate` classifies the name `mcp__<server>__<tool>` as `OrdinMcpFront { server }` (step 1 of *Tool requests*, unchanged). The Hook Relay then answers as it does for an MCP Front call today, and the decision is made once, in the pipeline.
+- **CPA-HT-5 Cancellation and stop.** Each call gets a child of the run's cancel token. `cancel`, stop and shutdown cancel it, and the CLI is answered `Failure` with the pipeline's text, never left without an answer. A call still running when the server is stopped is dropped with the server.
+- **CPA-HT-6 Resume.** `resume_session` declares the same `host_tools`, read again from `harness_tools`, so a session resumed after a restart (C-05) keeps ordin's tools.
+- **CPA-HT-7 No new code.** Outcomes use the pipeline's `MCP_` codes and this adapter's existing codes.
+
+```gherkin
+  Scenario: ordin's tools are declared, not launched (CPA-HT-2)
+    Given the MCP Front offers work.report and knowledge.note_write to run R
+    And the package declares the MCP server "quotes"
+    When the adapter starts run R
+    Then the session declares host tools "mcp__work__report" and "mcp__knowledge__note_write"
+    And its mcpServers hold only "quotes"
+
+  Scenario: A declared tool's call runs through the MCP Front (CPA-HT-3)
+    Given run R has declared "mcp__work__report"
+    When the CLI requests "mcp__work__report" with valid arguments
+    Then dispatch_harness is called for R with server "work" and tool "report"
+    And the CLI receives resultType "success" with the provider's text
+
+  Scenario: A denied call is answered as a failure (CPA-HT-3)
+    Given the Rules Engine denies "mcp__work__report" with reason "Not in this workspace."
+    When the CLI requests it
+    Then the CLI receives resultType "failure" with text "Not in this workspace."
+
+  Scenario: A call in progress at cancel is answered (CPA-HT-5)
+    Given a declared-tool call is running for run R
+    When the run is cancelled
+    Then the CLI receives resultType "failure" for that request
+
+  Scenario: A resumed session keeps the declared tools (CPA-HT-6)
+    Given run R persisted session S with declared tools
+    When the adapter resumes S after a restart
+    Then session.resume declares the same host tools
+```
+
+### Gaps
+
+None.
+
