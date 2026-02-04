@@ -1,6 +1,6 @@
 [package]
 name = "ordin-desktop"
-version = "0.1.1"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
@@ -14,10 +14,10 @@ name = "ordin"
 path = "src/main.rs"
 
 # Build switches (OrdinDesktop.md amendment January 2026, DSK-UP-1; Playbook §9). `team-knowledge` (DSK-TW-1)
-# and `minutes` (DSK-MIN-6) are on by default; every other switch is off by default, and a shipped version's manifest lists the
-# switches its release turns on.
+# and `minutes` (DSK-MIN-6) are on by default, and so are `copilot` and `sandbox` (Release 2); every other switch is off by
+# default, and a shipped version's manifest lists the switches its release turns on.
 [features]
-default = ["team-knowledge", "minutes"]
+default = ["team-knowledge", "minutes", "copilot", "sandbox"]
 sandbox = ["dep:ordin-sandbox"]
 dictation = ["dep:ordin-dictation"]
 copilot = ["dep:ordin-copilot-adapter"]
@@ -37,6 +37,10 @@ minutes = ["dep:ordin-dictation", "ordin-dictation/transcription", "ordin-host/m
 # 127.0.0.1:9222 so the journey tests (Playwright) can drive it. Never named by the release build (DSK-JRN-2).
 # It also compiles the online services' test seams, so a journeys build can reach their stand-ins (DSK-JRN-4).
 journeys = ["ordin-confluence/test-support", "ordin-sharepoint/test-support", "ordin-jira/test-support", "ordin-identity/test-support"]
+# Test builds only (OrdinDesktop.md DSK-CHK-1, DSK-CHK-2): row 3.3 keeps secrets in an encrypted file under the data
+# root instead of the keychain, for `make first-start-check` in a container with no keychain. Never named by a release
+# or local build.
+check-secrets = []
 
 [dependencies]
 ordin-types = { workspace = true }

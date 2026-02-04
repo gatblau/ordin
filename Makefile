@@ -69,9 +69,10 @@ ui-contract-check:
 ## Start the real core on an empty data root with the agents the release bundles
 ## (RELEASE_BUNDLED_AGENTS_SOURCE at RELEASE_BUNDLED_AGENTS_COMMIT, release/release.conf): both bundled
 ## agents must be ready and nothing may be logged at WARN or above outside
-## apps/desktop/tests/fixtures/first-start-expected.txt (plan 04, safety net C).
+## apps/desktop/tests/fixtures/first-start-expected.txt (plan 04, safety net C). The check-secrets switch keeps
+## secrets in an encrypted file, so the Sandbox starts with no keychain (OrdinDesktop.md DSK-CHK-3).
 first-start-check:
-	cargo test -p ordin-desktop --test first_start -- --ignored --nocapture
+	cargo test -p ordin-desktop --features check-secrets --test first_start -- --ignored --nocapture
 
 .PHONY: journeys-windows
 ## Build COMMIT (default HEAD) on the Windows build machine with the test-only journeys switch and run

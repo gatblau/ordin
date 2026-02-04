@@ -266,6 +266,13 @@ async fn a_first_start_installs_the_agents_the_release_ships_and_logs_no_warning
     };
 
     let core = Core::start(inputs).await.expect("the core starts");
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHK-1
+    #[cfg(feature = "check-secrets")]
+    {
+        let key =
+            std::fs::read(dir.0.join("data/check-secrets.key")).expect("the check's key file");
+        assert_eq!(key.len(), 32, "the check's key holds 32 bytes");
+    }
     let bridge = (*core.modules.bridge.clone().expect("the Command Bridge")).clone();
     let backend = core.modules.backend.expect("the backend");
     bridge

@@ -3350,3 +3350,28 @@ None.
 ### Gaps
 
 None.
+
+## Amendment 2026-02-04 — The first-start check's secret store (DSK-CHK-1 to DSK-CHK-3)
+
+> **Status:** Approved by the user, 2026-02-04 ("apply recommendations"). Source: plan 08 Phase 11 — the first-start check runs in a Linux container with no keychain, so the Sandbox could not create its audit key (`SBX_AUDIT_KEY_UNAVAILABLE`) and the check could never start it. Every section above stays in force except where this amendment changes it.
+
+- **DSK-CHK-1 The `check-secrets` switch.** The program has a build switch `check-secrets`, off by default. With it, row 3.3 builds the Identity service with `SecretBackendConfig::EncryptedFile { key_source: KeySource::KeyFile(<data_root>/check-secrets.key) }` in place of `SecretBackendConfig::OsKeychain`. If that file is absent, row 3.3 first writes 32 random bytes to it (mode `0600` on Unix). A failure to write it stops row 3.3 with `ModuleFailed` and the code `CRED_SECRET_KEY_INVALID`. Without the switch, row 3.3 is unchanged. Nothing else changes with the switch.
+- **DSK-CHK-2 Never shipped.** No release or local build names `check-secrets`. `make first-start-check` is its only user.
+- **DSK-CHK-3 The check starts the Sandbox.** `make first-start-check` builds with `check-secrets`, so the Sandbox's audit key is created in the encrypted file and the first start logs no `SBX_AUDIT_KEY_UNAVAILABLE`.
+
+```gherkin
+  Scenario: A check build keeps secrets in an encrypted file (DSK-CHK-1)
+    Given a build with the check-secrets switch and an empty data root
+    When the core starts
+    Then <data_root>/check-secrets.key holds 32 bytes
+    And the Sandbox's audit key is stored and the Sandbox is available
+
+  Scenario: A normal build uses the keychain (DSK-CHK-1)
+    Given a build without the check-secrets switch
+    When the core starts
+    Then row 3.3 uses the operating system's keychain
+```
+
+### Gaps
+
+None.

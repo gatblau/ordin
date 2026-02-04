@@ -508,6 +508,41 @@ impl ModuleRunner {
         Ok(())
     }
 
+    /// Row 3.3's secret store: the operating system's keychain.
+    #[cfg(not(feature = "check-secrets"))]
+    fn secret_backend(&self, _row: Row) -> Result<SecretBackendConfig, StartError> {
+        Ok(SecretBackendConfig::OsKeychain)
+    }
+
+    /// Row 3.3's secret store in a `check-secrets` build: an encrypted file whose key the check writes
+    /// once into the data root, so a first start in a container with no keychain still has one.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHK-1
+    #[cfg(feature = "check-secrets")]
+    fn secret_backend(&self, row: Row) -> Result<SecretBackendConfig, StartError> {
+        let key = self.data_root().join("check-secrets.key");
+        if !key.exists() {
+            let bytes: [u8; 32] = rand::random();
+            let written = {
+                let mut options = std::fs::OpenOptions::new();
+                options.write(true).create_new(true);
+                #[cfg(unix)]
+                std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+                options
+                    .open(&key)
+                    .and_then(|mut file| std::io::Write::write_all(&mut file, &bytes))
+            };
+            if written.is_err() {
+                return Err(StartError::ModuleFailed {
+                    module: row.module(),
+                    code: "CRED_SECRET_KEY_INVALID".to_owned(),
+                });
+            }
+        }
+        Ok(SecretBackendConfig::EncryptedFile {
+            key_source: ordin_identity::KeySource::KeyFile(key),
+        })
+    }
+
     /// Row 3.3.
     async fn identity_row(&mut self) -> Result<(), StartError> {
         let row = Row::Identity;
@@ -517,7 +552,7 @@ impl ModuleRunner {
                 program: Program::Desktop,
                 data_root: self.data_root(),
                 keychain_service: self.inputs.bundle_identifier.clone(),
-                secret_backend: SecretBackendConfig::OsKeychain,
+                secret_backend: self.secret_backend(row)?,
                 github_app_client_id: option_env!("GITHUB_APP_CLIENT_ID").map(str::to_owned),
                 http: self.inputs.http.clone(),
                 browser: self.inputs.browser.clone(),
