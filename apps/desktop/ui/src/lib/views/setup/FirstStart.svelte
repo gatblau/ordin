@@ -11,10 +11,12 @@
   // spec: ordin-desktop/components/ScreensModule#SM-FS-5
   // spec: ordin-desktop/components/ScreensModule#SM-FS-7
   // spec: ordin-desktop/components/ScreensModule#SM-FS-9
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-10
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-11
   import { i18n, t } from '../../i18n/fluent';
   import type { CheckResult, ServiceError } from '../../service-api/types.gen';
   import ErrorLine from '../ErrorLine.svelte';
-  import { DOT_GLYPH, DOT_OF_STATE, resultButton, resultMessageId, stateMessageId, type FirstStartModel } from './first-start-model.svelte';
+  import { DOT_GLYPH, DOT_OF_STATE, harnessNameId, resultButton, resultMessageId, stateMessageId, type FirstStartModel } from './first-start-model.svelte';
 
   let { model }: { model: FirstStartModel } = $props();
 
@@ -24,6 +26,14 @@
   });
 
   const harness = $derived(model.harnessName);
+  const chosenName = $derived(model.chosen === null ? '' : t(harnessNameId(model.chosen)));
+
+  /** Enter on a chosen row presses the main button (SM-FS-10). */
+  function enterPresses(event: KeyboardEvent): void {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void model.choose();
+  }
 
   /** A failed result as step 11's error: its sentence, and its action as the one button (SM-FS-4). */
   function asError(result: CheckResult): ServiceError {
@@ -83,6 +93,40 @@
         <div class="install">
           <button type="button" class="primary" onclick={() => void model.runGuided()}>{t('setup-check-again')}</button>
         </div>
+      {/if}
+
+      {#if model.showChoice}
+        <div class="choose">
+          <h2 id="first-start-choose">{t('setup-choose-heading')}</h2>
+          <p class="muted small">{t('setup-choose-note')}</p>
+          <div class="choices" role="radiogroup" aria-labelledby="first-start-choose">
+            {#each model.offered as offer (offer.harness)}
+              <label class="choice">
+                <input
+                  type="radio"
+                  name="first-start-harness"
+                  value={offer.harness}
+                  checked={model.chosen === offer.harness}
+                  disabled={model.choosing}
+                  onchange={() => model.pick(offer.harness)}
+                  onkeydown={enterPresses}
+                />
+                <span class="choice-text">
+                  <strong>{t(harnessNameId(offer.harness))}</strong>
+                  <span class="muted small">{t(offer.state === 'ready' ? 'setup-choose-signed-in' : 'setup-choose-sign-in-next')}</span>
+                </span>
+              </label>
+            {/each}
+          </div>
+          <button type="button" class="primary" disabled={model.chosen === null || model.choosing} onclick={() => void model.choose()}>
+            {model.chosen === null ? t('setup-choose-pick-first') : t('setup-choose-use', { harness: chosenName })}
+          </button>
+          <ErrorLine error={model.chooseError} />
+        </div>
+      {/if}
+
+      {#if model.restartingWith !== null}
+        <p class="restarting" role="status">{t('setup-choose-restarting', { harness: t(harnessNameId(model.restartingWith)) })}</p>
       {/if}
 
       {#if model.showSignIn}
@@ -189,6 +233,33 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-sm);
+  }
+  /* The question of SM-FS-10: a radio group, then the one main button. */
+  .choose {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  .choose h2 {
+    font-size: 16px;
+  }
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    cursor: pointer;
+  }
+  .choice-text {
+    display: flex;
+    flex-direction: column;
+  }
+  .choose > button {
+    font-size: 16px;
   }
   .sign-in {
     display: flex;

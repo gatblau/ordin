@@ -8,6 +8,11 @@
 // spec: ordin-desktop/components/ScreensModule#SM-FS-4
 // spec: ordin-desktop/components/ScreensModule#SM-FS-5
 // spec: ordin-desktop/components/ScreensModule#SM-FS-9
+//
+// Which assistant, asked at first start (amendment 2026-02-04): the question while `harness_choice` needs
+// the person, and `setup.choose_harness`.
+// spec: ordin-desktop/components/ScreensModule#SM-FS-10
+// spec: ordin-desktop/components/ScreensModule#SM-FS-11
 import type { BackendHandle, EventEnvelope } from '../../backend/backend';
 import { t } from '../../i18n/fluent';
 import { WebPageOpener } from '../Settings/web-page.svelte';
@@ -90,6 +95,16 @@ export class FirstStartModel {
   runError = $state.raw<ServiceError | null>(null);
   signingIn = $state(false);
   signInError = $state.raw<ServiceError | null>(null);
+  /** The row the person chose in the question; none at the start (SM-FS-10). */
+  chosen = $state<HarnessKind | null>(null);
+  /** `setup.choose_harness` has been sent and not answered (SM-FS-10). */
+  choosing = $state(false);
+  /** An error answer of `setup.choose_harness`, drawn under the button (SM-FS-11). */
+  chooseError = $state.raw<ServiceError | null>(null);
+  /** The answer was `restarting: false`: the question is removed and the steps go on (SM-FS-11). */
+  choiceAnswered = $state(false);
+  /** The answer was `restarting: true`: the harness ordin starts again with (SM-FS-11). */
+  restartingWith = $state<HarnessKind | null>(null);
   readonly handle: BackendHandle;
   /** **Install Claude Code** opens the official install page with `app.open_web_page` (SM-FS-9). */
   readonly pages: WebPageOpener;
@@ -115,6 +130,7 @@ export class FirstStartModel {
       return;
     }
     this.statusError = null;
+    this.choiceAnswered = false;
     this.attachments = out.result.attachments;
     this.progress = out.result.progress;
     this.phase = out.result.needs_guided ? 'first_start' : 'regions';
@@ -141,9 +157,12 @@ export class FirstStartModel {
     if (out.result.ready) this.phase = 'regions';
   }
 
-  /** The harness of the answer's first attachment; `claude_code` when there is none (SM-FS-2, SM-FS-3). */
+  /**
+   * The chosen harness once the question is answered (SM-FS-11), else the answer's first attachment;
+   * `claude_code` when there is none (SM-FS-2, SM-FS-3).
+   */
   get harness(): HarnessKind {
-    return this.attachments[0]?.harness ?? 'claude_code';
+    return this.chosen ?? this.attachments[0]?.harness ?? 'claude_code';
   }
 
   /** The harness's name for the words (`harness-claude-code` or `harness-copilot`). */
@@ -188,5 +207,45 @@ export class FirstStartModel {
     const out = await this.handle.call('setup.sign_in_harness', { harness: this.harness });
     this.signingIn = false;
     if (out.kind === 'error') this.signInError = out.error;
+  }
+
+  /** The question is drawn while `harness_choice` needs the person and has not been answered (SM-FS-10, SM-FS-11). */
+  get showChoice(): boolean {
+    if (this.choiceAnswered || this.restartingWith !== null) return false;
+    return this.progress.steps.some((s) => s.check === 'harness_choice' && s.state === 'needs_you');
+  }
+
+  /** The offered attachments (state `ready` or `needs_sign_in`), Claude Code first (SM-FS-10). */
+  get offered(): HarnessAttachment[] {
+    const offered = this.attachments.filter((a) => a.state === 'ready' || a.state === 'needs_sign_in');
+    return [...offered.filter((a) => a.harness === 'claude_code'), ...offered.filter((a) => a.harness !== 'claude_code')];
+  }
+
+  /** A row of the question chosen; nothing is sent until the button is pressed (SM-FS-10). */
+  pick(harness: HarnessKind): void {
+    if (this.choosing) return;
+    this.chosen = harness;
+  }
+
+  /** The main button: `setup.choose_harness { harness }` (SM-FS-10), and its three answers (SM-FS-11). */
+  async choose(): Promise<void> {
+    const harness = this.chosen;
+    if (harness === null || this.choosing || this.restartingWith !== null) return;
+    this.choosing = true;
+    this.chooseError = null;
+    const out = await this.handle.call('setup.choose_harness', { harness });
+    this.choosing = false;
+    if (out.kind === 'error') {
+      // The button is the one action: the error line draws the sentence only (11 §4).
+      this.chooseError = { code: out.error.code, message: out.error.message, reference: out.error.reference };
+      // SETUP_CHOICE_NOT_SAVED keeps the row chosen; the other two redraw from `setup.status`.
+      if (out.error.code === 'SETUP_HARNESS_NOT_OFFERED' || out.error.code === 'SETUP_NO_CHOICE_PENDING') {
+        await this.checkStatus();
+        if (!this.offered.some((a) => a.harness === this.chosen)) this.chosen = null;
+      }
+      return;
+    }
+    if (out.result.restarting) this.restartingWith = harness;
+    else this.choiceAnswered = true;
   }
 }

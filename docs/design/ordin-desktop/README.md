@@ -2,7 +2,7 @@
 
 > **Mode:** draft
 > **Generated from:** inline context — the user's decisions of January 2026
-> **Revision:** 0.74.0
+> **Revision:** 0.75.0
 > **Last updated:** 2026-02-04
 > **Status:** Draft
 

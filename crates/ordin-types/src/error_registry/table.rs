@@ -5,7 +5,7 @@
 use super::RegistryEntry;
 
 #[rustfmt::skip]
-pub(super) static REGISTRY: [RegistryEntry; 2146] = [
+pub(super) static REGISTRY: [RegistryEntry; 2149] = [
     RegistryEntry { code: "ADRAFT_BRANCH_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-branch-invalid" },
     RegistryEntry { code: "ADRAFT_LIST_TOO_LONG", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-list-too-long" },
     RegistryEntry { code: "ADRAFT_NAME_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-name-invalid" },
@@ -1630,15 +1630,18 @@ pub(super) static REGISTRY: [RegistryEntry; 2146] = [
     RegistryEntry { code: "SERVER_WATCHDOG_SEND_FAILED", owner_crate: "ordin-server", http_status: None, retryable: false, sentence_id: "server-watchdog-send-failed" },
     RegistryEntry { code: "SETUP_AGENT_FOLDER_FAILED", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-agent-folder-failed" },
     RegistryEntry { code: "SETUP_CATALOGUE_FAILED", owner_crate: "ordin-setup", http_status: Some(200), retryable: true, sentence_id: "setup-catalogue-failed" },
+    RegistryEntry { code: "SETUP_CHOICE_NOT_SAVED", owner_crate: "ordin-setup", http_status: Some(200), retryable: true, sentence_id: "setup-choice-not-saved" },
     RegistryEntry { code: "SETUP_CRAFT_APP_FAILED", owner_crate: "ordin-setup", http_status: Some(200), retryable: true, sentence_id: "setup-craft-app-failed" },
     RegistryEntry { code: "SETUP_HARNESS_CHECK_FAILED", owner_crate: "ordin-setup", http_status: Some(200), retryable: true, sentence_id: "setup-harness-check-failed" },
     RegistryEntry { code: "SETUP_HARNESS_MISSING", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-harness-missing" },
+    RegistryEntry { code: "SETUP_HARNESS_NOT_OFFERED", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-harness-not-offered" },
     RegistryEntry { code: "SETUP_HARNESS_UNKNOWN", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-harness-unknown" },
     RegistryEntry { code: "SETUP_HARNESS_UNTESTED", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-harness-untested" },
     RegistryEntry { code: "SETUP_LANGUAGE_SERVER_DIGEST_MISMATCH", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-language-server-digest-mismatch" },
     RegistryEntry { code: "SETUP_LANGUAGE_SERVER_INSTALL_FAILED", owner_crate: "ordin-setup", http_status: Some(200), retryable: true, sentence_id: "setup-language-server-install-failed" },
     RegistryEntry { code: "SETUP_LANGUAGE_SERVER_NOT_APPROVED", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-language-server-not-approved" },
     RegistryEntry { code: "SETUP_LANGUAGE_SERVER_PLATFORM_UNSUPPORTED", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-language-server-platform-unsupported" },
+    RegistryEntry { code: "SETUP_NO_CHOICE_PENDING", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-no-choice-pending" },
     RegistryEntry { code: "SETUP_NO_HARNESS_ACCESS", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-no-harness-access" },
     RegistryEntry { code: "SETUP_NO_PROFILE_ADDRESS", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-no-profile-address" },
     RegistryEntry { code: "SETUP_NO_READY_HARNESS", owner_crate: "ordin-setup", http_status: Some(200), retryable: false, sentence_id: "setup-no-ready-harness" },

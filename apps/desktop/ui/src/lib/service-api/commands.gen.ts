@@ -60,6 +60,8 @@ import type {
   CheckLibraryItemInput,
   CheckReport,
   CheckRunRef,
+  ChooseHarness,
+  ChooseHarnessResult,
   ChooseSshKey,
   ChooseVersionInput,
   CommitSummary,
@@ -1024,6 +1026,7 @@ export type Commands = {
   "settings.get": { input: SettingsSectionRef; result: SettingsView; scope: "local"; effect: "read" };
   "setup.check_now": { input: SetupCheckNowInput; result: SetupReport; scope: "any"; effect: "change" };
   "setup.check_update": { input: SetupCheckUpdateInput; result: SetupCheckUpdateResult; scope: "local"; effect: "change" };
+  "setup.choose_harness": { input: ChooseHarness; result: ChooseHarnessResult; scope: "local"; effect: "change" };
   "setup.install_update": { input: SetupInstallUpdateInput; result: Done; scope: "local"; effect: "change" };
   "setup.run_guided": { input: SetupRunGuidedInput; result: SetupReport; scope: "any"; effect: "change" };
   "setup.server_update": { input: SetupServerUpdateInput; result: SetupServerUpdateResult; scope: "any"; effect: "read" };
@@ -1478,6 +1481,7 @@ export const IPC_NAMES: Record<keyof Commands, string> = {
   "settings.get": "settings_get",
   "setup.check_now": "setup_check_now",
   "setup.check_update": "setup_check_update",
+  "setup.choose_harness": "setup_choose_harness",
   "setup.install_update": "setup_install_update",
   "setup.run_guided": "setup_run_guided",
   "setup.server_update": "setup_server_update",

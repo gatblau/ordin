@@ -3,6 +3,7 @@
 //! `wiremock` on loopback.
 
 mod acceptance;
+mod choice;
 mod error_table;
 mod logic;
 mod updates;

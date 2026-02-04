@@ -6915,3 +6915,70 @@ Feature: Minutes live in the tree (SM-MIN-17 to SM-MIN-21)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-04 — Which assistant, asked at first start (SM-FS-10 to SM-FS-12)
+
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17 acceptance criteria 1 and 8; SetupAssistant.md SET-CHO-3; OrdinDesktop.md DSK-CHO-2; 11 §3 (button words), §4 (one main action), §5.1 *Getting ready*, UX-A14. **derivedFromHld:** 0.75.0. This amendment adds a part to `FirstStart` (`apps/desktop/ui/src/lib/views/setup/FirstStart.svelte`) and no new screen.
+
+- **SM-FS-10 The question.** While a step `harness_choice` is in state `needs_you`, `FirstStart` keeps its frame, brand tile, heading and step rows (SM-FS-2). In place of the sign-in button of SM-FS-3 it draws:
+  - the question `setup-choose-heading`, followed by `setup-choose-note` in small muted type;
+  - a group of choices (a radio group, with `setup-choose-heading` as its accessible name), one row per offered attachment from the latest `setup.status` answer (offered: state `ready` or `needs_sign_in`, SET-CHO-3), with Claude Code first. Each row shows the harness's name (`harness-claude-code` or `harness-copilot`) in bold, and under it, in small muted type, `setup-choose-signed-in` when the attachment is `ready` or `setup-choose-sign-in-next` when it is `needs_sign_in`. No row is chosen at the start: ordin does not steer the person towards either assistant;
+  - one primary button, the screen's one main action (11 §4). With nothing chosen it reads `setup-choose-pick-first` and is disabled. Once a row is chosen it reads **Use { $harness }** (`setup-choose-use`, 11 §3: the button says what happens).
+
+  Pressing it disables the button and sends `setup.choose_harness { harness }`. Keyboard: the arrow keys move between choices, and Enter on a chosen row presses the button.
+- **SM-FS-11 The answer.**
+  - `restarting: false` → the question is removed, and the step rows go on as the guided run's `setup_progress` events arrive (SM-FS-2 to SM-FS-4).
+  - `restarting: true` → the question and the button are removed, and `setup-choose-restarting` with `$harness` is drawn under the steps. Nothing else can be pressed. The window closes when the program restarts (DSK-CHO-2), and first start is drawn again by SM-FS-1.
+  - An error answer → drawn by step 11 under the button, which is enabled again. `SETUP_CHOICE_NOT_SAVED` keeps the person's row chosen, so pressing the button again sends the same choice. `SETUP_HARNESS_NOT_OFFERED` and `SETUP_NO_CHOICE_PENDING` also send `setup.status {}` and redraw from its answer.
+- **SM-FS-12 Words.** SM-FS-5's catalogue table gains these rows (en-GB, `screens-setup.ftl`):
+
+| Message id | en-GB |
+|---|---|
+| `setup-step-harness-choice` | Choosing your assistant |
+| `setup-choose-heading` | Which assistant should ordin use? |
+| `setup-choose-note` | Both are on this computer. You can change this later in Settings › Agents and models. |
+| `setup-choose-signed-in` | Signed in |
+| `setup-choose-sign-in-next` | You'll sign in next |
+| `setup-choose-pick-first` | Choose an assistant |
+| `setup-choose-use` | Use { $harness } |
+| `setup-choose-restarting` | Starting ordin again with { $harness }… |
+| `setup-no-choice-pending` | That question has already been answered. |
+| `setup-harness-not-offered` | That assistant isn't available any more. Choose again. |
+| `setup-choice-not-saved` | ordin couldn't save your choice. Try again. |
+
+Every sentence says what the person can do (SetupAssistant.md SET-R1-9); none mentions IT, accounts or passwords (SM-FS-2).
+
+```gherkin
+Feature: Which assistant, asked at first start (SM-FS-10 to SM-FS-12)
+
+  Scenario: Happy path — the person picks Copilot (SM-FS-10, SM-FS-11)
+    Given first start with step harness_choice needs_you and attachments claude_code ready and copilot_cli ready
+    Then the question "Which assistant should ordin use?" offers Claude Code and GitHub Copilot, each "Signed in", none chosen
+    And the main button reads "Choose an assistant" and is disabled
+    When the person chooses GitHub Copilot
+    Then the main button reads "Use GitHub Copilot"
+    When the person presses it
+    Then setup.choose_harness {"harness": "copilot_cli"} is sent
+    And on the answer {"restarting": true} "Starting ordin again with GitHub Copilot…" is drawn and nothing can be pressed
+
+  Scenario: Edge case — an assistant that needs signing in is marked (SM-FS-10)
+    Given step harness_choice needs_you, claude_code ready and copilot_cli needs_sign_in
+    Then GitHub Copilot's row reads "You'll sign in next"
+
+  Scenario: Edge case — choosing the assistant already in use goes on in place (SM-FS-11)
+    When the answer is {"restarting": false}
+    Then the question is removed and the step rows go on
+
+  Scenario: Edge case — no question without the step (SM-FS-10)
+    Given first start with no step harness_choice
+    Then no question is drawn
+
+  Scenario: Error path — the choice could not be saved (SM-FS-11)
+    Given the person chose GitHub Copilot and pressed the main button
+    When the answer is the error SETUP_CHOICE_NOT_SAVED
+    Then "ordin couldn't save your choice. Try again." is drawn and the button is enabled with GitHub Copilot still chosen
+```
+
+### Gaps
+
+None.

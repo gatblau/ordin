@@ -11,8 +11,9 @@ use ordin_types::wire::ContentRef;
 use serde_json::{json, Value};
 use support::*;
 
-/// 451 rows; 471 with the twenty `minutes` rows (SVC-MIN-1, SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 471 } else { 451 };
+/// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
+/// SVC-MIN-3).
+const ROWS: usize = if cfg!(feature = "minutes") { 472 } else { 452 };
 
 const WS: &str = "0192a0f1-1111-7222-8333-444455556666";
 const OTHER: &str = "0192a0f1-2222-7333-8444-555566667777";
@@ -1668,4 +1669,43 @@ async fn contract_confluence_connects_with_an_api_token() {
     )
     .expect("the result's wire form");
     assert_eq!(user.display_name, "Sam Lee");
+}
+
+// ---- SVC-CHO-1: choosing the assistant at first start ----
+
+// Scenario: Contract — the command is in the catalogue as written
+// spec: ordin-desktop/components/ServiceApi#SVC-CHO-1
+#[test]
+fn svc_cho_contract_the_command_is_in_the_catalogue_as_written() {
+    assert_in_catalogue(&["setup.choose_harness"]);
+    let meta = command("setup.choose_harness").expect("row");
+    assert_eq!(meta.scope, Scope::Local);
+    assert_eq!(meta.effect, Effect::Change);
+    assert_eq!(meta.budget, Budget::Interactive);
+    assert!(PERSON_ONLY_COMMANDS.contains(&"setup.choose_harness"));
+    for harness in ["claude_code", "copilot_cli"] {
+        assert!(
+            accept_local("setup.choose_harness", json!({ "harness": harness })).is_ok(),
+            "{harness}"
+        );
+    }
+    let result: commands::setup::ChooseHarnessResult =
+        serde_json::from_value(json!({ "restarting": true })).expect("the result's wire form");
+    assert!(result.restarting);
+}
+
+// Scenario: Error path — an unknown harness is refused at the boundary
+// spec: ordin-desktop/components/ServiceApi#SVC-CHO-1
+#[test]
+fn svc_cho_error_path_an_unknown_harness_is_refused_at_the_boundary() {
+    let refusal = refused("setup.choose_harness", json!({ "harness": "gemini" }));
+    assert_eq!(
+        (refusal.code, refusal.at.as_deref()),
+        ("SVC_INPUT_INVALID", Some("/input/harness"))
+    );
+    let extra = refused(
+        "setup.choose_harness",
+        json!({ "harness": "copilot_cli", "restart": false }),
+    );
+    assert_eq!(extra.code, "SVC_INPUT_INVALID");
 }

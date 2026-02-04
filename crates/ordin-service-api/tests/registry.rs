@@ -5,8 +5,9 @@ use std::collections::BTreeSet;
 use ordin_service_api::*;
 use ordin_types::error_registry::{lookup, owns_prefix};
 
-/// 451 rows; 471 with the twenty `minutes` rows (SVC-MIN-1, SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 471 } else { 451 };
+/// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
+/// SVC-MIN-3).
+const ROWS: usize = if cfg!(feature = "minutes") { 472 } else { 452 };
 
 #[test]
 fn every_code_is_registered_under_this_crate() {
@@ -86,8 +87,9 @@ fn budgets_follow_the_notes() {
     // app.open_web_page (SVC-WEB-1); 426 with identity.save_github_token (SVC-GH-PAT-1); 427 with agents.installed_file (SM-NS-11); 429 with
     // app.agent_settings and app.change_agent_setting (SVC-AGM-1); 433 with the four SSH key commands
     // (SVC-SSH-1); 435 with confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1).
-    // 453 with the eighteen interactive minutes rows (SVC-MIN-1).
-    assert_eq!(others, if cfg!(feature = "minutes") { 453 } else { 435 });
+    // 453 with the eighteen interactive minutes rows (SVC-MIN-1). One more with setup.choose_harness
+    // (SVC-CHO-1).
+    assert_eq!(others, if cfg!(feature = "minutes") { 454 } else { 436 });
 }
 
 #[test]
@@ -112,10 +114,11 @@ fn person_only_commands_are_catalogue_commands() {
     // app.create_ssh_key and app.choose_ssh_key (SVC-SSH-1); 32 with confluence.connect_token and
     // confluence.connect_with_jira (SVC-CONF-TOKEN-1).
     // 37 with the five minutes commands (SVC-MIN-2); 39 with minutes.delete_recording and
-    // minutes.remove_model (SVC-MIN-2 amended 2026-11-21).
+    // minutes.remove_model (SVC-MIN-2 amended 2026-11-21). One more with setup.choose_harness
+    // (SVC-CHO-1).
     assert_eq!(
         PERSON_ONLY_COMMANDS.len(),
-        if cfg!(feature = "minutes") { 39 } else { 32 }
+        if cfg!(feature = "minutes") { 40 } else { 33 }
     );
     for name in PERSON_ONLY_COMMANDS {
         let meta = command(name).unwrap_or_else(|| panic!("{name} in the catalogue"));

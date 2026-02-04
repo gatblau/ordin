@@ -3213,3 +3213,21 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
   - *A REST service the agent calls with its shell tool.* Rejected: the model sees no tool list or schemas, the Rules Engine sees only a shell command, and a credential would be exposed to the agent.
   - *Custom tools written per harness (ADR-037's rejected alternative).* Not this: providers are not rewritten; one pipeline serves both routes.
 
+
+### ADR-125: With both assistants installed and no company profile, first start asks which one to use, and ordin starts again once to use it
+
+- **Status.** Decided by the user, 2026-02-04 ("go with your recommendations"; "approve as written"), from RFC 17.
+- **Decision.**
+  - When Claude Code and the Copilot CLI are both found, there is no company profile and the person has made no choice, getting ready asks which assistant ordin should use before the first conversation. It offers each found assistant that the person can use, says which is already signed in, and preselects neither.
+  - The answer is the person's existing choice (Settings › Agents and models, **Run my agents with**), not a second setting. Once a choice exists, first start never asks again.
+  - If the chosen assistant is not the one ordin started with, ordin starts again once, straight after the answer, so the first conversation already uses it. No work has started at that point. A change made later in Settings still takes effect at the next start.
+  - A person's choice of Copilot is honoured in every build that carries Copilot.
+- **Context.** On 2026-02-04 a person with Claude Code installed but no Claude licence, and a Copilot licence, was steered to Claude Code without being asked. The program fixes the assistant it runs with when it starts (the Session Supervisor, the Ordin Host and the Package Catalogue), before getting ready is drawn. The person's choice of Copilot was also being replaced by Claude Code.
+- **Consequences.**
+  - A person who has both assistants installed sees one more step and, if they choose Copilot, one restart during getting ready.
+  - A company profile, or a computer with only one assistant installed, behaves exactly as before.
+  - Telling apart an assistant that is signed in but has no licence is still open. It is decided from a probe of each command line (RFC 17 open question 2) and recorded as a compatibility item.
+- **Alternatives considered.**
+  - *Switch the assistant while ordin runs.* Rejected for now: three components would change to make a single first-start answer take effect without a restart.
+  - *Apply the answer from the next start.* Rejected: the first conversation would run on the assistant the person did not choose.
+  - *Prefer Copilot when both are found.* Rejected: it steers the person the other way without asking.

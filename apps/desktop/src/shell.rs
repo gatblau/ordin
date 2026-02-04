@@ -26,6 +26,9 @@ pub enum QuitTrigger {
     Update,
     /// The operating system ends the session (`RunEvent::ExitRequested` without a person's quit).
     OperatingSystemEnding,
+    /// `setup.choose_harness` changed the harness to use (DSK-CHO-2 step 3). First start is still
+    /// drawn, so no session runs and nothing is asked.
+    HarnessChosen,
 }
 
 /// The window shell's part of the commands and of the quit flow.
@@ -93,6 +96,8 @@ impl QuitControl {
         }
         let reason = match trigger {
             QuitTrigger::OperatingSystemEnding => QuitReason::OperatingSystemEnding,
+            // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+            QuitTrigger::HarnessChosen => QuitReason::HarnessChosen,
             QuitTrigger::Update => {
                 state.update_requested = true;
                 if running_sessions > 0 {
@@ -291,6 +296,17 @@ mod tests {
             control.decide(QuitTrigger::AppQuit, 2),
             QuitDecision::Proceed(QuitReason::PersonQuit)
         );
+    }
+
+    // DSK-CHO-2 step 3: the first-start answer restarts without asking.
+    #[test]
+    fn a_harness_chosen_at_first_start_proceeds_without_asking() {
+        let control = QuitControl::default();
+        assert_eq!(
+            control.decide(QuitTrigger::HarnessChosen, 0),
+            QuitDecision::Proceed(QuitReason::HarnessChosen)
+        );
+        assert_eq!(QuitReason::HarnessChosen.log_name(), "harness_chosen");
     }
 
     #[test]

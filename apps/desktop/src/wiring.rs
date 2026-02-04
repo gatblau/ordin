@@ -1609,6 +1609,14 @@ impl ModuleRunner {
         )
         .map_err(failed(row))?;
         let setup = Arc::new(setup);
+        // DSK-CHO-2: the person's harness choice over `preferences.json`, so the first-start
+        // question can be asked and answered.
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+        setup.set_harness_choice(Arc::new(crate::agent_settings::PreferencesHarnessChoice {
+            preferences: Arc::new(crate::prefs::Preferences::new(
+                self.inputs.paths.preferences.clone(),
+            )),
+        }));
         let _ = self.late.setup.set(setup.clone());
         self.modules.setup = Some(setup);
         Ok(())

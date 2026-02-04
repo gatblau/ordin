@@ -7,7 +7,7 @@ use ordin_service_api::*;
 #[cfg(feature = "minutes")]
 #[test]
 fn contract_twenty_local_commands_in_a_build_with_minutes() {
-    assert_eq!(CATALOGUE.len(), 471);
+    assert_eq!(CATALOGUE.len(), 472);
     let rows: Vec<_> = CATALOGUE.iter().filter(|m| m.module == "minutes").collect();
     assert_eq!(rows.len(), 20);
     for meta in &rows {
@@ -24,7 +24,7 @@ fn contract_twenty_local_commands_in_a_build_with_minutes() {
         .iter()
         .filter(|m| m.budget == Budget::Interactive)
         .count();
-    assert_eq!(interactive, 453);
+    assert_eq!(interactive, 454);
 }
 
 // spec: ordin-desktop/components/ServiceApi#SVC-MIN-3

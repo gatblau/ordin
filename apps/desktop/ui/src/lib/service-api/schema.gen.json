@@ -4131,7 +4131,8 @@
         "agent_folders",
         "programs",
         "craft_apps",
-        "second_install"
+        "second_install",
+        "harness_choice"
       ],
       "type": "string"
     },
@@ -4514,6 +4515,31 @@
         "before_session"
       ],
       "type": "string"
+    },
+    "ChooseHarness": {
+      "additionalProperties": false,
+      "description": "`setup.choose_harness`: the person's answer to the first-start question.",
+      "properties": {
+        "harness": {
+          "$ref": "#/$defs/HarnessKind"
+        }
+      },
+      "required": [
+        "harness"
+      ],
+      "type": "object"
+    },
+    "ChooseHarnessResult": {
+      "description": "`restarting` is true when the program starts again to use the chosen harness.",
+      "properties": {
+        "restarting": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "restarting"
+      ],
+      "type": "object"
     },
     "ChooseSshKey": {
       "additionalProperties": false,
@@ -39511,6 +39537,19 @@
         "$ref": "#/$defs/HarnessAttachment"
       },
       "scope": "any"
+    },
+    {
+      "effect": "change",
+      "input": {
+        "$ref": "#/$defs/ChooseHarness"
+      },
+      "ipc_name": "setup_choose_harness",
+      "name": "setup.choose_harness",
+      "rest_path": "/v1/setup/choose_harness",
+      "result": {
+        "$ref": "#/$defs/ChooseHarnessResult"
+      },
+      "scope": "local"
     },
     {
       "effect": "read",

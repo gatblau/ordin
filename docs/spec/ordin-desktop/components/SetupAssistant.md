@@ -1554,3 +1554,119 @@ None.
 ### Gaps
 
 None.
+
+## Amendment 2026-02-04 — The person chooses the assistant at first start (SET-CHO-1 to SET-CHO-7)
+
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17 (`docs/wip/rfc/17-choose-the-assistant-at-first-start.md`), acceptance criteria 1–5 and 8; user decision 2026-02-04 ("go with your recommendations": the answer takes effect by ordin starting again once; criterion 7, an assistant without a licence, is specified later from the probe's evidence). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **SET-CHO-1 The person's choice, read through a port.** This crate owns a second hub trait beside `HarnessProbe` (ADR-100 hub pattern), registered by the desktop program only:
+
+  ```rust
+  /// The person's own harness choice, kept by the program that owns the person's preferences.
+  #[async_trait::async_trait]
+  pub trait HarnessChoice: Send + Sync {
+      /// The harness the person chose, if any.
+      fn chosen(&self) -> Option<HarnessKind>;
+      /// Keep `harness` as the person's choice. Err when it could not be kept.
+      async fn choose(&self, harness: HarnessKind) -> Result<(), ChoiceError>;
+  }
+
+  #[derive(Debug, Clone, thiserror::Error)]
+  #[error("the choice could not be kept")]
+  pub struct ChoiceError;
+
+  impl SetupAssistant {
+      pub fn set_harness_choice(&self, choice: Arc<dyn HarnessChoice>); // replaces any earlier one
+      pub async fn choose_harness(&self, harness: HarnessKind) -> Result<(), SetupError>; // SET-CHO-4
+  }
+  ```
+
+  The server registers none, so it never asks (C-48) and its order is unchanged.
+- **SET-CHO-2 The chosen harness is walked first.** With no company profile (`ProfileState::NotUsed` or `NoAddress`), when `chosen()` is `Some(h)` and `h` is in the SET-CPX-6 list, `listed_harnesses` returns `h` first and the other after it. With no choice, the order stays `[claude_code, copilot]`. A company profile's `harnesses` list alone decides, as before; `chosen()` is not read. The Harness and HarnessSignIn steps of C.3, the checks of D.4 and `ready_harness` (E) all use this order, so the attachment `ready_harness` returns is the harness the desktop runs.
+- **SET-CHO-3 When the question is asked.** In the guided run's Harness step (A.3) the question is asked only when **all** of these hold: the program is the desktop; there is no company profile; a `HarnessChoice` is registered and `chosen()` is `None`; probes for both `claude_code` and `copilot` are registered; and **both** are found by `locate()` with a readable version. In that case, A.3 locates both (it does not stop at the first) and writes both attachments. For each found harness, A.4's `sign_in_status()` then runs once, without starting any sign-in: `SignedIn` makes the attachment `ready`; `SignedOut` or a `ProbeError` makes it `needs_sign_in`; `NoAccess` leaves it in state `checked` with `signed_in = false`. A harness is **offered** when its attachment is `ready` or `needs_sign_in`, so a harness with no access is not offered. No attachment state is added. If fewer than two harnesses are offered, no question is asked and A.3 goes on with the offered one, or with the first found when none is offered, exactly as before. Otherwise step `HarnessChoice` (new `CheckKind`, `as_str` `"harness_choice"`, step message `setup-step-harness-choice`) is inserted after `Harness` and counted in `total` only from then on (11 §5.1, the count shows real steps). It is set to `NeedsYou`, and the run waits for `choose_harness`. The attachments that `setup.status` returns tell the screens which harnesses are offered and whether each is signed in. No new field is added to `ProgressStep`. *Amended 2026-02-04 (plan 08 FU-030):* the `HarnessChoice` result is published in the progress and returned in the report, but it is not stored in `setup_checks`, as the `SecondInstall` result is not: that table's `check_kind` constraint has no `harness_choice` value, and the answer itself is kept by the program's `HarnessChoice`.
+- **SET-CHO-4 `choose_harness(harness)`.**
+  1. No guided run is waiting at `HarnessChoice` → `Err(permanent)` `SETUP_NO_CHOICE_PENDING`.
+  2. `harness` is not one of the offered attachments → `Err(permanent)` `SETUP_HARNESS_NOT_OFFERED`.
+  3. Call `HarnessChoice::choose(harness)`. If it fails → `Err(retryable)` `SETUP_CHOICE_NOT_SAVED`, and the step stays `NeedsYou`.
+  4. Otherwise `HarnessChoice` becomes `done` with the result `Passed`. The waiting run continues with `harness` alone: HarnessSignIn (A.4) for it when its attachment is not `ready`; the other harness is not signed in and is not checked further in this run. Return `Ok(())`.
+- **SET-CHO-5 Never asked again.** Once `chosen()` is `Some`, from this question or from Settings › Agents and models, SET-CHO-3 does not hold, so no later guided run asks. `needs_guided_setup` (C) does not change. A start that the desktop makes after the choice (OrdinDesktop.md DSK-CHO-2) finds `needs_guided` still true, because `setup_state` is written only when `ready = true` (A.7). It then runs the guided sequence again with the chosen harness first and no question.
+- **SET-CHO-6 Background checks never ask.** `run_checks` (D) never inserts `HarnessChoice`; with no choice it keeps the SET-CPX-6 order.
+- **SET-CHO-7 Service API command.** `setup.choose_harness` with input `{"harness": "claude_code" | "copilot_cli"}`, implemented by the desktop program (OrdinDesktop.md DSK-CHO-2), which calls `choose_harness`.
+
+### Assumptions chosen here
+
+- **SA-CHO-01** "Found" for the question means located with a readable version. A harness that is installed but signed out is offered and marked as needing sign-in (RFC 17 open question 1, the recommendation). It is signed in only after it is chosen.
+- **SA-CHO-02** A harness whose `sign_in_status` reports `NoAccess` is not offered. This is the existing signal; how a missing licence shows is left to the later amendment that answers RFC 17 criterion 7.
+- **SA-CHO-03** With no company profile, `tested_versions` is empty (SET-CPX-6), so every found harness counts as tested and none is excluded as untested.
+
+### Error Table — rows added
+
+| Condition | Result | Code | Message id | Retry |
+|---|---|---|---|---|
+| `choose_harness` with no guided run waiting at the question | `Err(permanent)` | `SETUP_NO_CHOICE_PENDING` | `setup-no-choice-pending` | no |
+| `choose_harness` with a harness that is not offered | `Err(permanent)` | `SETUP_HARNESS_NOT_OFFERED` | `setup-harness-not-offered` | no |
+| `HarnessChoice::choose` fails | `Err(retryable)` | `SETUP_CHOICE_NOT_SAVED` | `setup-choice-not-saved` | yes, the person chooses again |
+
+```gherkin
+Feature: The person chooses the assistant at first start (SET-CHO)
+
+  Scenario: Happy path — both found, no profile, no choice: the run asks (SET-CHO-3, SET-CHO-4)
+    Given the desktop with no company profile, no harness chosen, and probes for claude_code and copilot
+    And claude and copilot are both found and both report signed in
+    When the guided run reaches the Harness step
+    Then both attachments are written in state ready
+    And the step harness_choice is in state needs_you
+    When choose_harness(copilot_cli) is called
+    Then HarnessChoice.choose received copilot_cli
+    And the step harness_choice is done and the run does not check claude_code again
+
+  Scenario: Happy path — a chosen harness that is signed out is signed in next (SET-CHO-4, SA-CHO-01)
+    Given the question is waiting and copilot reports signed out
+    When choose_harness(copilot_cli) is called
+    Then the step harness_sign_in for copilot is in state needs_you
+
+  Scenario: Edge case — a choice already exists: no question, chosen first (SET-CHO-2, SET-CHO-5)
+    Given no company profile and chosen() is copilot_cli, with both found and signed in
+    When the guided run reaches the Harness step
+    Then no step harness_choice is in the progress
+    And ready_harness returns the copilot attachment
+
+  Scenario: Edge case — only one found: no question (SET-CHO-3)
+    Given no company profile, no choice, and only claude found
+    When the guided run reaches the Harness step
+    Then no step harness_choice is in the progress and Claude Code is checked as before
+
+  Scenario: Edge case — a company profile decides (SET-CHO-2, SET-CHO-3)
+    Given a company profile listing harnesses [claude_code], no choice, and both found
+    When the guided run reaches the Harness step
+    Then no step harness_choice is in the progress and Copilot is not checked
+
+  Scenario: Edge case — a harness with no access is not offered (SET-CHO-3, SA-CHO-02)
+    Given no profile, no choice, both found, and claude reports NoAccess
+    When the guided run reaches the Harness step
+    Then no step harness_choice is in the progress and the run goes on with copilot
+
+  Scenario: Edge case — background checks never ask (SET-CHO-6)
+    Given no profile, no choice, and both found
+    When run_checks(Background) runs
+    Then no step harness_choice is produced
+
+  Scenario: Error path — choosing with no question waiting (SET-CHO-4)
+    When choose_harness(claude_code) is called with no guided run waiting
+    Then the error is SETUP_NO_CHOICE_PENDING
+
+  Scenario: Error path — choosing a harness that was not offered (SET-CHO-4)
+    Given the question is waiting with claude_code and copilot_cli offered
+    And copilot's attachment has since been removed
+    When choose_harness(copilot_cli) is called
+    Then the error is SETUP_HARNESS_NOT_OFFERED
+
+  Scenario: Error path — the choice cannot be kept (SET-CHO-4)
+    Given the question is waiting and HarnessChoice.choose fails
+    When choose_harness(copilot_cli) is called
+    Then the error is SETUP_CHOICE_NOT_SAVED and the step harness_choice stays needs_you
+```
+
+### Gaps
+
+None. RFC 17 criterion 7 (an assistant that is signed in without a licence) is outside this amendment. It is specified once the probe on each command line is recorded (RFC 17 open question 2).

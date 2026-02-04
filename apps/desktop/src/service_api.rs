@@ -349,6 +349,40 @@ impl DesktopServiceApi {
         self.app_agent_settings().await
     }
 
+    /// `setup.choose_harness` (DSK-CHO-2, DSK-CHO-4): the answer kept through the Setup Assistant,
+    /// then the harness to use worked out again from the stored preferences. The same harness as
+    /// the one wired at row 3.19 → `{ restarting: false }`, and the guided run goes on. Another →
+    /// `{ restarting: true }`, and the shutdown with `HarnessChosen` starts on its own task, so this
+    /// answer is not held back by it.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-4
+    async fn setup_choose_harness(
+        &self,
+        input: ordin_service_api::commands::setup::ChooseHarness,
+    ) -> Result<ordin_service_api::commands::setup::ChooseHarnessResult, ServiceError> {
+        let setup = self.handle(&self.modules.setup)?;
+        setup
+            .choose_harness(input.harness)
+            .await
+            .map_err(|e| self.module_error(e))?;
+        let preferences = self.handle(&self.modules.preferences)?;
+        let snapshot = self.handle(&self.modules.profile)?.current();
+        let to_use = crate::agent_settings::harness_to_use(&preferences.read().agents, &snapshot);
+        let in_use = self.modules.harness_in_use.unwrap_or(to_use);
+        let restarting = to_use != in_use;
+        if restarting {
+            tracing::info!(
+                component = "desktop",
+                harness = ?to_use,
+                "harness_chosen_restart"
+            );
+            if let Some(shell) = &self.modules.shell {
+                shell.quit(QuitTrigger::HarnessChosen);
+            }
+        }
+        Ok(ordin_service_api::commands::setup::ChooseHarnessResult { restarting })
+    }
+
     /// `files.save_export`: the name checked, the save dialog, then an atomic UTF-8 write. The text
     /// is never logged.
     async fn files_save_export(
@@ -952,6 +986,11 @@ macro_rules! answer {
             shell.quit(QuitTrigger::Update);
         }
         Ok(::ordin_service_api::Done {})
+    }};
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+    ($api:expr, $ctx:expr, $input:expr, setup_choose_harness) => {{
+        let _ = $ctx;
+        $api.setup_choose_harness($input).await
     }};
     // The rows whose owner takes an argument the program fills (SVC-R1-1).
     ($api:expr, $ctx:expr, $input:expr, agents_installed_files) => {{

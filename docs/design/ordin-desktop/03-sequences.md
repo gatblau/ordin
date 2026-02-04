@@ -48,6 +48,8 @@ sequenceDiagram
 
 *Amended in revision 0.36.0: redrawn to match the prototype. Sign-in goes through the vendor harness's own flow, Claude first and Copilot as the alternative, and ordin never holds the credential (ADR-038, ADR-044). Setup ends in Ordin's conversation, not in a Start view (ADR-027). Until this revision the diagram showed only the bundled Copilot CLI and a GitHub sign-in.*
 
+*Amended in revision 0.75.0 (ADR-125):* with no company profile, both Claude Code and the Copilot CLI found, and no choice made yet, the Setup Assistant asks the person which one to use after checking both, before any sign-in. The answer becomes the person's choice. If it differs from the assistant the program started with, the program starts again once and getting ready continues with the chosen assistant, signing in to it if needed.
+
 - **Trigger:** the first start after installation, or a start after the organisation profile changed what setup requires.
 - **Result:** the person is in the conversation with Ordin, which introduces itself and offers three things it can do now. The only action asked of them was signing in to the harness on the vendor's own page, and nothing at all when the harness was already signed in. Sign-ins to the organisation's identity provider and to Slack are asked for later, the first time a remote agent needs them.
 - **Error posture:**

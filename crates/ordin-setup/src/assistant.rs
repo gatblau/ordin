@@ -22,8 +22,8 @@ use crate::ports::Ports;
 use crate::process::ClaudeCodeProbe;
 use crate::store;
 use crate::types::{
-    AppUpdater, BundledProgram, CheckTrigger, HarnessProbe, ServerPlatform, SetupConfig, SetupDeps,
-    SetupProgram, SetupProgress, SetupReport, UpdateOffer,
+    AppUpdater, BundledProgram, CheckTrigger, HarnessChoice, HarnessProbe, ServerPlatform,
+    SetupConfig, SetupDeps, SetupProgram, SetupProgress, SetupReport, UpdateOffer,
 };
 use crate::updates::CheckFailure;
 use crate::TARGET;
@@ -150,6 +150,12 @@ pub(crate) struct Inner {
     pub pool: SqlitePool,
     pub data_root: PathBuf,
     pub probes: RwLock<Vec<Arc<dyn HarnessProbe>>>,
+    /// The person's harness choice, registered by the desktop (SET-CHO-1).
+    pub choice: RwLock<Option<Arc<dyn HarnessChoice>>>,
+    /// The harnesses offered while a guided run waits at `HarnessChoice` (SET-CHO-3).
+    pub pending_choice: Mutex<Option<Vec<HarnessKind>>>,
+    /// The answer to the question, sent by `choose_harness` to the waiting run (SET-CHO-4).
+    pub chose: watch::Sender<Option<HarnessKind>>,
     pub updater: RwLock<Option<Arc<dyn AppUpdater>>>,
     pub platform: RwLock<Option<Arc<dyn ServerPlatform>>>,
     pub progress: watch::Sender<SetupProgress>,
@@ -245,6 +251,9 @@ impl SetupAssistant {
             pool,
             data_root,
             probes: RwLock::new(vec![Arc::new(ClaudeCodeProbe::new())]),
+            choice: RwLock::new(None),
+            pending_choice: Mutex::new(None),
+            chose: watch::channel(None).0,
             updater: RwLock::new(None),
             platform: RwLock::new(None),
             progress: watch::channel(SetupProgress {
@@ -282,6 +291,18 @@ impl SetupAssistant {
         let mut probes = write(&self.inner.probes);
         probes.retain(|p| p.harness() != probe.harness());
         probes.push(probe);
+    }
+
+    /// The person's harness choice; replaces any earlier one (SET-CHO-1). The desktop only.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-1
+    pub fn set_harness_choice(&self, choice: Arc<dyn HarnessChoice>) {
+        *write(&self.inner.choice) = Some(choice);
+    }
+
+    /// The person's answer to the first-start question (SET-CHO-4).
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-4
+    pub async fn choose_harness(&self, harness: HarnessKind) -> Result<(), SetupError> {
+        self.inner.choose_harness(harness).await
     }
 
     /// True on the first start, or when the profile's setup requirements changed since the last
@@ -421,6 +442,14 @@ impl Inner {
             let mut kinds = vec![(HarnessKind::ClaudeCode, Vec::new())];
             if self.program != SetupProgram::PersonalServer {
                 kinds.push((HarnessKind::CopilotCli, Vec::new()));
+                // SET-CHO-2: the person's choice is walked first.
+                // spec: ordin-desktop/components/SetupAssistant#SET-CHO-2
+                if let Some(chosen) = self.chosen_harness() {
+                    if let Some(at) = kinds.iter().position(|(k, _)| *k == chosen) {
+                        let first = kinds.remove(at);
+                        kinds.insert(0, first);
+                    }
+                }
             }
             return kinds;
         }
@@ -440,6 +469,12 @@ impl Inner {
                 Some((kind, entry.tested_versions.clone()))
             })
             .collect()
+    }
+
+    /// The registered choice's answer; `None` with no choice registered (SET-CHO-1).
+    pub(crate) fn chosen_harness(&self) -> Option<HarnessKind> {
+        let choice = read(&self.choice).clone();
+        choice.and_then(|c| c.chosen())
     }
 
     /// C.1: SHA-256 of `{"harnesses": …, "repositories": [display names, sorted]}`.

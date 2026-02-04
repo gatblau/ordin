@@ -137,6 +137,21 @@ mod copilot_tests;
     ))
 ))]
 mod wiring_tests;
+// The assistant chosen at first start (DSK-CHO), over the same helpers as the wiring tests.
+#[cfg(all(
+    test,
+    not(any(
+        feature = "dictation",
+        feature = "slack",
+        feature = "mail",
+        feature = "authoring",
+        feature = "handover",
+        feature = "telegram",
+        feature = "hosted-agents",
+        feature = "knowledge-agents"
+    ))
+))]
+mod choice_tests;
 
 pub use crate::core::{construct, AfterQuit, Core, QuitReason, ShutdownSummary, StepRunner, Wired};
 pub use error::{StartError, ALL_CODES};

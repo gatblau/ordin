@@ -45,12 +45,12 @@ const draw = (app: Awaited<ReturnType<typeof appWith>>['app']) => text(html(App,
 describe('the catalogue (SM-FS-5)', () => {
   it('every step kind and every result code the guided run gives has its words in en-GB', () => {
     // `second_install` comes from the desktop's start checks (SM-FS-8).
-    const kinds = ['company_settings', 'harness', 'harness_sign_in', 'tokens', 'agent_repositories', 'agent_folders', 'programs', 'craft_apps', 'second_install'] as const;
+    const kinds = ['company_settings', 'harness', 'harness_sign_in', 'tokens', 'agent_repositories', 'agent_folders', 'programs', 'craft_apps', 'second_install', 'harness_choice'] as const;
     const codes = [
       'SETUP_NO_PROFILE_ADDRESS', 'SETUP_PROFILE_UNREACHABLE', 'SETUP_HARNESS_MISSING', 'SETUP_HARNESS_UNTESTED', 'SETUP_HARNESS_CHECK_FAILED',
       'SETUP_NO_HARNESS_ACCESS', 'SETUP_SIGN_IN_TIMEOUT', 'SETUP_SIGN_IN_ON_SERVER', 'SETUP_NO_READY_HARNESS', 'SETUP_CATALOGUE_FAILED',
       'SETUP_AGENT_FOLDER_FAILED', 'SETUP_PROGRAM_REFUSED', 'SETUP_PROGRAM_DAMAGED', 'SETUP_PROGRAM_FAILED', 'SETUP_CRAFT_APP_FAILED',
-      'SETUP_SECOND_INSTALL',
+      'SETUP_SECOND_INSTALL', 'SETUP_NO_CHOICE_PENDING', 'SETUP_HARNESS_NOT_OFFERED', 'SETUP_CHOICE_NOT_SAVED',
     ];
     const ids = [...kinds.map(stepMessageId), ...codes.map(resultMessageId), ...(['waiting', 'running', 'done', 'needs_you', 'failed'] as const).map(stateMessageId)];
     for (const id of ids) expect(EN_GB_FTL, id).toMatch(new RegExp(`^${id} = `, 'm'));
@@ -409,5 +409,127 @@ describe('GitHub Copilot is not on this computer (SM-CPX-1)', () => {
     await settle();
     const out = text(html(FirstStart, { model: app.firstStart }, app));
     expect(out).toContain("This version of GitHub Copilot hasn't been checked with ordin yet. Install a checked version, then try again.");
+  });
+});
+
+// Which assistant, asked at first start (ScreensModule.md, amendment 2026-02-04, SM-FS-10 to SM-FS-12).
+describe('Which assistant, asked at first start (SM-FS-10 to SM-FS-12)', () => {
+  const CHOICE = [step('company_settings', 'done'), step('harness', 'done'), step('harness_choice', 'needs_you'), step('harness_sign_in', 'waiting')];
+  const both = (copilot = 'ready') => [attachment('ready'), { ...attachment(copilot, 'copilot_cli'), id: 'h2', location: '/usr/local/bin/copilot' }];
+
+  /** A first start whose `setup.status` already holds the question. */
+  function asking(t: FakeTransport, copilot = 'ready'): void {
+    t.on('setup.status', ok({ needs_guided: true, progress: progress(CHOICE), attachments: both(copilot) }));
+    t.on('setup.run_guided', () => new Promise(() => undefined) as never);
+  }
+  const screen = (app: Awaited<ReturnType<typeof appWith>>['app']) => html(FirstStart, { model: app.firstStart }, app);
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-10
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-11
+  it('Happy path — the person picks Copilot (SM-FS-10, SM-FS-11)', async () => {
+    const { app, transport } = await appWith((t) => {
+      asking(t);
+      t.on('setup.choose_harness', ok({ restarting: true }));
+    });
+    const before = screen(app);
+    const words = text(before);
+    expect(words).toContain('Which assistant should ordin use?');
+    expect(words).toContain('Both are on this computer. You can change this later in Settings › Agents and models.');
+    expect(words.indexOf('Claude Code')).toBeLessThan(words.indexOf('GitHub Copilot'));
+    expect(words.split('Signed in').length - 1).toBe(2);
+    expect(before).toContain('role="radiogroup"');
+    expect(before).not.toMatch(/<input[^>]*checked/);
+    expect(words).toContain('Choose an assistant');
+    expect(before).toMatch(/<button[^>]*class="primary[^"]*"[^>]*disabled[^>]*>\s*Choose an assistant/);
+
+    app.firstStart.pick('copilot_cli');
+    const picked = screen(app);
+    expect(text(picked)).toContain('Use GitHub Copilot');
+    expect(picked).not.toMatch(/<button[^>]*class="primary[^"]*"[^>]*disabled/);
+
+    await app.firstStart.choose();
+    expect(transport.sentOf('setup.choose_harness')[0]?.input).toEqual({ harness: 'copilot_cli' });
+    const after = screen(app);
+    expect(text(after)).toContain('Starting ordin again with GitHub Copilot…');
+    expect(text(after)).not.toContain('Which assistant should ordin use?');
+    expect(after).not.toContain('<button');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-10
+  it('Edge case — an assistant that needs signing in is marked (SM-FS-10)', async () => {
+    const { app } = await appWith((t) => asking(t, 'needs_sign_in'));
+    const words = text(screen(app));
+    expect(words).toContain("You'll sign in next");
+    expect(words.indexOf('GitHub Copilot')).toBeLessThan(words.indexOf("You'll sign in next"));
+    expect(words.split('Signed in').length - 1).toBe(1);
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-11
+  it('Edge case — choosing the assistant already in use goes on in place (SM-FS-11)', async () => {
+    const { app, transport } = await appWith((t) => {
+      asking(t);
+      t.on('setup.choose_harness', ok({ restarting: false }));
+    });
+    app.firstStart.pick('claude_code');
+    await app.firstStart.choose();
+    expect(text(screen(app))).not.toContain('Which assistant should ordin use?');
+    transport.emit(event(LOCAL, 1, { kind: 'setup_progress', progress: progress([step('company_settings', 'done'), step('harness', 'done'), step('harness_choice', 'done'), step('harness_sign_in', 'running')]) } as never));
+    await settle();
+    const words = text(screen(app));
+    expect(words).toContain('3 of 4 done');
+    expect(words).toContain('Signing you in to Claude Code');
+    expect(words).not.toContain('Starting ordin again');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-10
+  it('Edge case — no question without the step (SM-FS-10)', async () => {
+    const { app } = await appWith((t) => {
+      t.on('setup.status', ok({ needs_guided: true, progress: progress(SIGNED_OUT), attachments: both() }));
+      t.on('setup.run_guided', () => new Promise(() => undefined) as never);
+    });
+    const markup = screen(app);
+    expect(text(markup)).not.toContain('Which assistant should ordin use?');
+    expect(markup).not.toContain('radiogroup');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-11
+  it('Error path — the choice could not be saved (SM-FS-11)', async () => {
+    const { app, transport } = await appWith((t) => {
+      asking(t);
+      t.on('setup.choose_harness', err('SETUP_CHOICE_NOT_SAVED', "ordin couldn't save your choice. Try again.", { action: 'try_again' }));
+    });
+    app.firstStart.pick('copilot_cli');
+    await app.firstStart.choose();
+    const markup = screen(app);
+    expect(text(markup)).toContain("ordin couldn't save your choice. Try again.");
+    expect(text(markup)).toContain('Use GitHub Copilot');
+    expect(markup).not.toMatch(/<button[^>]*class="primary[^"]*"[^>]*disabled/);
+    // One main action: the error line draws no Try again of its own (11 §4).
+    expect(text(markup)).not.toContain('Try again Try again');
+    expect(markup.match(/<button/g)).toHaveLength(1);
+    expect(app.firstStart.chosen).toBe('copilot_cli');
+    await app.firstStart.choose();
+    expect(transport.sentOf('setup.choose_harness').map((c) => c.input)).toEqual([{ harness: 'copilot_cli' }, { harness: 'copilot_cli' }]);
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-11
+  it('Error path — an assistant no longer offered redraws from setup.status (SM-FS-11)', async () => {
+    let calls = 0;
+    const { app, transport } = await appWith((t) => {
+      t.on('setup.status', () => {
+        calls += 1;
+        const attachments = calls === 1 ? both() : [attachment('ready')];
+        return ok({ needs_guided: true, progress: progress(CHOICE), attachments }) as never;
+      });
+      t.on('setup.run_guided', () => new Promise(() => undefined) as never);
+      t.on('setup.choose_harness', err('SETUP_HARNESS_NOT_OFFERED', "That assistant isn't available any more. Choose again."));
+    });
+    app.firstStart.pick('copilot_cli');
+    await app.firstStart.choose();
+    expect(transport.sentOf('setup.status')).toHaveLength(2);
+    expect(app.firstStart.chosen).toBeNull();
+    const words = text(screen(app));
+    expect(words).toContain("That assistant isn't available any more. Choose again.");
+    expect(words).not.toContain('GitHub Copilot');
   });
 });

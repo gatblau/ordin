@@ -3650,3 +3650,28 @@ None.
 
 - **SVC-MIN-2 amended — Only the person.** `PERSON_ONLY_COMMANDS` also gains `"minutes.delete_recording"` and `"minutes.remove_model"`, so the person's set is: `minutes.record`, `minutes.give_model_consent`, `minutes.accept_notice`, `minutes.save_obs_password`, `minutes.remove`, `minutes.delete_recording`, `minutes.remove_model`. Ordin reaches minutes only through its own tools (OrdinHost.md OH-MIN-4 to OH-MIN-9), which offer none of these; no agent tool, workflow step or block action reaches any `minutes.*` command. The Architecture Test's existing assertion covers the two added names.
 - **SVC-MIN-5 Jobs for Ordin.** `minutes.jobs` returns jobs of both purposes; `MinutesJob` carries `purpose` (`minutes` | `transcript`) and `MinutesJobState` the new state `transcript_ready` (2C wire WIRE-MIN-7). The generated `minutes.gen.ts` and `minutes.schema.gen.json` change with them; the switch-off files do not. No row is added, so the catalogue keeps 471 rows.
+
+## Amendment 2026-02-04 — Choosing the assistant at first start (SVC-CHO-1)
+
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17; SetupAssistant.md SET-CHO-7; OrdinDesktop.md DSK-CHO-2. **derivedFromHld:** 0.75.0.
+
+- **SVC-CHO-1 One command in the `setup` group.** The catalogue gains one row, so it has 472 rows: `setup.choose_harness`, `Local`, `Interactive`, effect `Change`, person-only (it is added to `PERSON_ONLY_COMMANDS`, because it answers a question asked of the person at first start). Input: `ChooseHarness { harness: "claude_code" | "copilot_cli" }`, with `deny_unknown_fields`; any other value is refused with `SVC_INPUT_INVALID` at `/harness`. Result: `ChooseHarnessResult { restarting: bool }`. Both types are defined in `commands`, and this spec owns them. The command waits for no model, so the window's 10-second limit applies (ScreensModule.md step 11). The catalogue unit tests count 472 rows and one `Interactive` row more than before this amendment. The generated `types.gen.ts`, `commands.gen.ts` and schema files change with the row.
+
+| Command | Input | Result | Scope | Effect | Note |
+|---|---|---|---|---|---|
+| `setup.choose_harness` | `ChooseHarness { harness }` | `ChooseHarnessResult { restarting: bool }` | Local | Change | person-only; answers the first-start question; `restarting` true when the program starts again to use the chosen harness (SVC-CHO-1) |
+
+```gherkin
+Feature: setup.choose_harness (SVC-CHO-1)
+
+  Scenario: Contract — the command is in the catalogue as written
+    Then the catalogue has 472 rows and a setup.choose_harness row that is Local, Interactive, Change and person-only
+
+  Scenario: Error path — an unknown harness is refused at the boundary
+    When setup.choose_harness {"harness": "gemini"} is sent
+    Then the error is SVC_INPUT_INVALID at /harness
+```
+
+### Gaps
+
+None.

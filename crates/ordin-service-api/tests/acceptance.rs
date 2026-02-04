@@ -15,8 +15,9 @@ use ordin_types::wire::ContentRef;
 use serde_json::{json, Value};
 use support::*;
 
-/// 451 rows; 471 with the twenty `minutes` rows (SVC-MIN-1, SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 471 } else { 451 };
+/// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
+/// SVC-MIN-3).
+const ROWS: usize = if cfg!(feature = "minutes") { 472 } else { 452 };
 
 fn approval_press() -> Value {
     json!({"card_ref": "q8Zt3VxN0pLk2mRb7sYw1A", "decision": "approve"})
@@ -332,7 +333,7 @@ async fn error_path_a_form_that_approves() {
 // Scenario: Happy path — the merged catalogue
 #[test]
 fn happy_path_the_merged_catalogue() {
-    // Amended for ADR-110 to ADR-114: 400 rows after ADR-114; 417 after plan 05 Phase 9 removed three; 415 after FU-019 removed two more; 416 after ordin.delete_conversation; 422 after ADR-118 and ADR-120 (SVC-TR-3); 423 after runs.start_task (SVC-TF-1); 433 after the ten team workspace commands (SVC-TW-1); 434 after team_knowledge.results_choices (SVC-TW-1, amended January 2026 by the user's decision); 435 after diagnostics.clear_logs (SVC-LOG-1); 436 after app.open_web_page (SVC-WEB-1); 438 after memory.thing_topics and memory.set_thing_topic (SVC-TOP-1); 439 after identity.save_github_token (SVC-GH-PAT-1); 440 after agents.installed_file (SM-NS-11); 442 after app.agent_settings and app.change_agent_setting (SVC-AGM-1); 444 after dashboards.export and dashboards.add_to_presentation (SVC-DBX-1); 448 after app.ssh_keys, app.create_ssh_key, app.choose_ssh_key and app.check_ssh_key (SVC-SSH-1); 449 after knowledge.export (SVC-KEX-1); 451 after confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1).
+    // Amended for ADR-110 to ADR-114: 400 rows after ADR-114; 417 after plan 05 Phase 9 removed three; 415 after FU-019 removed two more; 416 after ordin.delete_conversation; 422 after ADR-118 and ADR-120 (SVC-TR-3); 423 after runs.start_task (SVC-TF-1); 433 after the ten team workspace commands (SVC-TW-1); 434 after team_knowledge.results_choices (SVC-TW-1, amended January 2026 by the user's decision); 435 after diagnostics.clear_logs (SVC-LOG-1); 436 after app.open_web_page (SVC-WEB-1); 438 after memory.thing_topics and memory.set_thing_topic (SVC-TOP-1); 439 after identity.save_github_token (SVC-GH-PAT-1); 440 after agents.installed_file (SM-NS-11); 442 after app.agent_settings and app.change_agent_setting (SVC-AGM-1); 444 after dashboards.export and dashboards.add_to_presentation (SVC-DBX-1); 448 after app.ssh_keys, app.create_ssh_key, app.choose_ssh_key and app.check_ssh_key (SVC-SSH-1); 449 after knowledge.export (SVC-KEX-1); 451 after confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1); 452 after setup.choose_harness (SVC-CHO-1).
     assert_eq!(CATALOGUE.len(), ROWS);
     let mut names: Vec<&str> = CATALOGUE.iter().map(|m| m.name).collect();
     names.sort_unstable();

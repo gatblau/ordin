@@ -27,12 +27,12 @@ pub use ordin_types::domain::identity::{HarnessAttachment, HarnessAttachmentStat
 pub use process::{find_claude_code, find_copilot_cli, ClaudeCodeProbe};
 pub use tools::missing_path_tools;
 pub use types::{
-    AppUpdater, BundledProgram, CheckKind, CheckOutcome, CheckResult, CheckTrigger,
-    HarnessLocation, HarnessProbe, HarnessSignIn, InstallKind, LanguageServerLaunch, MissingTool,
-    PersonAction, ProbeError, ProbeRepair, ProgressStep, RefusedProgram, ServerPlatform,
-    ServerRunMode, ServerUpdate, ServerUpdateOutcome, SetupConfig, SetupDeps, SetupProgram,
-    SetupProgress, SetupReport, StepProblem, StepState, UpdateFinish, UpdateOffer, UpdateState,
-    UpdaterError, UrlOpener, WhatsNew, SELF_UPDATE_UNAVAILABLE,
+    AppUpdater, BundledProgram, CheckKind, CheckOutcome, CheckResult, CheckTrigger, ChoiceError,
+    HarnessChoice, HarnessLocation, HarnessProbe, HarnessSignIn, InstallKind, LanguageServerLaunch,
+    MissingTool, PersonAction, ProbeError, ProbeRepair, ProgressStep, RefusedProgram,
+    ServerPlatform, ServerRunMode, ServerUpdate, ServerUpdateOutcome, SetupConfig, SetupDeps,
+    SetupProgram, SetupProgress, SetupReport, StepProblem, StepState, UpdateFinish, UpdateOffer,
+    UpdateState, UpdaterError, UrlOpener, WhatsNew, SELF_UPDATE_UNAVAILABLE,
 };
 
 /// The `target` of every log line (*Observability*: target `ordin_setup`).

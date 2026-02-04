@@ -1002,7 +1002,7 @@ export interface CheckInstalledInput {
   agent_instance_id: string;
 }
 
-export type CheckKind = "company_settings" | "harness" | "harness_sign_in" | "tokens" | "agent_repositories" | "agent_folders" | "programs" | "craft_apps" | "second_install";
+export type CheckKind = "company_settings" | "harness" | "harness_sign_in" | "tokens" | "agent_repositories" | "agent_folders" | "programs" | "craft_apps" | "second_install" | "harness_choice";
 
 export interface CheckLibraryItemInput {
   /** None = the bundled catalogue. */
@@ -1097,6 +1097,16 @@ export type CheckSubject = ({
 });
 
 export type CheckTrigger = "start" | "background" | "on_demand" | "before_session";
+
+/** `setup.choose_harness`: the person's answer to the first-start question. */
+export interface ChooseHarness {
+  harness: HarnessKind;
+}
+
+/** `restarting` is true when the program starts again to use the chosen harness. */
+export interface ChooseHarnessResult {
+  restarting: boolean;
+}
 
 /** `app.choose_ssh_key` (SVC-SSH-1): one of the listed keys' `path`, or `null` to stop using SSH. */
 export interface ChooseSshKey {

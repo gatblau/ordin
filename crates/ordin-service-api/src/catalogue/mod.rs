@@ -219,6 +219,8 @@ pub const PERSON_ONLY_COMMANDS: &[&str] = &[
     "knowledge_agents.remove",
     "setup.update_server",
     "setup.install_update",
+    // spec: ordin-desktop/components/ServiceApi#SVC-CHO-1
+    "setup.choose_harness",
     // spec: ordin-desktop/components/ServiceApi#SVC-SCR-2
     "memory.keep_held",
     "memory.discard_held",

@@ -148,12 +148,18 @@ pub(crate) async fn attachment(
         .find(|a| a.harness == harness))
 }
 
-/// Replaces the stored result of a check. `SecondInstall` is not stored.
+/// Replaces the stored result of a check. `SecondInstall` and `HarnessChoice` are not stored.
 // SetupAssistant.md, SET-UP-27: the result is returned in the report and not stored, because
 // the `check_kind` constraint of migration step 1 has no `second_install` value.
 // spec: ordin-desktop/components/SetupAssistant#SET-UP-27
 pub(crate) async fn put_check(pool: &SqlitePool, result: &CheckResult) -> Result<(), SetupError> {
-    if result.check == CheckKind::SecondInstall {
+    // `HarnessChoice` likewise: the person's answer is kept by the program (SET-CHO-1), and the
+    // constraint has no `harness_choice` value.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    if matches!(
+        result.check,
+        CheckKind::SecondInstall | CheckKind::HarnessChoice
+    ) {
         return Ok(());
     }
     let json = serde_json::to_string(result).map_err(|_| store_failed())?;

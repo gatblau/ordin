@@ -253,6 +253,23 @@ pub trait HarnessProbe: Send + Sync {
     async fn repair(&self) -> Result<ProbeRepair, ProbeError>;
 }
 
+/// The person's own harness choice, kept by the program that owns the person's preferences
+/// (the desktop's `preferences.json` `agents.harness`). Registered by the desktop only; the server
+/// registers none, so it never asks (C-48).
+// spec: ordin-desktop/components/SetupAssistant#SET-CHO-1
+#[async_trait::async_trait]
+pub trait HarnessChoice: Send + Sync {
+    /// The harness the person chose, if any.
+    fn chosen(&self) -> Option<HarnessKind>;
+    /// Keep `harness` as the person's choice. Err when it could not be kept.
+    async fn choose(&self, harness: HarnessKind) -> Result<(), ChoiceError>;
+}
+
+/// The person's choice could not be kept (SET-CHO-4 step 3, `SETUP_CHOICE_NOT_SAVED`).
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("the choice could not be kept")]
+pub struct ChoiceError;
+
 // ---------------------------------------------------------------- reports and progress
 
 /// `SecondInstall` added by the ADR-072 amendment, after `CraftApps`.
@@ -268,6 +285,9 @@ pub enum CheckKind {
     Programs,
     CraftApps,
     SecondInstall,
+    /// The first-start question, after `Harness` (SET-CHO-3).
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    HarnessChoice,
 }
 
 impl CheckKind {
@@ -282,6 +302,7 @@ impl CheckKind {
             CheckKind::Programs => "programs",
             CheckKind::CraftApps => "craft_apps",
             CheckKind::SecondInstall => "second_install",
+            CheckKind::HarnessChoice => "harness_choice",
         }
     }
 }

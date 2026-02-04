@@ -103,7 +103,10 @@ const ROWS: &[(&str, bool, Option<RepairAction>)] = &[
     ("SETUP_UPDATE_IN_PROGRESS", false, None),
     ("SETUP_UPDATE_VERSION_CHANGED", false, None),
     // Carried by a failed check result, never returned as an error.
-    ("SETUP_SECOND_INSTALL", false, None),
+    ("SETUP_SECOND_INSTALL", false, None), // The first-start question (SET-CHO-4).
+    ("SETUP_NO_CHOICE_PENDING", false, None),
+    ("SETUP_HARNESS_NOT_OFFERED", false, None),
+    ("SETUP_CHOICE_NOT_SAVED", true, Some(RepairAction::TryAgain)),
 ];
 
 #[test]

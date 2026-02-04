@@ -493,8 +493,202 @@ impl Inner {
         }
     }
 
-    /// A.3–A.4 over the listed harnesses: the first one found, tested and checked decides.
-    async fn guided_harness(&self, book: &mut Book) -> Result<HarnessCheck, SetupError> {
+    /// SET-CHO-3: the desktop, no company profile, a registered choice with no answer yet, and a
+    /// probe for each of Claude Code and Copilot.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    fn question_applies(&self) -> bool {
+        self.program == SetupProgram::Desktop
+            && matches!(
+                self.ports.profile.status().state,
+                ProfileState::NotUsed | ProfileState::NoAddress
+            )
+            && read(&self.choice).is_some()
+            && self.chosen_harness().is_none()
+            && self.probe(HarnessKind::ClaudeCode).is_some()
+            && self.probe(HarnessKind::CopilotCli).is_some()
+    }
+
+    /// SET-CHO-3: locates one harness and reads its sign-in once, starting nothing. True when the
+    /// harness is offered: found with a readable version, and `ready` or `needs_sign_in`.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    async fn survey(
+        &self,
+        kind: HarnessKind,
+        probe: &Arc<dyn HarnessProbe>,
+    ) -> Result<bool, SetupError> {
+        let location = match probe.locate().await {
+            Ok(Some(found)) => found,
+            Ok(None) => return Ok(false),
+            Err(error) => {
+                probe_failed(kind, "locate", &error);
+                return Ok(false);
+            }
+        };
+        let version = Some(location.version.clone());
+        // SA-CHO-03: with no company profile `tested_versions` is empty, so every version is tested.
+        for state in [
+            HarnessAttachmentState::Found,
+            HarnessAttachmentState::Checked,
+        ] {
+            self.write_attachment(
+                kind,
+                &location.path,
+                version.clone(),
+                true,
+                false,
+                None,
+                state,
+            )
+            .await?;
+        }
+        match probe.sign_in_status().await {
+            Ok(HarnessSignIn::SignedIn { method }) => {
+                self.write_attachment(
+                    kind,
+                    &location.path,
+                    version,
+                    true,
+                    true,
+                    method,
+                    HarnessAttachmentState::Ready,
+                )
+                .await?;
+                Ok(true)
+            }
+            // SA-CHO-02: no access leaves the attachment `checked` and the harness is not offered.
+            Ok(HarnessSignIn::NoAccess) => Ok(false),
+            Ok(HarnessSignIn::SignedOut) | Err(_) => {
+                self.write_attachment(
+                    kind,
+                    &location.path,
+                    version,
+                    true,
+                    false,
+                    None,
+                    HarnessAttachmentState::NeedsSignIn,
+                )
+                .await?;
+                Ok(true)
+            }
+        }
+    }
+
+    /// SET-CHO-3: the step needs the person; the run waits for `choose_harness`. `None` when the
+    /// assistant closes first.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    async fn wait_for_choice(
+        &self,
+        offered: Vec<HarnessKind>,
+        book: &mut Book,
+    ) -> Option<HarnessKind> {
+        book.insert_after(CheckKind::Harness, CheckKind::HarnessChoice);
+        book.set(CheckKind::HarnessChoice, StepState::NeedsYou);
+        self.chose.send_replace(None);
+        *lock(&self.pending_choice) = Some(offered);
+        self.publish(book, true);
+        let mut answers = self.chose.subscribe();
+        let mut closed = self.closed.subscribe();
+        let chosen = loop {
+            if let Some(kind) = *answers.borrow_and_update() {
+                break Some(kind);
+            }
+            if *closed.borrow_and_update() {
+                break None;
+            }
+            tokio::select! {
+                changed = answers.changed() => if changed.is_err() { break None },
+                changed = closed.changed() => if changed.is_err() { break None },
+            }
+        };
+        *lock(&self.pending_choice) = None;
+        chosen
+    }
+
+    /// SET-CHO-4.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-4
+    pub(crate) async fn choose_harness(&self, harness: HarnessKind) -> Result<(), SetupError> {
+        let offered = lock(&self.pending_choice).clone();
+        let Some(offered) = offered else {
+            return Err(SetupError::permanent("SETUP_NO_CHOICE_PENDING"));
+        };
+        let still_offered = offered.contains(&harness)
+            && matches!(
+                store::attachment(&self.pool, harness).await?,
+                Some(a) if matches!(
+                    a.state,
+                    HarnessAttachmentState::Ready | HarnessAttachmentState::NeedsSignIn
+                )
+            );
+        if !still_offered {
+            return Err(SetupError::permanent("SETUP_HARNESS_NOT_OFFERED"));
+        }
+        let choice = read(&self.choice).clone();
+        let Some(choice) = choice else {
+            return Err(SetupError::permanent("SETUP_NO_CHOICE_PENDING"));
+        };
+        if choice.choose(harness).await.is_err() {
+            tracing::warn!(
+                target: TARGET,
+                harness = store::harness_text(harness),
+                "setup.choice_not_saved"
+            );
+            return Err(SetupError::of("SETUP_CHOICE_NOT_SAVED"));
+        }
+        if lock(&self.pending_choice).take().is_none() {
+            return Err(SetupError::permanent("SETUP_NO_CHOICE_PENDING"));
+        }
+        tracing::info!(
+            target: TARGET,
+            harness = store::harness_text(harness),
+            "setup.harness_chosen"
+        );
+        self.chose.send_replace(Some(harness));
+        Ok(())
+    }
+
+    /// A.3–A.4 over the listed harnesses: the first one found, tested and checked decides. When
+    /// SET-CHO-3 holds, the person chooses first and only the chosen harness is checked; the
+    /// second value is the `HarnessChoice` result.
+    async fn guided_harness(
+        &self,
+        book: &mut Book,
+    ) -> Result<(HarnessCheck, Option<CheckResult>), SetupError> {
+        if self.question_applies() {
+            let mut offered = Vec::new();
+            for kind in [HarnessKind::ClaudeCode, HarnessKind::CopilotCli] {
+                if let Some(probe) = self.probe(kind) {
+                    if self.survey(kind, &probe).await? {
+                        offered.push(kind);
+                    }
+                }
+            }
+            if offered.len() >= 2 {
+                book.end(&passed(CheckKind::Harness));
+                let Some(kind) = self.wait_for_choice(offered, book).await else {
+                    return Ok((
+                        HarnessCheck {
+                            harness: passed(CheckKind::Harness),
+                            sign_in: None,
+                            ready: false,
+                        },
+                        None,
+                    ));
+                };
+                let choice = passed(CheckKind::HarnessChoice);
+                book.end(&choice);
+                self.publish(book, true);
+                if let Some(probe) = self.probe(kind) {
+                    let check = self.check_harness(kind, &[], &probe, Some(book)).await?;
+                    return Ok((check, Some(choice)));
+                }
+            } else if let [kind] = offered[..] {
+                // Fewer than two offered: no question, and the run goes on with the offered one.
+                if let Some(probe) = self.probe(kind) {
+                    let check = self.check_harness(kind, &[], &probe, Some(book)).await?;
+                    return Ok((check, None));
+                }
+            }
+        }
         let mut first_failure: Option<CheckResult> = None;
         for (kind, tested) in self.listed_harnesses() {
             let Some(probe) = self.probe(kind) else {
@@ -507,19 +701,22 @@ impl Inner {
                 first_failure.get_or_insert(check.harness);
                 continue;
             }
-            return Ok(check);
+            return Ok((check, None));
         }
-        Ok(HarnessCheck {
-            harness: first_failure.unwrap_or_else(|| {
-                arg(
-                    failed(CheckKind::Harness, "SETUP_HARNESS_MISSING", None),
-                    "harness",
-                    "Claude Code",
-                )
-            }),
-            sign_in: None,
-            ready: false,
-        })
+        Ok((
+            HarnessCheck {
+                harness: first_failure.unwrap_or_else(|| {
+                    arg(
+                        failed(CheckKind::Harness, "SETUP_HARNESS_MISSING", None),
+                        "harness",
+                        "Claude Code",
+                    )
+                }),
+                sign_in: None,
+                ready: false,
+            },
+            None,
+        ))
     }
 
     /// A.
@@ -551,9 +748,12 @@ impl Inner {
 
         book.set(CheckKind::Harness, StepState::Running);
         self.publish(&book, true);
-        let harness = self.guided_harness(&mut book).await?;
+        let (harness, choice) = self.guided_harness(&mut book).await?;
         book.end(&harness.harness);
         results.push(harness.harness);
+        if let Some(choice) = choice {
+            results.push(choice);
+        }
         if let Some(sign_in) = harness.sign_in {
             book.end(&sign_in);
             results.push(sign_in);

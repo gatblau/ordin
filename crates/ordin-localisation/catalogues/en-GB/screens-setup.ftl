@@ -26,6 +26,17 @@ setup-step-programs = Checking the programs ordin uses
 setup-step-craft-apps = Checking the company's apps
 # Only in the start checks on the desktop (ScreensModule.md SM-FS-8).
 setup-step-second-install = Checking for another copy of ordin
+# Only while the person chooses the assistant (ScreensModule.md SM-FS-12).
+setup-step-harness-choice = Choosing your assistant
+
+# ---- Which assistant (ScreensModule.md SM-FS-10 to SM-FS-12) -----------------------------------------
+setup-choose-heading = Which assistant should ordin use?
+setup-choose-note = Both are on this computer. You can change this later in Settings › Agents and models.
+setup-choose-signed-in = Signed in
+setup-choose-sign-in-next = You'll sign in next
+setup-choose-pick-first = Choose an assistant
+setup-choose-use = Use { $harness }
+setup-choose-restarting = Starting ordin again with { $harness }…
 
 # ---- Signing in --------------------------------------------------------------------------------------
 setup-sign-in = Sign in to { $harness }
@@ -62,3 +73,7 @@ setup-program-failed = A program ordin needs couldn't be set up.
 setup-craft-app-failed = One of the company's apps couldn't be set up.
 # The second-install result (ScreensModule.md SM-UP-9, SM-FS-8).
 setup-second-install = ordin is also installed in { $folder }. Remove one copy, because updates reach only the copy installed for you.
+# The answers of setup.choose_harness (ScreensModule.md SM-FS-11, SM-FS-12).
+setup-no-choice-pending = That question has already been answered.
+setup-harness-not-offered = That assistant isn't available any more. Choose again.
+setup-choice-not-saved = ordin couldn't save your choice. Try again.

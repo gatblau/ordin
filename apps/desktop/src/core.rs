@@ -24,12 +24,15 @@ use crate::shell::QuitControl;
 use crate::wiring::{CoreInputs, ModuleRunner, Modules};
 
 /// Why the core stops (distinct from the Session Supervisor's `ShutdownReason`); `Update` added by
-/// the amendment January 2026 (ADR-114).
+/// the amendment January 2026 (ADR-114); `HarnessChosen` by DSK-CHO-2: the first-start answer
+/// changed the harness, and the program starts again with it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuitReason {
     PersonQuit,
     OperatingSystemEnding,
     Update,
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+    HarnessChosen,
 }
 
 impl QuitReason {
@@ -39,6 +42,7 @@ impl QuitReason {
             QuitReason::PersonQuit => "person_quit",
             QuitReason::OperatingSystemEnding => "operating_system_ending",
             QuitReason::Update => "update",
+            QuitReason::HarnessChosen => "harness_chosen",
         }
     }
 }
@@ -402,6 +406,10 @@ impl Core {
                     .await;
                 AfterQuit::Restart
             }
+            // DSK-CHO-2 step 3: no update is installed; the program starts again with the
+            // chosen harness.
+            // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+            QuitReason::HarnessChosen => AfterQuit::Restart,
         };
         tracing::info!(
             component = "desktop",

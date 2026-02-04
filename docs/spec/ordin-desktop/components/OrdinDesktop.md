@@ -3375,3 +3375,69 @@ None.
 ### Gaps
 
 None.
+
+## Amendment 2026-02-04 — The assistant chosen at first start, and a choice of Copilot honoured (DSK-CHO-1 to DSK-CHO-4)
+
+> **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: RFC 17 (`docs/wip/rfc/17-choose-the-assistant-at-first-start.md`); user decision 2026-02-04 ("go with your recommendations": ordin restarts itself once after the first-start answer). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+Evidence read: `apps/desktop/src/agent_settings.rs:139-151` (`in_this_version` accepts Claude Code only, so `harness_to_use` replaces a person's choice of Copilot with the organisation's harness); `apps/desktop/src/wiring.rs:788-798` (row 3.19 fixes the Session Supervisor's `local_adapter` at start), `:1463-1466` (Package Catalogue `ProfileHarness.chosen`), `:1494` (Ordin Host `harness`); `apps/desktop/src/core.rs:29-33`, `:400-404` (`QuitReason`, `AfterQuit::Restart`); `apps/desktop/Cargo.toml` (the `copilot` switch is on by default).
+
+- **DSK-CHO-1 A choice of Copilot is honoured (amends DSK-AGM-1, *Harness*).** `in_this_version(harness)` is true for `claude_code` in every build, and true for `copilot` exactly when the program is built with the `copilot` switch. In DSK-AGM-1, *Harness*, the sentence "Only Claude Code runs in this version: the Copilot adapter is behind the `copilot` build switch and not wired, so a person's choice of Copilot is kept but the organisation's harness is used." is replaced by: "In a build with the `copilot` switch, a person's choice of Copilot is the harness in use: the Session Supervisor's `local_adapter` is `AdapterKind::CopilotLocal`. In a build without it, the choice is kept and the organisation's harness is used, and the harness's readiness is `not_in_this_version`."
+- **DSK-CHO-2 `setup.choose_harness` and the one restart.** The program registers a `HarnessChoice` (SetupAssistant.md SET-CHO-1) with the Setup Assistant at the Setup Assistant's row:
+  - `chosen()` reads `preferences.json` `agents.harness` and maps `claude_code` to `HarnessKind::ClaudeCode` and `copilot` to `HarnessKind::CopilotCli`. An absent entry, or an unreadable file, gives `None`.
+  - `choose(h)` writes `agents.harness` exactly as `app.change_agent_setting` `harness { harness }` does (the same checks, `format` stays 1). If the write fails → `ChoiceError`.
+
+  It answers `setup.choose_harness { harness }` (ServiceApi.md SVC-CHO-1) in these steps:
+  1. Call `SetupAssistant::choose_harness`. An error is returned as it is.
+  2. Work out `harness_to_use` again from the stored preferences. When it equals `harness_in_use` (the harness wired at row 3.19), answer `{ restarting: false }`; the guided run goes on in this process.
+  3. Otherwise, answer `{ restarting: true }`. Then shut down through the ordinary quit path with the new `QuitReason::HarnessChosen` (log name `harness_chosen`), whose `AfterQuit` is `Restart`. No session has run, because first start is still drawn (ScreensModule.md SM-FS-4), so nothing is stopped or interrupted. On the next start, row 3.19 wires the chosen harness and the Setup Assistant runs the guided sequence again with that harness first and no question (SET-CHO-5).
+- **DSK-CHO-3 Settings keeps its rule.** A harness changed in Settings › Agents and models still takes effect when the program next starts (DSK-AGM-1); only the first-start answer restarts the program.
+- **DSK-CHO-4 The answer is sent before the restart.** The program sends the `setup.choose_harness` answer to the window before it starts shutting down, so the window can draw `setup-choose-restarting` (ScreensModule.md SM-FS-10).
+
+| Condition | Result | Code | Retry |
+|---|---|---|---|
+| `setup.choose_harness` with no question waiting (DSK-CHO-2) | `Err(permanent)` | `SETUP_NO_CHOICE_PENDING` | no |
+| `setup.choose_harness` with a harness not offered (DSK-CHO-2) | `Err(permanent)` | `SETUP_HARNESS_NOT_OFFERED` | no |
+| `preferences.json` cannot be written for the choice (DSK-CHO-2) | `Err(retryable)` | `SETUP_CHOICE_NOT_SAVED` | yes; nothing restarts |
+
+```gherkin
+Feature: The assistant chosen at first start (DSK-CHO)
+
+  Scenario: Happy path — choosing Copilot restarts ordin with the Copilot Local Adapter (DSK-CHO-1, DSK-CHO-2)
+    Given a desktop build with copilot, no company profile, no agents.harness, and stub claude and copilot both signed in
+    And the guided run is waiting at harness_choice
+    When setup.choose_harness {"harness": "copilot_cli"} is called
+    Then preferences.json holds agents.harness "copilot"
+    And the answer is {"restarting": true}
+    And the program shuts down with reason harness_chosen and restarts
+    And after the restart the Session Supervisor's local_adapter is CopilotLocal and no harness_choice step is drawn
+
+  Scenario: Happy path — choosing Claude Code goes on without a restart (DSK-CHO-2)
+    Given the same start, waiting at harness_choice, with Claude Code in use
+    When setup.choose_harness {"harness": "claude_code"} is called
+    Then the answer is {"restarting": false} and the guided run goes on
+
+  Scenario: Edge case — a stored choice of Copilot is used at start (DSK-CHO-1)
+    Given a build with copilot and agents.harness "copilot"
+    When the program starts
+    Then harness_in_use is copilot and the local adapter is CopilotLocal
+
+  Scenario: Edge case — a build without copilot keeps the choice and uses Claude Code (DSK-CHO-1)
+    Given a build without copilot and agents.harness "copilot"
+    When the program starts
+    Then harness_in_use is claude_code and Copilot's readiness is not_in_this_version
+
+  Scenario: Edge case — Settings still decides at the next start (DSK-CHO-3)
+    Given agents.harness "copilot" chosen at first start
+    When the person chooses Claude Code in Settings › Agents and models
+    Then the program does not restart, and at the next start harness_in_use is claude_code
+
+  Scenario: Error path — the choice cannot be saved (DSK-CHO-2)
+    Given preferences.json cannot be written
+    When setup.choose_harness {"harness": "copilot_cli"} is called
+    Then the error is SETUP_CHOICE_NOT_SAVED and the program does not restart
+```
+
+### Gaps
+
+None.

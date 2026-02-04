@@ -41,6 +41,10 @@ pub enum CheckKind {
     // Another copy of ordin on this computer (SetupAssistant SET-UP-27), after `CraftApps`.
     // spec: ordin-desktop/components/ServiceApi#SVC-SC-1
     SecondInstall,
+    // The first-start question, which assistant to use (SetupAssistant SET-CHO-3), after
+    // `SecondInstall`.
+    // spec: ordin-desktop/components/SetupAssistant#SET-CHO-3
+    HarnessChoice,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -264,6 +268,21 @@ pub struct SetupSignInHarnessInput {
     pub harness: HarnessKind,
 }
 
+/// `setup.choose_harness`: the person's answer to the first-start question.
+// spec: ordin-desktop/components/ServiceApi#SVC-CHO-1
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct ChooseHarness {
+    pub harness: HarnessKind,
+}
+
+/// `restarting` is true when the program starts again to use the chosen harness.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ChooseHarnessResult {
+    pub restarting: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SetupWhatsNewSeenInput {
@@ -309,6 +328,12 @@ fn check_version(value: &str, at: &str) -> Result<(), InputRejection> {
 }
 
 impl CommandInput for SetupSignInHarnessInput {
+    fn check(&mut self) -> Result<(), InputRejection> {
+        Ok(())
+    }
+}
+
+impl CommandInput for ChooseHarness {
     fn check(&mut self) -> Result<(), InputRejection> {
         Ok(())
     }

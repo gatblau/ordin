@@ -387,6 +387,7 @@ service_catalogue! {
     setup run_guided setup_run_guided => ::ordin_service_api::commands::setup::SetupRunGuidedInput => ::ordin_service_api::commands::setup::SetupReport, Any, Change, WaitsForPerson;
     setup check_now setup_check_now => ::ordin_service_api::commands::setup::SetupCheckNowInput => ::ordin_service_api::commands::setup::SetupReport, Any, Change, Interactive;
     setup sign_in_harness setup_sign_in_harness => ::ordin_service_api::commands::setup::SetupSignInHarnessInput => ::ordin_service_api::commands::setup::HarnessAttachment, Any, Change, WaitsForPerson;
+    setup choose_harness setup_choose_harness => ::ordin_service_api::commands::setup::ChooseHarness => ::ordin_service_api::commands::setup::ChooseHarnessResult, Local, Change, Interactive;
     setup update_offer setup_update_offer => ::ordin_service_api::commands::setup::SetupUpdateOfferInput => ::ordin_service_api::commands::setup::SetupUpdateOfferResult, Local, Read, Interactive;
     setup install_update setup_install_update => ::ordin_service_api::commands::setup::SetupInstallUpdateInput => ::ordin_service_api::Done, Local, Change, Interactive;
     localisation get_settings localisation_get_settings => ::ordin_service_api::commands::localisation::LocalisationGetSettingsInput => ::ordin_service_api::commands::localisation::LocalisationGetSettingsResult, Any, Read, Interactive;

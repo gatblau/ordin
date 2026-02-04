@@ -134,10 +134,14 @@ pub fn effort_levels(harness: HarnessName) -> Vec<&'static str> {
     }
 }
 
-/// True when this version can run agents with the harness. The Copilot adapter is behind the
-/// `copilot` build switch and not wired yet, so only Claude Code runs.
+/// True when this version can run agents with the harness: Claude Code in every build, Copilot
+/// exactly when the program is built with the `copilot` switch.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-1
 pub fn in_this_version(harness: HarnessName) -> bool {
-    matches!(harness, HarnessName::ClaudeCode)
+    match harness {
+        HarnessName::ClaudeCode => true,
+        HarnessName::Copilot => cfg!(feature = "copilot"),
+    }
 }
 
 /// The harness runs use: the person's, when this version can run it; else the organisation
@@ -154,6 +158,35 @@ fn harness_kind(harness: HarnessName) -> HarnessKind {
     match harness {
         HarnessName::ClaudeCode => HarnessKind::ClaudeCode,
         HarnessName::Copilot => HarnessKind::CopilotCli,
+    }
+}
+
+/// The Setup Assistant's `HarnessChoice` over `preferences.json` `agents.harness` (DSK-CHO-2):
+/// `chosen` reads the stored harness, `choose` writes it as `app.change_agent_setting`
+/// `harness { harness }` does.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
+pub struct PreferencesHarnessChoice {
+    pub preferences: std::sync::Arc<crate::prefs::Preferences>,
+}
+
+#[async_trait::async_trait]
+impl ordin_setup::HarnessChoice for PreferencesHarnessChoice {
+    /// An absent entry, or an unreadable file (read as the defaults), gives `None`.
+    fn chosen(&self) -> Option<HarnessKind> {
+        self.preferences.read().agents.harness.map(harness_kind)
+    }
+
+    async fn choose(&self, harness: HarnessKind) -> Result<(), ordin_setup::ChoiceError> {
+        let harness = match harness {
+            HarnessKind::ClaudeCode => wire::HarnessName::ClaudeCode,
+            HarnessKind::CopilotCli => wire::HarnessName::Copilot,
+        };
+        self.preferences
+            .change_agents(&ChangeAgentSetting::Harness {
+                harness: Some(harness),
+            })
+            .map(|_| ())
+            .map_err(|_| ordin_setup::ChoiceError)
     }
 }
 
@@ -384,13 +417,19 @@ mod tests {
         })
         .unwrap();
         assert_eq!(harness_to_use(&p, &snapshot), HarnessName::ClaudeCode);
-        // Copilot cannot run in this version: the organisation's harness is used.
+        // With `copilot` the choice is the harness in use; without it the choice is kept and the
+        // organisation's harness is used (DSK-CHO-1).
         p.apply(&ChangeAgentSetting::Harness {
             harness: Some(wire::HarnessName::Copilot),
         })
         .unwrap();
         assert_eq!(p.harness, Some(HarnessName::Copilot), "the choice is kept");
-        assert_eq!(harness_to_use(&p, &snapshot), snapshot.default_harness());
+        let expected = if cfg!(feature = "copilot") {
+            HarnessName::Copilot
+        } else {
+            snapshot.default_harness()
+        };
+        assert_eq!(harness_to_use(&p, &snapshot), expected);
     }
 
     #[test]
@@ -427,7 +466,11 @@ mod tests {
                     HarnessAttachmentState::Ready
                 )]
             ),
-            HarnessReadiness::NotInThisVersion
+            if cfg!(feature = "copilot") {
+                HarnessReadiness::Ready
+            } else {
+                HarnessReadiness::NotInThisVersion
+            }
         );
     }
 
@@ -468,7 +511,12 @@ mod tests {
         assert_eq!(claude.effort.len(), 5);
         let copilot = &v.harnesses[1];
         assert!(copilot.effort_levels.is_empty() && copilot.effort.is_empty());
-        assert_eq!(copilot.readiness, HarnessReadiness::NotInThisVersion);
+        let expected = if cfg!(feature = "copilot") {
+            HarnessReadiness::NotFound
+        } else {
+            HarnessReadiness::NotInThisVersion
+        };
+        assert_eq!(copilot.readiness, expected);
         assert_eq!(v.chosen_harness, None);
     }
 

@@ -216,3 +216,35 @@ Passed. Approved by the user 2026-02-02 ("approve, and allow Copilot without a c
 
 Passed. Approved by the user 2026-02-04 ("proceed with recommendations"), with the HLD changes of revision 0.74.0.
 
+
+## Amendment audit, 2026-02-04 — The assistant chosen at first start (approved)
+
+> **Scope:** amended — `components/SetupAssistant.md` (SET-CHO-1 to SET-CHO-7), `components/OrdinDesktop.md` (DSK-CHO-1 to DSK-CHO-4; DSK-AGM-1 *Harness* sentence replaced), `components/ServiceApi.md` (SVC-CHO-1), `components/ScreensModule.md` (SM-FS-10 to SM-FS-12). Source: RFC 17; HLD ADR-125, UX-A88, revision 0.75.0. RFC 17 acceptance criteria 6 and 7 (licence detection) are out of this audit by the user's decision of 2026-02-04 and follow as a separate amendment.
+
+| # | Item | Result |
+|---|---|---|
+| 1 | Complete data models | Pass — `HarnessChoice`, `ChoiceError`, `CheckKind::HarnessChoice`, `ChooseHarness`, `ChooseHarnessResult`, `QuitReason::HarnessChosen`; no attachment state added (offered = `ready` or `needs_sign_in`) |
+| 2 | Every action has trigger, inputs, outputs, side effects, errors | Pass — the question (SET-CHO-3), `choose_harness` (SET-CHO-4), `setup.choose_harness` and the restart (DSK-CHO-2), the screen (SM-FS-10, SM-FS-11) |
+| 3 | Error table per changed component | Pass — three rows in SetupAssistant and OrdinDesktop; Screens draw them (SM-FS-11) |
+| 4 | Codes registered | Pass — `SETUP_NO_CHOICE_PENDING`, `SETUP_HARNESS_NOT_OFFERED`, `SETUP_CHOICE_NOT_SAVED`, each with its message id in SM-FS-12 |
+| 5 | Gherkin per behaviour | Pass — SetupAssistant 10, OrdinDesktop 6, ServiceApi 2, ScreensModule 5; RFC 17 criteria 1–5 each have a scenario |
+| 6 | No unverified identifier | Pass — existing names read this session: `listed_harnesses`, `ready_harness`, `guided_harness` (`crates/ordin-setup/src/assistant.rs:416`, `:498`; `checks.rs:497`), `CheckKind`, `CheckTrigger`, `ProgressStep` (`crates/ordin-setup/src/types.rs:60`, `:261`, `:369`), `HarnessAttachmentState` (`crates/ordin-types/src/domain/identity.rs:117`), `in_this_version`, `harness_to_use` (`apps/desktop/src/agent_settings.rs:139`, `:146`), `QuitReason`, `AfterQuit` (`apps/desktop/src/core.rs:29`, `:54`), `PERSON_ONLY_COMMANDS` (ServiceApi SVC-MIN-2), the catalogue count 471 (ServiceApi SVC-MIN-5). New names are marked as introduced by these amendments |
+| 7 | No banned phrase | Pass |
+| 8 | Security for every entry point | Pass — `setup.choose_harness` is `Local` and person-only, its input is a closed enum with `deny_unknown_fields`, and it writes only the person's own preference |
+| 9 | Backward compatibility | Pass — a company profile, one assistant found, or an existing choice gives the earlier behaviour (SET-CHO-2, SET-CHO-3, SET-CHO-5); `preferences.json` keeps `format` 1 |
+| 10 | Build switch | Pass — a build without `copilot` registers no Copilot probe, so the question is never asked, and a stored Copilot choice reads `not_in_this_version` (DSK-CHO-1) |
+| 11 | UX (RFC 17 criterion 8) | Pass — one main action whose words say what happens (11 §3, §4); no preselection; the layout stays inside the first-start frame (SM-FS-2); no icon-only button, so UX-A14 is not engaged |
+| 12 | Playbook | Pass — no new component; plan 08 gains the build phases through `/breakdown` |
+| 13 | HLD consistency | Pass — ADR-125, 03 *First start* note, 11 §5.1 UX-A88, changelog line; revision 0.75.0; every amendment carries `derivedFromHld: 0.75.0` |
+| 14 | Spec anchors | Not run — `make doc-ref-check` runs on the server once the amendments are approved and committed |
+
+### Assumptions chosen here (the user may change any)
+
+- **A-1** An installed but signed-out assistant is offered and marked "You'll sign in next" (RFC 17 open question 1).
+- **A-2** An assistant reporting no access is not offered (SA-CHO-02).
+- **A-3** The restart follows only a first-start answer that changes the assistant in use; Settings keeps "next start".
+- **A-4** The question's words (SM-FS-12) are drafts for the user's approval (RFC 17 open question 3).
+
+### Verdict
+
+Passed. Approved by the user 2026-02-04 ("approve as written"), with the HLD changes of revision 0.75.0.
