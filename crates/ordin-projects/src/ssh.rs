@@ -185,6 +185,13 @@ pub fn add_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, key: &'a Path) {
         if host.eq_ignore_ascii_case(GITHUB_HOST) && github_host_key(cert) {
             Ok(CertificateCheckStatus::CertificateOk)
         } else {
+            // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
+            tracing::warn!(
+                event = "ssh.host_key_refused",
+                github = host.eq_ignore_ascii_case(GITHUB_HOST),
+                key_type = ?cert.as_hostkey().and_then(|k| k.hostkey_type()),
+                "the host key presented is not one of GitHub's"
+            );
             Err(git2::Error::new(
                 ErrorCode::Certificate,
                 ErrorClass::Ssh,
@@ -354,8 +361,16 @@ pub enum CheckOutcome {
     Unreachable,
 }
 
-/// How a failed connection reads.
+/// How a failed connection reads. The failure's code and class are logged; its message is not, as it
+/// can name a path.
+// spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
 fn outcome_of(error: &git2::Error) -> CheckOutcome {
+    tracing::warn!(
+        event = "ssh.check_failed",
+        code = ?error.code(),
+        class = ?error.class(),
+        "checking the SSH key with GitHub failed"
+    );
     if error.code() == ErrorCode::Auth
         || error.message().contains("authenticat")
         || error.message().contains("the key was not accepted")
@@ -385,9 +400,15 @@ pub fn check_key(key: &Path, limit: Duration) -> CheckOutcome {
         .unwrap_or_else(|failed| failed);
         let _ = send.send(outcome);
     });
-    receive
-        .recv_timeout(limit)
-        .unwrap_or(CheckOutcome::Unreachable)
+    receive.recv_timeout(limit).unwrap_or_else(|_| {
+        // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
+        tracing::warn!(
+            event = "ssh.check_timed_out",
+            limit_ms = limit.as_millis() as u64,
+            "GitHub did not answer the SSH key check in time"
+        );
+        CheckOutcome::Unreachable
+    })
 }
 
 #[cfg(test)]
@@ -559,5 +580,42 @@ mod ssh_tests {
             public_path(Path::new("/a/id_ed25519")),
             PathBuf::from("/a/id_ed25519.pub")
         );
+    }
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
+    #[test]
+    fn proj_ssh_6_a_failed_check_logs_its_code_and_class_but_not_its_message() {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .finish();
+        let error = git2::Error::new(
+            ErrorCode::GenericError,
+            ErrorClass::Ssh,
+            "failed to read /home/sam/.ssh/id_ed25519",
+        );
+        let outcome = tracing::subscriber::with_default(subscriber, || outcome_of(&error));
+        assert_eq!(outcome, CheckOutcome::Unreachable);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        assert!(text.contains("ssh.check_failed"), "{text}");
+        assert!(
+            text.contains("GenericError") && text.contains("Ssh"),
+            "{text}"
+        );
+        assert!(!text.contains("id_ed25519"), "the message leaked: {text}");
     }
 }

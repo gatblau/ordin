@@ -1351,6 +1351,8 @@ None.
 - **PROJ-SSH-4 Making a key (amended January 2026; user decision; Approved by the user January 2026).** `ssh::create_key(folder, program)` creates the folder with mode 0700 when absent, picks the first free name of `ordin_github_ed25519`, `ordin_github_ed25519_2`, `ordin_github_ed25519_3` and so on, and runs `ssh-keygen -q -t ed25519 -N "" -C ordin -f <path>` with no input or output. No pure-Rust crate in the tree writes the OpenSSH private key format, so the computer's `ssh-keygen` is used. A missing program is `KeygenError::Missing`; a run that fails or leaves no readable public key is `KeygenError::Failed`.
 - **PROJ-SSH-5 Checking a key (amended January 2026; user decision; Approved by the user January 2026).** `ssh::check_key(key, limit)` connects to `git@github.com:github/gitignore.git` for fetch with the PROJ-SSH-2 callbacks, as `git ls-remote` would, on its own thread. A connection that lists the remote is `Works`; an authentication failure is `Refused`; any other failure, or no answer within `limit`, is `Unreachable`.
 
+- **PROJ-SSH-6 The check's failure is logged (amended February 2026; user decision; Approved by the user February 2026).** Each failed connection of PROJ-SSH-2 and PROJ-SSH-5 writes one `warn` line, with no key material, path or libgit2 message: a refused host key writes `ssh.host_key_refused` with `github` (whether the host was `github.com`) and `key_type` (the host key type libssh2 reports, or none); a failed connection writes `ssh.check_failed` with libgit2's error `code` and `class`; no answer within `limit` writes `ssh.check_timed_out` with `limit_ms`. The outcome each answers is unchanged.
+
 ```gherkin
 Feature: GitHub with an SSH key (PROJ-SSH-1 to PROJ-SSH-5)
 
