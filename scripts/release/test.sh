@@ -734,8 +734,14 @@ expect_pass "RELEASE_GATE=local passes on a commit with no record"
 grep -q 'make -C .* check' "$SHIM_LOG" && ok "RELEASE_GATE=local runs make check" || bad "RELEASE_GATE=local runs make check"
 run check.sh VERSION=1.2.3 RELEASE_GATE=local SHIM_MAKE_FAIL=1
 if [ "$STATUS" -ne 0 ] && ! printf '%s' "$OUTPUT" | grep -qF "release-check passed"; then ok "RELEASE_GATE=local stops when make check fails"; else bad "RELEASE_GATE=local stops when make check fails"; fi
+run check.sh VERSION=1.2.3 RELEASE_GATE=none
+expect_pass "RELEASE_GATE=none passes on the test channel with no record"
+printf '%s' "$OUTPUT" | grep -qF "WARNING: RELEASE_GATE=none" && ok "RELEASE_GATE=none says no test was checked" || bad "RELEASE_GATE=none says no test was checked"
+expect_no_calls "RELEASE_GATE=none runs no gate" 'make'
+run check.sh VERSION=1.2.3 RELEASE_GATE=none RELEASE_CHANNEL=real
+expect_fail "RELEASE_GATE=none is refused on the real channel" "RELEASE_GATE=none is for the test channel only"
 run check.sh VERSION=1.2.3 RELEASE_GATE=skip
-expect_fail "another RELEASE_GATE value is refused" "RELEASE_GATE must be evidence or local"
+expect_fail "another RELEASE_GATE value is refused" "RELEASE_GATE must be evidence, local or none"
 expect_no_calls "a refused RELEASE_GATE runs no gate" 'make'
 
 # --- the Windows build started from this computer (PB-REL-29)

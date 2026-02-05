@@ -276,7 +276,15 @@ release_gate() {
     local)
       make -C "$ROOT" check
       note "WARNING: RELEASE_GATE=local runs make check only; nothing here shows that the journeys passed on this commit (PB-REL-27)." ;;
-    *) die "RELEASE_GATE must be evidence or local (it is ${RELEASE_GATE}). Nothing was built." ;;
+    # PB-REL-32: the test channel may build with no gate, to try a fix quickly; the real channel never.
+    # spec: ordin-desktop/phase-5-playbook#PB-REL-32
+    none)
+      [ "${RELEASE_CHANNEL:-test}" = test ] \
+        || die "RELEASE_GATE=none is for the test channel only; a real release needs the gate and the journeys. Nothing was built."
+      need_tool git
+      require_clean_tree "Nothing was built."
+      note "WARNING: RELEASE_GATE=none: no test was run or checked for commit $(git -C "$ROOT" rev-parse HEAD). This build is for the test channel only." ;;
+    *) die "RELEASE_GATE must be evidence, local or none (it is ${RELEASE_GATE}). Nothing was built." ;;
   esac
 }
 
