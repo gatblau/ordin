@@ -1088,3 +1088,48 @@ Feature: Package Catalogue — task forms (ADR-119)
 ### Gaps
 
 None.
+
+
+## Amendment 2026-02-05 — Installed agents follow the harness in use (PKG-HAR-1 to PKG-HAR-4)
+
+> **Status:** Approved by the user, 2026-02-05 ("approve as written"). Source: the 0.2.1-test.5 smoke test on a Mac with a Copilot licence: after Copilot was chosen at first start, "who are you?" got no reply; the run failed `CPA_SETUP_FAILED` with `INST_HARNESS_UNSUPPORTED`, because the agent stayed installed for Claude Code. User decision 2026-02-05: "yes, reinstall agents on harness change". **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **PKG-HAR-1 `follow_harness`.** `PackageCatalogue::follow_harness(&self) -> HarnessFollowed` reads `harness.default_harness()` once and, for each instance that is not `removed` (`live_instances`, ordered by display name) whose stored `harness` differs from it, installs the instance again for that harness. It returns the counts `{ followed, failed, unchanged }`. It answers no error: each instance's outcome is its own (PKG-HAR-3).
+- **PKG-HAR-2 Installing again.** For one instance, under its per-instance lock: only a `ready` instance is installed again; any other status is left as it is and counted `failed`, logged with `code` = `PKG_INSTANCE_NOT_READY`. The Resolver request is §A0.2's with the instance's own languages, locale, stored choices, `agent_identifier` and `package_version`, and `target_harness` = the harness in use; the bundle is built, installed with `InstallRequest { harness: <harness in use> }` through `Installers::update` (no session can run yet, PKG-HAR-4), re-inspected and saved as §B's `reinstall` does, and the row's `harness` becomes the harness in use. The person's choices are kept; nothing is downloaded that the instance's version did not already need; the version does not change. A bundled instance is followed in the same way, from the bundled catalogue's scope.
+- **PKG-HAR-3 One failure stops nothing else.** A failure to resolve, build, install or inspect leaves that instance's row, files and `harness` as they were, logs `agent.harness_follow_failed` (fields `agent_instance_id`, `code`; no path, no content) and goes on with the next. A success logs `agent.harness_followed` (`agent_instance_id`, `harness`). An instance left on the other harness still answers its harness's own refusal at session start (`INST_HARNESS_UNSUPPORTED` for Copilot), now drawn by ScreensModule.md SM-RF-1.
+- **PKG-HAR-4 When it runs.** Only the program calls it, once per start (OrdinDesktop.md DSK-HAR-1). It takes no `Session` lease and expects no session; an instance whose `activity.running` is true is skipped and counted `failed`, logged with `reason` = `running` and no code.
+
+### Error Table — rows added
+
+| Condition | Outcome | Logged |
+|---|---|---|
+| Instance not `ready` | left as it is; counted `failed` | `agent.harness_follow_failed`, `code` = `PKG_INSTANCE_NOT_READY` |
+| Instance has a running session | left as it is; counted `failed` | `agent.harness_follow_failed`, `reason` = `running`, no code |
+| Resolve, build, install or inspect fails | row, files and harness unchanged; counted `failed` | `agent.harness_follow_failed`, `code` = the failing module's code |
+
+```gherkin
+Feature: Installed agents follow the harness in use (PKG-HAR-1 to PKG-HAR-4)
+
+  Scenario: Happy path — an agent installed for Claude Code is installed again for Copilot
+    Given an instance "Ordin" ready with harness claude_code and a stored choice
+    And the harness in use is copilot_cli
+    When follow_harness runs
+    Then the instance's harness is copilot_cli and its install record is HarnessLaunch::Copilot
+    And its stored choice and version are unchanged
+    And the answer is followed 1, failed 0, unchanged 0
+
+  Scenario: Edge case — nothing to do when every instance already uses the harness
+    Given every instance has harness claude_code and the harness in use is claude_code
+    When follow_harness runs
+    Then nothing is installed and the answer is followed 0, failed 0, unchanged <n>
+
+  Scenario: Error path — one instance fails and the next is still followed
+    Given two instances on claude_code, the first whose build fails
+    When follow_harness runs with copilot_cli in use
+    Then the first keeps harness claude_code and its files, and agent.harness_follow_failed is logged
+    And the second is followed
+```
+
+### Gaps
+
+None. `PKG_INSTANCE_NOT_READY` is the existing code (`crates/ordin-package-catalogue/src/error.rs:33`); no code is added.

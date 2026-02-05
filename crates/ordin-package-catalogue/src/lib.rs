@@ -17,6 +17,7 @@ mod add;
 mod bundled;
 mod catalogue;
 mod error;
+mod follow;
 mod manage;
 mod ports;
 mod request;
@@ -33,6 +34,7 @@ pub use catalogue::{
     migrations, HarnessSettings, InstanceActivity, PackageCatalogue, PackageCatalogueDeps,
 };
 pub use error::{PackageError, ALL_CODES};
+pub use follow::HarnessFollowed;
 pub use starter::STARTER_AGENTS;
 pub use types::{
     AddAgentInput, AddOutcome, AddPreview, AgentFolderFailure, AgentFolderReport, AgentFound,

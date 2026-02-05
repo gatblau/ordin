@@ -3,6 +3,7 @@ mod behaviour;
 mod bundled;
 mod candidate;
 mod error_table;
+mod follow;
 mod registry;
 mod starter;
 mod support;

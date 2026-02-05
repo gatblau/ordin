@@ -97,11 +97,48 @@
     select(key);
   }
 
+  // SM-RF-1: the person's last message while Ordin works on it, until an Ordin item is drawn after it or the
+  // turn ends. `ordin_turn_changed` carries no run id, so the turn, not a run, is watched.
+  let turn = $state<{ key: string; text: string; ordinItems: number; working: boolean } | null>(null);
+  /** The message to send again with Try again, after a turn that ended with no reply (SM-RF-1). */
+  let failedText = $state<string | null>(null);
+  const ordinItems = $derived(items.filter((item) => item.from !== 'person').length);
+
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-1
+  $effect(() => {
+    const watched = turn;
+    if (watched === null) return;
+    if (active === null || ShellState.tabKey(active) !== watched.key) {
+      turn = null;
+      return;
+    }
+    if (ordinItems > watched.ordinItems) {
+      turn = null;
+      return;
+    }
+    if (working !== undefined) {
+      if (!watched.working) turn = { ...watched, working: true };
+      return;
+    }
+    if (watched.working) {
+      turn = null;
+      failedText = watched.text;
+      error = { code: 'UI_TURN_FAILED', message: t('conv-turn-failed'), action: 'try_again' };
+    }
+  });
+
+  function retryFailed(): void {
+    const text = failedText;
+    if (text !== null) void send(text);
+  }
+
   async function send(text: string): Promise<boolean> {
     if (active === null || activeState === undefined) return false;
+    failedText = null;
     const out = await activeState.handle.call('ordin.send_message', { workspace_id: active.workspaceId, text });
     error = out.kind === 'error' ? out.error : null;
     const accepted = out.kind === 'ok' && out.result.accepted;
+    if (accepted) turn = { key: ShellState.tabKey(active), text, ordinItems, working: working !== undefined };
     // SM-SCR-1: sending brings the person's message and the working line into view.
     if (accepted) {
       atEnd = true;
@@ -298,7 +335,7 @@
       {#if newBelow}
         <button type="button" class="small jump-newest" onclick={toEnd}>{t('conv-jump-newest')}</button>
       {/if}
-      <ErrorLine {error} />
+      <ErrorLine {error} {...failedText !== null ? { onretry: retryFailed } : {}} />
       <MessageBox
         bind:this={box}
         onsend={send}

@@ -609,7 +609,9 @@ async fn datastore_failure() {
         },
         None,
         std::sync::Arc::clone(&fx.journal),
-        std::sync::Arc::new(FakeHarness(ordin_types::domain::HarnessKind::ClaudeCode)),
+        std::sync::Arc::new(FakeHarness(std::sync::Mutex::new(
+            ordin_types::domain::HarnessKind::ClaudeCode,
+        ))),
         fx.activity.clone(),
     );
     assert_error(

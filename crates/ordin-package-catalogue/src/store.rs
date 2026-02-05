@@ -230,7 +230,7 @@ pub(crate) async fn save_instance(
          \"commit\" = ?5, agent_folder_path = ?6, lock_file_path = ?7, audit_result = ?8, \
          authority = ?9, parsed_declaration_ref = ?10, status = ?11, \
          updated_between_runs_at = ?12, stopped_reason = ?13, stopped_by = ?14, may_do = ?15, \
-         plan_hash = ?16, pending_choices = ?17 WHERE id = ?1",
+         plan_hash = ?16, pending_choices = ?17, harness = ?18 WHERE id = ?1",
     )
     .bind(row.id.to_string())
     .bind(&row.display_name)
@@ -249,6 +249,8 @@ pub(crate) async fn save_instance(
     .bind(&row.may_do)
     .bind(&row.plan_hash)
     .bind(&row.pending_choices)
+    // PKG-HAR-2: the harness an instance is installed for changes when it follows the harness in use.
+    .bind(enum_text(&row.harness))
     .execute(conn)
     .await?;
     Ok(())

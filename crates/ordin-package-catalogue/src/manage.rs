@@ -385,7 +385,7 @@ impl PackageCatalogue {
     }
 
     /// §B: rebuild, install between turns when a session runs, re-inspect, `ready`, prune.
-    async fn reinstall(
+    pub(crate) async fn reinstall(
         &self,
         row: &mut InstanceRow,
         request: &ordin_resolver::ResolveRequest,

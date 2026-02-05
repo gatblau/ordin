@@ -108,6 +108,8 @@ needs-you-team-grant-unconfirmed = Someone added { $agent } — allow it? (says 
 needs-you-team-grant-gone = This was already answered.
 
 conv-needs-you = Needs you
+# A turn that ended with no reply (ScreensModule.md SM-RF-1).
+conv-turn-failed = Ordin couldn't get an answer this time. Try again; if it happens again, choose Save logs for support… in Settings › Diagnostics.
 conv-header-conversation = Conversation
 conv-resize = Resize the conversation
 conv-send = Send

@@ -1041,11 +1041,12 @@ impl InstanceActivity for FakeActivity {
     }
 }
 
-pub struct FakeHarness(pub HarnessKind);
+/// The harness in use; a test may change it (PKG-HAR-1).
+pub struct FakeHarness(pub Mutex<HarnessKind>);
 
 impl HarnessSettings for FakeHarness {
     fn default_harness(&self) -> HarnessKind {
-        self.0
+        *lock(&self.0)
     }
 }
 
@@ -1063,6 +1064,7 @@ pub struct Fx {
     pub folders: Arc<FakeFolders>,
     pub inspector: Arc<FakeInspector>,
     pub activity: Arc<FakeActivity>,
+    pub harness: Arc<FakeHarness>,
     pub log: Log,
     pub repo: AgentRepositoryId,
     pub agent: PartId,
@@ -1147,6 +1149,7 @@ impl Fx {
         let folders = FakeFolders::new(Arc::clone(&log));
         let inspector = FakeInspector::new(Arc::clone(&log));
         let activity = FakeActivity::new();
+        let harness = Arc::new(FakeHarness(Mutex::new(HarnessKind::ClaudeCode)));
         let ports = Ports {
             catalogue: catalogue.clone(),
             resolver: resolver.clone(),
@@ -1159,7 +1162,7 @@ impl Fx {
             ports,
             Some(pool.clone()),
             Arc::clone(&journal),
-            Arc::new(FakeHarness(HarnessKind::ClaudeCode)),
+            harness.clone(),
             activity.clone(),
         );
         Fx {
@@ -1174,6 +1177,7 @@ impl Fx {
             folders,
             inspector,
             activity,
+            harness,
             log,
             repo,
             agent,

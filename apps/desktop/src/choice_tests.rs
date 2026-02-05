@@ -380,3 +380,114 @@ async fn dsk_cho_the_choice_cannot_be_saved() {
     guided.abort();
     core.quit(QuitReason::PersonQuit).await;
 }
+
+// Scenario: Happy path — choosing Copilot, then the agents run on Copilot (DSK-HAR-1). An agent
+// installed for Claude Code is in the store and `agents.harness` is "copilot"; step 4 calls
+// `follow_harness` once, after the bundled agents. The agent is not in the bundled catalogue here, so
+// installing it again fails and is counted, which shows the call ran with Copilot as the harness;
+// installing again for real is covered by the Package Catalogue's own PKG-HAR tests.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-HAR-1
+#[cfg(feature = "copilot")]
+#[tokio::test]
+async fn dsk_har_start_follows_the_harness_in_use() {
+    let lines = Lines::default();
+    let writer = lines.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_max_level(tracing::Level::INFO)
+        .with_writer(move || writer.clone())
+        .finish();
+    let _guard = tracing::subscriber::set_default(subscriber);
+
+    let dir = TempDir::new("harness-follow");
+    let rules = dir.path().join("bundled-catalogue/models/@default/rules");
+    std::fs::create_dir_all(&rules).expect("the bundled catalogue");
+    std::fs::write(
+        rules.join("plain.md"),
+        "---\napiVersion: ai.enterprise/v1\nkind: rule\nmetadata:\n  id: urn:ordin:default:rules:plain\n  name: Plain\n  version: 1.0.0\n  owner: ordin\n---\nWrite plainly.\n",
+    )
+    .expect("a bundled rule");
+    let preferences = inputs(&dir).paths.preferences;
+    std::fs::create_dir_all(preferences.parent().expect("data root")).expect("data root");
+    Preferences::new(preferences)
+        .change_agents(&ordin_service_api::commands::ChangeAgentSetting::Harness {
+            harness: Some(ordin_service_api::commands::profile::HarnessName::Copilot),
+        })
+        .expect("agents.harness stored");
+    let mut runner = ModuleRunner::new(inputs(&dir));
+    construct(&mut runner).await.expect("step 3");
+    let pool = runner
+        .modules
+        .journal
+        .clone()
+        .expect("row 3.1")
+        .datastore()
+        .sqlite()
+        .cloned()
+        .expect("the desktop's SQLite datastore");
+    let id = ordin_types::AgentInstanceId::new();
+    let folder = dir.path().join("agents").join(id.to_string());
+    sqlx::query(
+        "INSERT INTO agent_instances (id, display_name, package_name, package_version, \
+         agent_repository_id, \"commit\", agent_folder_path, lock_file_path, audit_result, authority, \
+         parsed_declaration_ref, is_trial_of_own_draft, status, installed_at, agent_identifier, \
+         plan_hash, harness) VALUES (?1, 'Document agent', 'document-agent', '0.1.0', ?2, 'ordin-0.1.0', \
+         ?3, ?4, 'passed', 'document_only', 'declaration', 0, 'ready', '2026-01-10T00:00:00.000Z', \
+         'urn:ordin:default:workspaces:document-agent', 'an-earlier-plan', 'claude_code')",
+    )
+    .bind(id.to_string())
+    .bind(ordin_resolver::model::BUNDLED_REPOSITORY_ID.to_string())
+    .bind(folder.to_string_lossy().into_owned())
+    .bind(folder.join("ordin.lock").to_string_lossy().into_owned())
+    .execute(&pool)
+    .await
+    .expect("an agent installed for Claude Code");
+
+    let core = Core::from_runner(runner).await.expect("step 4");
+    let started = std::time::Instant::now();
+    let text = loop {
+        let text = lines.text();
+        if text.lines().any(|l| l.contains("agents.harness_followed")) {
+            break text;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "start did not follow the harness in use; log:\n{text}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    assert!(
+        text.lines()
+            .any(|l| l.contains("agent.harness_follow_failed") && l.contains(&id.to_string())),
+        "the agent on Claude Code was installed again for Copilot; log:\n{text}"
+    );
+    assert!(
+        text.lines()
+            .any(|l| l.contains("agents.harness_followed") && l.contains("failed=1")),
+        "{text}"
+    );
+    let _ = core.quit(QuitReason::PersonQuit).await;
+}
+
+/// The log lines of the current thread, for the test that installs it.
+#[cfg(feature = "copilot")]
+#[derive(Clone, Default)]
+struct Lines(Arc<Mutex<Vec<u8>>>);
+
+#[cfg(feature = "copilot")]
+impl Lines {
+    fn text(&self) -> String {
+        String::from_utf8_lossy(&self.0.lock().unwrap()).into_owned()
+    }
+}
+
+#[cfg(feature = "copilot")]
+impl std::io::Write for Lines {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}

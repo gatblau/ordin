@@ -197,6 +197,16 @@ impl Core {
                         shutdown.clone(),
                     )
                     .await;
+                    // DSK-HAR-1: every installed agent is laid out for the harness that will run it.
+                    // spec: ordin-desktop/components/OrdinDesktop#DSK-HAR-1
+                    let followed = packages.follow_harness().await;
+                    tracing::info!(
+                        component = "desktop",
+                        followed = followed.followed,
+                        failed = followed.failed,
+                        unchanged = followed.unchanged,
+                        "agents.harness_followed"
+                    );
                     if let Some(workspaces) = workspaces {
                         crate::bundled::add_starter_agents_everywhere(
                             packages,

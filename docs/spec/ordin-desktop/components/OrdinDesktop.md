@@ -3441,3 +3441,24 @@ Feature: The assistant chosen at first start (DSK-CHO)
 ### Gaps
 
 None.
+
+
+## Amendment 2026-02-05 — The agents follow the harness at start (DSK-HAR-1)
+
+> **Status:** Approved by the user, 2026-02-05 ("approve as written"). Source: as PackageCatalogue.md PKG-HAR-1 to PKG-HAR-4. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **DSK-HAR-1 At start.** In the start task of DSK-REC-24 (`apps/desktop/src/core.rs`, the task that calls `add_bundled_agents` and then `add_starter_agents_everywhere`), after `add_bundled_agents` and before `add_starter_agents_everywhere`, the program calls `packages.follow_harness()` once. The harness it follows is `HarnessSettings::default_harness()` (DSK-AGM-1: the person's stored choice, else the profile's), the same one row 3.19 uses to pick the local adapter, so every installed agent is laid out for the adapter that will run it. It runs on every start; with nothing to follow it installs nothing. Its counts are logged as `agents.harness_followed` (`followed`, `failed`, `unchanged`). A first start that chose another harness reaches this through the restart of DSK-CHO-2; a change in Settings › Agents and models reaches it at the next start, as DSK-AGM-1 already says a changed harness does.
+
+```gherkin
+Feature: The agents follow the harness at start (DSK-HAR-1)
+
+  Scenario: Happy path — choosing Copilot, then the agents run on Copilot
+    Given an agent installed for Claude Code and agents.harness "copilot" stored
+    When the desktop core starts
+    Then the agent's install record is HarnessLaunch::Copilot
+    And a Copilot session setup for it succeeds
+```
+
+### Gaps
+
+None.

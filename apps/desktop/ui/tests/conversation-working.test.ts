@@ -199,3 +199,49 @@ describe('Clear leaves the panel empty (SM-CF-1)', () => {
     expect(text(target)).toContain('A crew is running.');
   });
 });
+
+// A turn that fails before any reply says so (ScreensModule.md, amendment 2026-02-05, SM-RF-1).
+describe('A turn that fails before any reply (SM-RF-1)', () => {
+  async function sendText(target: HTMLElement, body: string): Promise<void> {
+    const box = target.querySelector('textarea') as HTMLTextAreaElement;
+    box.value = body;
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    flushSync();
+    const sendButton = [...target.querySelectorAll('button')].find((b) => text(b) === 'Send') as HTMLButtonElement;
+    sendButton.click();
+    await flush();
+  }
+  const failed = (target: HTMLElement) => target.querySelector('.error-line');
+
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-1
+  it('Error path — the run fails before a reply', async () => {
+    const { target, transport, seq } = await draw();
+    await sendText(target, 'who are you?');
+    transport.emit(event(LOCAL, seq(), { kind: 'block_shown', workspace_id: WS, block_id: uid('mine'), block: message('who are you?'), author: 'person' } as never));
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'working', since: SINCE } as never));
+    await flush();
+    expect(failed(target)).toBeNull();
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'idle', since: SINCE } as never));
+    await flush();
+    expect(line(target)).toBeNull();
+    expect(text(failed(target))).toContain("Ordin couldn't get an answer this time.");
+    const again = [...(failed(target)?.querySelectorAll('button') ?? [])].find((b) => text(b) === 'Try again') as HTMLButtonElement;
+    expect(again).toBeDefined();
+    again.click();
+    await flush();
+    expect(transport.sentOf('ordin.send_message').map((c) => (c.input as { text: string }).text)).toEqual(['who are you?', 'who are you?']);
+    expect(failed(target)).toBeNull();
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-1
+  it('Edge case — a failure after a reply draws nothing', async () => {
+    const { target, transport, seq } = await draw();
+    await sendText(target, 'who are you?');
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'working', since: SINCE } as never));
+    await flush();
+    transport.emit(event(LOCAL, seq(), { kind: 'block_shown', workspace_id: WS, block_id: uid('reply'), block: message('I am Ordin.'), author: 'ordin' } as never));
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'idle', since: SINCE } as never));
+    await flush();
+    expect(failed(target)).toBeNull();
+  });
+});

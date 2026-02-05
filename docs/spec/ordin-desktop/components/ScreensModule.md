@@ -6984,3 +6984,31 @@ Feature: Which assistant, asked at first start (SM-FS-10 to SM-FS-12)
 ### Gaps
 
 None.
+
+
+## Amendment 2026-02-05 — A turn that fails before any reply says so (SM-RF-1)
+
+> **Status:** Approved by the user, 2026-02-05 ("approve as written"). Source: the 0.2.1-test.5 smoke test: "who are you?" got neither a reply nor an error; Diagnostics held `RA_UNREACHABLE`. The run's state reaches the screens (`run_state_changed`), its reason does not (no error on `Run` or the event), so the sentence is general and points at Diagnostics. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **SM-RF-1 The failed turn.** The panel remembers the person's last message sent with `send` while the working line (SM-WK-1, from `ordin_turn_changed`) is shown for the workspace. When `ordin_turn_changed` then arrives with `state` `idle` and no Ordin item has been drawn in the conversation since that message, the panel's error line (step 11) draws `conv-turn-failed` with **Try again**, which sends the same message again as `send` does. An Ordin item drawn after the message, a new `send`, or opening another conversation clears it. `ordin_turn_changed` carries no run id, so the rule reads the turn, not a run's state.
+- Catalogue (en-GB, `screens.ftl`): `conv-turn-failed` = "Ordin couldn't get an answer this time. Try again; if it happens again, choose Save logs for support… in Settings › Diagnostics."
+
+```gherkin
+Feature: A turn that fails before any reply says so (SM-RF-1)
+
+  Scenario: Error path — the run fails before a reply
+    Given the person sent "who are you?" and the working line is shown
+    When ordin_turn_changed arrives with state idle and no Ordin item was drawn
+    Then the working line is gone and "Ordin couldn't get an answer this time." is drawn with Try again
+    When the person presses Try again
+    Then the message is sent again
+
+  Scenario: Edge case — a failure after a reply draws nothing
+    Given Ordin's reply to the turn is drawn
+    When ordin_turn_changed arrives with state idle
+    Then no error line is drawn
+```
+
+### Gaps
+
+None. The working line's source is `ordin_turn_changed` (`apps/desktop/ui/src/lib/store/backend-state.svelte.ts:329-331`), which carries `workspace_id`, `state` and `since` only.
