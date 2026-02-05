@@ -19,7 +19,13 @@ const DIM: u32 = 8;
 
 /// A no-op store: the gate/scoring/detector tests never touch it. Methods used by entity resolution
 /// return empty / Ok so resolve tests can be driven explicitly where needed.
-struct NoopStore;
+pub(crate) struct NoopStore;
+
+thread_local! {
+    /// The ingestion times `NoopStore::scan_recent_episodes` reports on this thread: one fact per
+    /// time at or after `since`. Empty unless a test sets it (the maintenance cadence tests).
+    pub(crate) static INGESTED: std::cell::RefCell<Vec<DateTime<Utc>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 
 #[async_trait]
 impl MemoryStore for NoopStore {
@@ -116,10 +122,11 @@ impl MemoryStore for NoopStore {
     async fn scan_recent_episodes(
         &self,
         _c: &ScopeContext,
-        _since: DateTime<Utc>,
+        since: DateTime<Utc>,
         _limit: u32,
     ) -> Result<Vec<Fact>, StoreError> {
-        Ok(vec![])
+        let recent = INGESTED.with(|times| times.borrow().iter().any(|t| *t >= since));
+        Ok(if recent { vec![episode(since)] } else { vec![] })
     }
     async fn scan_contradiction_candidates(
         &self,
@@ -1723,4 +1730,37 @@ fn an_implied_link_is_equal_after_name_normalisation_and_exact_kind() {
         &link("Kestrel", "accountManager", "Ana Silva"),
         &t
     ));
+}
+
+/// A minimal episode ingested at `at`, for `NoopStore::scan_recent_episodes`.
+fn episode(at: DateTime<Utc>) -> Fact {
+    Fact {
+        collection: String::new(),
+        id: "fact:episode".into(),
+        content: serde_json::json!({}),
+        entities: vec![],
+        source_id: None,
+        memory_class: crate::types::domain::MemoryClass::Episodic,
+        fact_class: None,
+        visibility: crate::types::domain::Visibility::UserPrivate,
+        owner: ScopeRef {
+            tenant: "acme".into(),
+            team: None,
+            user: "u-1".into(),
+        },
+        valid_from: at,
+        valid_to: None,
+        ingested_at: at,
+        confidence: 0.5,
+        salience: 0.5,
+        stability: 1.0,
+        pii_review: false,
+        supersedes: None,
+        superseded_by: None,
+        derived_from: vec![],
+        last_recalled_at: None,
+        single_valued: false,
+        changed: false,
+        triple_key: None,
+    }
 }

@@ -221,3 +221,57 @@ fn semantic_consolidated_and_ended_facts_never_fade() {
     f.valid_to = Some(now);
     assert!(!is_fading(&f, now, &decay()));
 }
+
+/// SA-MAINT-CADENCE-02: a tenant that stays quiet is maintained once per burst of writes, not on
+/// every tick; the fallback still fires for a tenant with no cycle and after `maint_max_interval`.
+#[tokio::test]
+async fn a_quiet_tenant_is_due_once_per_burst_of_writes() {
+    use crate::write_pipeline::tests::{NoopStore, INGESTED};
+    struct NoEmbed;
+    #[async_trait::async_trait]
+    impl EmbeddingClient for NoEmbed {
+        async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, ProviderError> {
+            Ok(texts.iter().map(|_| vec![]).collect())
+        }
+    }
+    let cfg = MaintenanceConfig {
+        salience_floor: 0.3,
+        decay_k: 10.0,
+        prune_retrievability: 0.05,
+        idle_quiet: Duration::from_secs(300),
+        maint_max_interval: Duration::from_secs(6 * 3600),
+        embed_dim: 8,
+        embed_model_version: "m1".into(),
+        batch_size: 10,
+        reinforce_gain: 0.5,
+        dead_letter_ttl: Duration::from_secs(3600),
+        done_job_ttl: Duration::from_secs(3600),
+    };
+    let worker = MaintenanceWorker::new(Arc::new(NoopStore), Arc::new(NoEmbed), cfg);
+    let now = tokio::time::Instant::now();
+    let mut last = HashMap::new();
+
+    // No cycle yet: the fallback makes the tenant due.
+    assert!(worker.tenant_is_due("acme", &last, now).await);
+
+    // A cycle an hour ago and nothing ingested since: not due, however quiet the tenant is.
+    let cycle = CycleClock {
+        instant: now,
+        at: Utc::now() - chrono::Duration::hours(1),
+    };
+    last.insert("acme".to_owned(), cycle);
+    assert!(!worker.tenant_is_due("acme", &last, now).await);
+
+    // An episode after that cycle, but within the quiet window: not due yet.
+    INGESTED.with(|t| t.replace(vec![Utc::now() - chrono::Duration::seconds(10)]));
+    assert!(!worker.tenant_is_due("acme", &last, now).await);
+
+    // An episode after that cycle, and quiet for longer than idle_quiet: due.
+    INGESTED.with(|t| t.replace(vec![Utc::now() - chrono::Duration::minutes(30)]));
+    assert!(worker.tenant_is_due("acme", &last, now).await);
+
+    // The fallback interval has passed since the cycle: due with nothing ingested.
+    INGESTED.with(|t| t.borrow_mut().clear());
+    let later = now + Duration::from_secs(6 * 3600);
+    assert!(worker.tenant_is_due("acme", &last, later).await);
+}

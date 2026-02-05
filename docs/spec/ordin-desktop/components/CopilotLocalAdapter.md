@@ -1022,3 +1022,36 @@ Feature: Ordin's conversation keeps its run between turns (CPA-CONV-1 to CPA-CON
 ### Gaps
 
 None.
+
+## Amendment February 2026 — the CLI is stopped with the quit signal (CPA-STOP-1) (amended February 2026; user decision; Approved by the user)
+
+The 0.2.1-test.8 log showed `copilot.cli.stop_timed_out` on every restart: in `--server --stdio` mode the Copilot CLI does not end when its standard input closes, so `stop` waited the whole 10 s Stop deadline and then killed it, giving the CLI no chance to save its state.
+
+- **CPA-STOP-1 Stopping the CLI.** `stop(deadline)` takes these steps in order, all within `deadline` (10 s, SA-STOP-01):
+  1. For each session the connection routes, `session.abort` with a 500 ms limit; a failure or timeout logs `copilot.cli.stop_abort_failed` (no fields) and the stop continues.
+  2. Close the CLI's standard input; a failed close logs `copilot.cli.stdin_close_failed` with `io_kind`.
+  3. Wait up to 2 s (or what is left of `deadline`, if less) for the CLI to end.
+  4. If it has not, send it SIGTERM (off Windows; Windows has no such signal and goes straight to step 5's wait). A failed send logs `copilot.cli.terminate_failed` (no fields). Then wait for the rest of `deadline`.
+  5. If it has still not ended, log `copilot.cli.stop_timed_out` with `deadline_ms`, kill it (a failed kill logs `copilot.cli.kill_failed` with `io_kind`) and wait for it.
+
+  The connection's session routes are cleared after the CLI has ended.
+
+```gherkin
+Feature: The CLI is stopped with the quit signal (CPA-STOP-1)
+
+  Scenario: A CLI that ignores its closed input ends on the quit signal
+    Given a CLI that does not end when its standard input closes, but does on SIGTERM
+    When the adapter stops it with a 10 s deadline
+    Then it has ended after about 2 s
+    And no copilot.cli.stop_timed_out line is logged
+
+  Scenario: A CLI that ignores the quit signal is killed at the deadline
+    Given a CLI that ignores SIGTERM
+    When the adapter stops it
+    Then copilot.cli.stop_timed_out is logged with deadline_ms
+    And the CLI is killed
+```
+
+### Gaps
+
+None.

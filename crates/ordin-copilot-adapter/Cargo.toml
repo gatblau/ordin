@@ -32,6 +32,10 @@ tokio-util = { workspace = true }
 # `CliCopilotPort` names each new session with a UUIDv7.
 uuid = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+# CPA-STOP-1: the quit signal (SIGTERM) sent to a CLI that has not ended on its closed input.
+nix = { workspace = true }
+
 [dev-dependencies]
 # Paused time for the request time limit's log test.
 tokio = { workspace = true, features = ["test-util"] }

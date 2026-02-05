@@ -6168,6 +6168,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "futures",
+ "nix 0.31.3",
  "ordin-approval",
  "ordin-hook-relay",
  "ordin-identity",

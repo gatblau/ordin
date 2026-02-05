@@ -154,7 +154,10 @@ fn version_token(output: &str) -> Option<String> {
         let minor = parts.next()?;
         let rest = parts.next()?;
         let patch_starts = rest.chars().next().is_some_and(|c| c.is_ascii_digit());
-        (digits(major) && digits(minor) && patch_starts).then(|| token.to_owned())
+        // The CLI ends its version line with a full stop ("1.0.116."): punctuation after the
+        // number is not part of the version.
+        (digits(major) && digits(minor) && patch_starts)
+            .then(|| token.trim_end_matches(|c: char| !c.is_ascii_alphanumeric()).to_owned())
     })
 }
 
@@ -252,7 +255,7 @@ mod tests {
         assert_eq!(version_token("1.0.98\n").as_deref(), Some("1.0.98"));
         assert_eq!(
             version_token("GitHub Copilot CLI 1.0.98.\n").as_deref(),
-            Some("1.0.98.")
+            Some("1.0.98")
         );
         assert_eq!(version_token("version unknown"), None);
         assert_eq!(version_token("1.0"), None);

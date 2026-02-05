@@ -46,6 +46,23 @@ use crate::types::scope::{OpSet, ScopeContext, ScopeRef};
 /// The claim lease length for queue jobs (mirrors C2/C4 defaults).
 const CLAIM_LEASE: Duration = Duration::from_secs(30);
 
+/// When a tenant's last successful cycle ended: the monotonic instant for the fallback interval,
+/// and the wall-clock time the "written since" probe compares ingestion times with.
+#[derive(Clone, Copy)]
+struct CycleClock {
+    instant: tokio::time::Instant,
+    at: chrono::DateTime<Utc>,
+}
+
+impl CycleClock {
+    fn now() -> Self {
+        CycleClock {
+            instant: tokio::time::Instant::now(),
+            at: Utc::now(),
+        }
+    }
+}
+
 /// The poll/back-off interval for the consumer and scheduler loops (one tick).
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -247,7 +264,7 @@ impl MaintenanceWorker {
         let mut ticker = tokio::time::interval(POLL_INTERVAL);
         // In-memory per-tenant last-successful-cycle clock (not persisted; the `maintenance_state` table
         // exists for a future persistence follow-up).
-        let mut last_cycle: HashMap<String, tokio::time::Instant> = HashMap::new();
+        let mut last_cycle: HashMap<String, CycleClock> = HashMap::new();
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
@@ -270,7 +287,7 @@ impl MaintenanceWorker {
                         let ctx = self.maint_ctx(&tenant);
                         match self.run_cycle(&tenant).await {
                             Ok(_report) => {
-                                last_cycle.insert(tenant.clone(), tokio::time::Instant::now());
+                                last_cycle.insert(tenant.clone(), CycleClock::now());
                             }
                             Err(e) => {
                                 tracing::warn!(
@@ -290,31 +307,37 @@ impl MaintenanceWorker {
         }
     }
 
-    /// Whether a tenant's cycle is due: quiet (no recent ingestion — the idle trigger, SA-CONSOL-01) OR
-    /// the fallback interval has elapsed since the last successful cycle. A tenant with no recorded
-    /// cycle is treated as due.
+    /// Whether a tenant's cycle is due (SA-MAINT-CADENCE-02): the fallback interval has elapsed
+    /// since the last successful cycle (a tenant with none is due), OR something was ingested since
+    /// that cycle and the tenant has since been quiet for `idle_quiet`. A tenant that stays quiet
+    /// is therefore maintained once per burst of writes, not on every tick.
+    // spec: components/maintenance-worker#SA-MAINT-CADENCE-02
     async fn tenant_is_due(
         &self,
         tenant: &str,
-        last_cycle: &HashMap<String, tokio::time::Instant>,
+        last_cycle: &HashMap<String, CycleClock>,
         now: tokio::time::Instant,
     ) -> bool {
-        // Fallback: no prior cycle, or the max interval has elapsed.
-        let fallback_due = match last_cycle.get(tenant) {
-            Some(last) => now.duration_since(*last) >= self.cfg.maint_max_interval,
-            None => true,
+        let Some(last) = last_cycle.get(tenant) else {
+            return true;
         };
-        if fallback_due {
+        if now.duration_since(last.instant) >= self.cfg.maint_max_interval {
             return true;
         }
-        // Idle trigger: a bounded probe for any episode ingested within the idle window. An empty result
-        // means the tenant has had no recent ingestion (quiet -> idle -> due).
         let ctx = self.maint_ctx(tenant);
-        let since = Utc::now()
+        // A transient store error on either probe is not a reason to run a cycle; the fallback
+        // timer governs progress.
+        let written_since = match self.storage.scan_recent_episodes(&ctx, last.at, 1).await {
+            Ok(recent) => !recent.is_empty(),
+            Err(_) => return false,
+        };
+        if !written_since {
+            return false;
+        }
+        let quiet_since = Utc::now()
             - chrono::Duration::from_std(self.cfg.idle_quiet).unwrap_or(chrono::Duration::zero());
-        match self.storage.scan_recent_episodes(&ctx, since, 1).await {
+        match self.storage.scan_recent_episodes(&ctx, quiet_since, 1).await {
             Ok(recent) => recent.is_empty(),
-            // A transient store error is not a reason to consolidate; defer to the fallback timer.
             Err(_) => false,
         }
     }

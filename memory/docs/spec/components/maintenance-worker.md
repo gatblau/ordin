@@ -729,3 +729,34 @@ Feature: Maintenance Worker — conflicts instead of supersession
 ##### Gaps
 
 None.
+
+## Amendment February 2026 — a quiet tenant is maintained once per burst of writes (SA-MAINT-CADENCE-02) (amended February 2026; user decision; Approved by the user)
+
+The as-built idle trigger (`run_scheduler` step 2) asked only whether the tenant had ingested anything within `idle_quiet`. A tenant that stays quiet answers "no" on every 500 ms tick, so a full maintenance cycle ran on every tick: the 0.2.1-test.8 log showed `maintenance.conflicts` every 500 ms with no work done. This amendment replaces step 2's idle trigger; the fallback trigger is unchanged.
+
+- **SA-MAINT-CADENCE-02 The idle trigger fires once per burst of writes.** The scheduler keeps, per tenant, the monotonic instant and the wall-clock time (`DateTime<Utc>`) its last successful cycle ended, in memory as today. A tenant is due when:
+  1. it has no recorded cycle (fallback); or
+  2. `maint_max_interval` has passed since its last cycle (fallback); or
+  3. `scan_recent_episodes(ctx, since = last cycle's wall-clock time, limit = 1)` returns a result (something was ingested since that cycle) **and** `scan_recent_episodes(ctx, since = now - idle_quiet, limit = 1)` returns none (the tenant has been quiet for `idle_quiet`).
+
+  A store error on either probe means not due; the fallback governs progress, as before.
+
+```gherkin
+Feature: A quiet tenant is maintained once per burst of writes (SA-MAINT-CADENCE-02)
+
+  Scenario: A tenant that stays quiet is not maintained on every tick
+    Given tenant "acme" had a successful cycle and nothing has been ingested since
+    When the scheduler ticks again before MEMORY_MAINT_MAX_INTERVAL_SECS
+    Then no cycle runs for "acme"
+
+  Scenario: A burst of writes followed by quiet runs one cycle
+    Given tenant "acme" ingested an episode after its last cycle
+    And nothing for longer than MEMORY_IDLE_QUIET_SECS
+    When the scheduler ticks
+    Then one cycle runs for "acme"
+    And the next tick runs none
+```
+
+##### Gaps
+
+None.

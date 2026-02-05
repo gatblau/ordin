@@ -866,9 +866,19 @@ impl CopilotServer for CliServer {
             .map_err(port_error)
     }
 
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-STOP-1
     async fn stop(&self, deadline: Duration) {
-        // Closing standard input asks the CLI to end; it is killed if it has not after `deadline`.
-        // A failed close is expected when the CLI has already ended; the wait below says how.
+        let started = tokio::time::Instant::now();
+        // Each open session's turn is ended first, so none is cut off mid-write by the steps below.
+        let sessions: Vec<String> = lock(&self.connection.0.sessions).keys().cloned().collect();
+        for session_id in sessions {
+            let abort = self.connection.call("session.abort", json!({"sessionId": session_id}));
+            if !matches!(tokio::time::timeout(STOP_ABORT_LIMIT, abort).await, Ok(Ok(_))) {
+                tracing::info!(target: "ordin_copilot_adapter", "copilot.cli.stop_abort_failed");
+            }
+        }
+        // Closing standard input asks the CLI to end. A failed close is expected when the CLI has
+        // already ended; the wait below says how.
         if let Err(error) = self.connection.0.writer.lock().await.shutdown().await {
             tracing::info!(
                 target: "ordin_copilot_adapter",
@@ -877,7 +887,16 @@ impl CopilotServer for CliServer {
             );
         }
         let mut child = self.child.lock().await;
-        if tokio::time::timeout(deadline, child.wait()).await.is_err() {
+        let grace = STOP_TERMINATE_AFTER.min(deadline.saturating_sub(started.elapsed()));
+        let mut ended = tokio::time::timeout(grace, child.wait()).await.is_ok();
+        if !ended {
+            // The CLI in server mode does not end on a closed standard input; the quit signal lets
+            // it save its state and exit.
+            terminate(&child);
+            let rest = deadline.saturating_sub(started.elapsed());
+            ended = tokio::time::timeout(rest, child.wait()).await.is_ok();
+        }
+        if !ended {
             tracing::warn!(
                 target: "ordin_copilot_adapter",
                 deadline_ms = deadline.as_millis() as u64,
@@ -894,6 +913,25 @@ impl CopilotServer for CliServer {
         }
         lock(&self.connection.0.sessions).clear();
     }
+}
+
+/// CPA-STOP-1: how long one session's abort may take while stopping, and when the quit signal is
+/// sent if the CLI has not ended on its closed standard input.
+const STOP_ABORT_LIMIT: Duration = Duration::from_millis(500);
+const STOP_TERMINATE_AFTER: Duration = Duration::from_secs(2);
+
+/// Sends the CLI the ordinary quit signal (SIGTERM). Windows has none; there the deadline's kill
+/// is the only step left.
+fn terminate(child: &Child) {
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        use nix::sys::signal::{kill, Signal};
+        if kill(nix::unistd::Pid::from_raw(pid as i32), Signal::SIGTERM).is_err() {
+            tracing::info!(target: "ordin_copilot_adapter", "copilot.cli.terminate_failed");
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = child;
 }
 
 /// What the event mapping remembers between events: each tool call's name (the completion carries
@@ -1766,9 +1804,9 @@ mod tests {
         until_logged(&lines, "copilot.sign_in.login_failed").await;
         assert_eq!(lines.line("copilot.sign_in.login_failed")["exit_code"], 1);
 
-        // A stop whose close fails and whose child outlives the deadline.
+        // A stop whose close fails and whose child ignores the quit signal, so outlives the deadline.
         let connection = Connection::open(tokio::io::empty(), CloseFails);
-        let slow = server_of(connection, "sleep", &["30"], "true");
+        let slow = server_of(connection, "sh", &["-c", "trap '' TERM; sleep 30"], "true");
         slow.stop(Duration::from_millis(50)).await;
         assert_eq!(
             lines.line("copilot.cli.stdin_close_failed")["io_kind"],
@@ -1776,5 +1814,21 @@ mod tests {
         );
         assert_eq!(lines.line("copilot.cli.stop_timed_out")["deadline_ms"], 50);
         assert!(!lines.text().contains("copilot.cli.kill_failed"));
+    }
+
+    /// CPA-STOP-1: a CLI that does not end on its closed input but does on the quit signal stops
+    /// before the deadline, with no kill.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stop_sends_the_quit_signal_before_the_deadline() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let connection = Connection::open(tokio::io::empty(), tokio::io::sink());
+        let server = server_of(connection, "sleep", &["30"], "true");
+        let started = std::time::Instant::now();
+        server.stop(Duration::from_secs(10)).await;
+        let took = started.elapsed();
+        assert!(took >= STOP_TERMINATE_AFTER && took < Duration::from_secs(5), "{took:?}");
+        assert!(!lines.text().contains("copilot.cli.stop_timed_out"));
     }
 }

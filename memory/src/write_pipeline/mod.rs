@@ -2500,4 +2500,4 @@ fn deterministic_uuid(seed: &str) -> Uuid {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
