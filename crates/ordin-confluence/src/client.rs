@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use ordin_identity::{AccessToken, IdentityService};
 use ordin_types::domain::identity::CredentialKind;
-use ordin_types::CredentialId;
+use ordin_types::{CodedError as _, CredentialId};
 use reqwest::header::HeaderMap;
 use reqwest::Method;
 use tokio::sync::{watch, Semaphore};
@@ -575,9 +575,9 @@ impl Transport {
                                 headers,
                                 body,
                             })
-                            .map_err(|_| ())
+                            .map_err(|e| crate::log::failure_of(&e))
                     }
-                    Err(_) => Err(()),
+                    Err(e) => Err(crate::log::failure_of(&e)),
                 }
             };
             let elapsed_ms = started.elapsed().as_millis() as u64;
@@ -592,7 +592,8 @@ impl Transport {
             );
             let resp = match sent {
                 Ok(resp) => resp,
-                Err(()) => {
+                Err(failure) => {
+                    crate::log::request_failed(req.op, failure, elapsed_ms, u64::from(attempt + 1));
                     if req.write {
                         return Err(Failure::Lost);
                     }
@@ -613,10 +614,13 @@ impl Transport {
                     // A pasted API token has nothing to refresh: it is marked as needing a new
                     // token, best effort, and the caller is told to sign in (CONF-TOKEN-2).
                     if let Some(credential) = basic {
-                        let _ = self
+                        if let Err(e) = self
                             .identity
                             .report_refused(credential, "CONF_SIGN_IN_NEEDED")
-                            .await;
+                            .await
+                        {
+                            crate::log::token_report_failed(e.code());
+                        }
                         *lock(&self.token_site) = None;
                         return Err(ConfluenceError::SignInNeeded.into());
                     }
@@ -691,11 +695,17 @@ impl Transport {
         }
         let url = relative(&["wiki", "rest", "api", "user"], &[("accountId", account)]);
         let name = match self.call(Req::get("author_name", url)).await {
-            Ok(reply) => reply
-                .json::<WireUser>()
-                .ok()
-                .and_then(|user| user.display_name),
-            Err(_) => return None,
+            Ok(reply) => match reply.json::<WireUser>() {
+                Ok(user) => user.display_name,
+                Err(e) => {
+                    crate::log::author_lookup_failed("reply_invalid", e.code());
+                    None
+                }
+            },
+            Err(e) => {
+                crate::log::author_lookup_failed("call_failed", e.code());
+                return None;
+            }
         };
         lock(&self.authors).insert(account.to_owned(), name.clone());
         name

@@ -216,12 +216,15 @@ pub(crate) async fn commit_check(
 
 /// The error code only, never a message.
 pub(crate) async fn set_error(pool: &SqlitePool, link: SourceLinkId, code: &str) {
-    let _ =
-        sqlx::query("UPDATE confluence_link_state SET last_error = ?2 WHERE source_link_id = ?1")
-            .bind(link.to_string())
-            .bind(code)
-            .execute(pool)
-            .await;
+    if sqlx::query("UPDATE confluence_link_state SET last_error = ?2 WHERE source_link_id = ?1")
+        .bind(link.to_string())
+        .bind(code)
+        .execute(pool)
+        .await
+        .is_err()
+    {
+        crate::log::store_write_failed("link_error", "CONF_DATASTORE_UNAVAILABLE");
+    }
 }
 
 pub(crate) async fn delete_link(

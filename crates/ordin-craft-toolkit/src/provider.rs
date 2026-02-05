@@ -495,7 +495,7 @@ impl CraftToolkit {
             component = "craft",
             app = app.to_string().as_str(),
             tool = key.tool.to_string().as_str(),
-            run_id = %ctx.run_id,
+            run_id = ctx.run_id.to_string().as_str(),
             outputs = outputs.len(),
             elapsed_ms,
             result,

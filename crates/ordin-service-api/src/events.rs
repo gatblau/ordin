@@ -166,6 +166,10 @@ pub enum ServiceEvent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         doing: Option<String>,
         since: Timestamp,
+        /// Why the turn ended without an answer; only with `state` `idle` (SVC-WK-2).
+        // spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        failure: Option<OrdinTurnFailure>,
     },
 }
 
@@ -175,6 +179,37 @@ pub enum ServiceEvent {
 pub enum OrdinTurnState {
     Working,
     Idle,
+}
+
+/// Why a turn ended without an answer, carried by an `idle` `ordin_turn_changed` (SVC-WK-2). A closed
+/// set: any other word fails decoding and is refused with `SVC_EVENT_INVALID`.
+// spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrdinTurnFailure {
+    /// No answer within the turn's limit.
+    Timeout,
+    /// The turn could not be handed to the run.
+    NotSent,
+    /// The run ended the turn without text.
+    Lost,
+    /// The run answered with no text.
+    EmptyReply,
+    /// The run of Ordin ended while it was working.
+    RunEnded,
+}
+
+impl OrdinTurnFailure {
+    /// The word as it is logged and sent.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OrdinTurnFailure::Timeout => "timeout",
+            OrdinTurnFailure::NotSent => "not_sent",
+            OrdinTurnFailure::Lost => "lost",
+            OrdinTurnFailure::EmptyReply => "empty_reply",
+            OrdinTurnFailure::RunEnded => "run_ended",
+        }
+    }
 }
 
 /// An event refused before it is sent (`SVC_EVENT_INVALID`, `SVC_EVENT_TOO_LARGE`).
@@ -292,9 +327,18 @@ impl ServiceEvent {
                         .all(|u| (1..=200).contains(&u.agent.chars().count()))
             }
             // spec: ordin-desktop/components/ServiceApi#SVC-WK-1
-            ServiceEvent::OrdinTurnChanged { doing, .. } => doing
-                .as_ref()
-                .is_none_or(|d| (1..=80).contains(&d.chars().count())),
+            // spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+            ServiceEvent::OrdinTurnChanged {
+                doing,
+                state,
+                failure,
+                ..
+            } => {
+                doing
+                    .as_ref()
+                    .is_none_or(|d| (1..=80).contains(&d.chars().count()))
+                    && (failure.is_none() || *state == OrdinTurnState::Idle)
+            }
             _ => true,
         };
         if ok {

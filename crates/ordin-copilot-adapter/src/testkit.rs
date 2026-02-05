@@ -51,6 +51,8 @@ pub struct Script {
     pub resume_fails: AtomicBool,
     /// `send` fails.
     pub send_fails: AtomicBool,
+    /// `abort` fails.
+    pub abort_fails: AtomicBool,
     /// `stop` takes this long before it returns.
     pub stop_takes: Mutex<Duration>,
 
@@ -243,6 +245,9 @@ impl CopilotServer for ScriptedServer {
 
     async fn abort(&self, _session_id: &str) -> Result<(), PortError> {
         self.script.aborted.fetch_add(1, Ordering::SeqCst);
+        if self.script.abort_fails.load(Ordering::SeqCst) {
+            return Err(PortError::new("abort failed"));
+        }
         Ok(())
     }
 

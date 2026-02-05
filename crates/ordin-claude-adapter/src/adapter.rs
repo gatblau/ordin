@@ -164,7 +164,7 @@ impl Inner {
         };
         tracing::info!(
             target: "ordin_claude_adapter",
-            run_id = %run_id,
+            run_id = run_id.to_string().as_str(),
             harness_version = version.as_str(),
             "claude.version.checked"
         );
@@ -206,7 +206,7 @@ impl Inner {
         let agent_instance_id = check_request(&req)?;
         tracing::info!(
             target: "ordin_claude_adapter",
-            run_id = %run_id,
+            run_id = run_id.to_string().as_str(),
             agent_instance_id = agent_instance_id.to_string().as_str(),
             workspace_id = req.workspace_id.to_string().as_str(),
             correlation_id = ctx.correlation_id.as_str(),
@@ -221,7 +221,7 @@ impl Inner {
             .map_err(|error| {
                 tracing::warn!(
                     target: "ordin_claude_adapter",
-                    run_id = %run_id,
+                    run_id = run_id.to_string().as_str(),
                     code = "CLA_SETUP_FAILED",
                     setup_code = error.code.as_str(),
                     "claude.start.setup_failed"
@@ -321,7 +321,7 @@ impl Inner {
 fn log_sign_in(run_id: RunId, status: &AuthStatus) {
     tracing::info!(
         target: "ordin_claude_adapter",
-        run_id = %run_id,
+        run_id = run_id.to_string().as_str(),
         logged_in = status.logged_in,
         auth_method = status.auth_method.as_deref(),
         api_provider = status.api_provider.as_deref(),
@@ -353,7 +353,7 @@ fn check_request(req: &StartRun) -> Result<AgentInstanceId, Failure> {
 fn log_failure(run_id: RunId, failure: &Failure) {
     tracing::warn!(
         target: "ordin_claude_adapter",
-        run_id = %run_id,
+        run_id = run_id.to_string().as_str(),
         code = failure.code,
         retryable = failure.retryable,
         "claude.call.failed"
@@ -701,7 +701,16 @@ impl ClaudeLocalAdapter {
             .rules
             .adopted_run(run_id)
             .await
-            .map_err(|_| Failure::unreachable("CLA_RULES_UNAVAILABLE", true))?
+            .map_err(|error| {
+                tracing::warn!(
+                    target: "ordin_claude_adapter",
+                    run_id = run_id.to_string().as_str(),
+                    code = "CLA_RULES_UNAVAILABLE",
+                    cause = ordin_types::CodedError::code(&error),
+                    "claude.adopt.rules_failed"
+                );
+                Failure::unreachable("CLA_RULES_UNAVAILABLE", true)
+            })?
             .ok_or_else(unknown_run)?;
         let scope_id = record
             .scope
@@ -715,7 +724,16 @@ impl ClaudeLocalAdapter {
             .setup
             .session_setup(run_id, agent_instance_id, &[])
             .await
-            .map_err(|_| Failure::unreachable("CLA_SETUP_FAILED", true))?;
+            .map_err(|error| {
+                tracing::warn!(
+                    target: "ordin_claude_adapter",
+                    run_id = run_id.to_string().as_str(),
+                    code = "CLA_SETUP_FAILED",
+                    cause = error.code.as_str(),
+                    "claude.adopt.setup_failed"
+                );
+                Failure::unreachable("CLA_SETUP_FAILED", true)
+            })?;
         let paused = setup.paused.ok_or_else(unknown_run)?;
         if paused.approval_id != approval_id {
             return Err(mismatch());
@@ -826,7 +844,7 @@ impl RuntimeAdapter for ClaudeLocalAdapter {
                 // spec: ordin-desktop/components/ClaudeLocalAdapter#CLA-LOG-1
                 tracing::info!(
                     target: "ordin_claude_adapter",
-                    run_id = %run.run_id,
+                    run_id = run.run_id.to_string().as_str(),
                     code = "CLA_UNKNOWN_RUN",
                     "claude.read.unknown_run"
                 );

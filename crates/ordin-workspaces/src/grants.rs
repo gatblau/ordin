@@ -157,13 +157,19 @@ impl WorkspaceService {
         if let Err(error) = self.publish(id).await {
             match (&previous, &stored) {
                 (Some(old), _) => {
-                    let _ = self.restore_grant(old).await;
+                    if let Err(error) = self.restore_grant(old).await {
+                        crate::log::rollback_failed("restore_grant", error.code());
+                    }
                 }
                 (None, Some(new)) => {
-                    let _ = sqlx::query("DELETE FROM folder_grants WHERE id = ?1")
+                    if let Err(error) = sqlx::query("DELETE FROM folder_grants WHERE id = ?1")
                         .bind(new.id.to_string())
                         .execute(&self.pool)
-                        .await;
+                        .await
+                    {
+                        let error = WorkspaceError::from(error);
+                        crate::log::rollback_failed("delete_grant", error.code());
+                    }
                 }
                 (None, None) => {}
             }

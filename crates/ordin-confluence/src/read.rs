@@ -465,7 +465,7 @@ impl ConfluenceAdapter {
         match item {
             RemoteItemRef::Page { page_id } => {
                 let page = self.read_page(page_id).await?;
-                let body = page.storage().unwrap_or_default();
+                let body = page.storage_or_empty();
                 if body.len() > MAX_PAGE_BODY_BYTES {
                     return Err(ConfluenceError::TooLarge);
                 }

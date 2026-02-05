@@ -227,7 +227,12 @@ impl PackageCatalogue {
             data,
         };
         if let Err(error) = self.inner.journal.append_entry(entry).await {
-            tracing::warn!(component = "package_catalogue", error = %error, kind, "agent.journal_failed");
+            tracing::warn!(
+                component = "package_catalogue",
+                code = ordin_types::CodedError::code(&error),
+                kind,
+                "agent.journal_failed"
+            );
         }
     }
 

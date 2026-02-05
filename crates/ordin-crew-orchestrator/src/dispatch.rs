@@ -117,7 +117,13 @@ pub(crate) fn input_lines(
 impl Crew {
     /// A step whose run never started counts as a failed attempt with the supervisor's code.
     fn not_started(&self, step: &Step, code: &str) -> StepOutcome {
-        crew_log!(warn, crew_run_id = %self.id, label = step.label.as_str(), code = code, "crew_step_not_started");
+        crew_log!(
+            warn,
+            crew_run_id = self.id.to_string().as_str(),
+            label = step.label.as_str(),
+            code = code,
+            "crew_step_not_started"
+        );
         StepOutcome {
             member: step.member,
             label: step.label.clone(),
@@ -215,9 +221,9 @@ impl Crew {
         );
         crew_log!(
             info,
-            crew_run_id = %self.id,
+            crew_run_id = self.id.to_string().as_str(),
             position = step.label.as_str(),
-            run_id = %run_id,
+            run_id = run_id.to_string().as_str(),
             member = agent_key(&step.member).as_str(),
             "crew_step_dispatched"
         );
@@ -370,12 +376,22 @@ impl Crew {
                 }
             }
             Err(e) if e.retryable() => {
-                crew_log!(warn, crew_run_id = %self.id, code = e.code(), "crew_run_not_read");
+                crew_log!(
+                    warn,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = e.code(),
+                    "crew_run_not_read"
+                );
                 Err(Stop::Store)
             }
             Err(e) => {
                 // The run is not known to the supervisor: it counts as a failed attempt.
-                crew_log!(warn, crew_run_id = %self.id, code = e.code(), "crew_run_not_found");
+                crew_log!(
+                    warn,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = e.code(),
+                    "crew_run_not_found"
+                );
                 Ok(Some((RunState::Failed, None, Vec::new(), None)))
             }
         }
@@ -397,7 +413,12 @@ impl Crew {
             )
             .await
             .map_err(|e| {
-                crew_log!(warn, crew_run_id = %self.id, code = ordin_types::CodedError::code(&e), "crew_run_not_read");
+                crew_log!(
+                    warn,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = ordin_types::CodedError::code(&e),
+                    "crew_run_not_read"
+                );
                 Stop::Store
             })?;
         Ok(page
@@ -427,7 +448,13 @@ impl Crew {
                     .resume_with_decision(run_id, decision)
                     .await
                 {
-                    crew_log!(warn, crew_run_id = %self.id, run_id = %run_id, code = e.code(), "crew_answer_not_delivered");
+                    crew_log!(
+                        warn,
+                        crew_run_id = self.id.to_string().as_str(),
+                        run_id = run_id.to_string().as_str(),
+                        code = e.code(),
+                        "crew_answer_not_delivered"
+                    );
                 }
                 Ok(())
             }
@@ -472,7 +499,12 @@ impl Crew {
         let card = match self.o.approvals.request(request).await {
             Ok(card) => card,
             Err(e) => {
-                crew_log!(error, crew_run_id = %self.id, code = e.code(), "crew_approval_not_requested");
+                crew_log!(
+                    error,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = e.code(),
+                    "crew_approval_not_requested"
+                );
                 return Err(Stop::Store);
             }
         };
@@ -484,7 +516,12 @@ impl Crew {
         match waited {
             Err(stop) => Err(stop),
             Ok(Err(e)) => {
-                crew_log!(error, crew_run_id = %self.id, code = e.code(), "crew_approval_not_awaited");
+                crew_log!(
+                    error,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = e.code(),
+                    "crew_approval_not_awaited"
+                );
                 Err(Stop::Store)
             }
             Ok(Ok(outcome)) => {

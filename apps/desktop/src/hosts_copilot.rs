@@ -176,7 +176,7 @@ impl CopilotCliSource for DesktopCopilotCli {
             Err(error) => {
                 tracing::warn!(
                     component = "desktop",
-                    error = %error,
+                    reason = format!("{error:?}").as_str(),
                     "copilot_cli_unreadable"
                 );
                 None

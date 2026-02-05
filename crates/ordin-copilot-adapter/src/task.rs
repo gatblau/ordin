@@ -218,6 +218,13 @@ impl Task {
 
     async fn send(&mut self, turn: &str) -> Result<(), Failure> {
         let (Some(server), Some(session_id)) = (self.run.server(), self.run.session_id()) else {
+            run_log!(
+                warn,
+                self.run,
+                "copilot.send.failed",
+                code = "CPA_SEND_FAILED",
+                missing = "session"
+            );
             return Err(Failure::unreachable("CPA_SEND_FAILED", true));
         };
         server.send(&session_id, turn).await.map_err(|_| {
@@ -234,7 +241,9 @@ impl Task {
     /// `cancel` and `shutdown`: `abort`, then `stop(stop_deadline)`, then `Ended`.
     async fn stop(&mut self, reason: RunEndReason) {
         if let (Some(server), Some(session_id)) = (self.run.server(), self.run.session_id()) {
-            let _ = server.abort(&session_id).await;
+            if server.abort(&session_id).await.is_err() {
+                run_log!(warn, self.run, "copilot.abort.failed");
+            }
         }
         self.end(reason, None).await;
     }

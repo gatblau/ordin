@@ -303,7 +303,11 @@ impl KnowledgeService {
             data,
         };
         if let Err(e) = self.journal.append_entry(entry).await {
-            tracing::warn!(component = "knowledge", error = %e, "knowledge_journal_failed");
+            tracing::warn!(
+                component = "knowledge",
+                code = ordin_types::CodedError::code(&e),
+                "knowledge_journal_failed"
+            );
         }
     }
 

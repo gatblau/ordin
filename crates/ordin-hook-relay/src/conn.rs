@@ -102,6 +102,12 @@ pub(crate) async fn write_line<W: AsyncWrite + Unpin>(writer: &mut W, reply: &Ho
     writer.write_all(&bytes).await.is_ok() && writer.flush().await.is_ok()
 }
 
+/// A deny reply that could not be written; the hook sees a closed connection, which it treats as a
+/// refusal too.
+fn reply_not_written(reply: &'static str) {
+    hook_log!(warn, reply, "hook.reply_not_written");
+}
+
 impl HookRelay {
     /// Serves one accepted connection. `peer_allowed` is the outcome of the platform's peer check
     /// (C.1): on Unix the peer's user id against the core's; on Windows always true, since the pipe
@@ -126,7 +132,9 @@ impl HookRelay {
                     call_id,
                     reason: REASON_COULD_NOT_DECIDE.to_owned(),
                 };
-                let _ = write_line(&mut write_half, &reply).await;
+                if !write_line(&mut write_half, &reply).await {
+                    reply_not_written("shutdown_deny");
+                }
             }
         }
         let _ = write_half.shutdown().await;
@@ -275,7 +283,9 @@ impl HookRelay {
             call_id: refusal.call_id,
             reason: cut_reason(refusal.reason),
         };
-        let _ = write_line(writer, &reply).await;
+        if !write_line(writer, &reply).await {
+            reply_not_written("refusal_deny");
+        }
     }
 
     async fn journal_refused(&self, refusal: &Refusal) {
@@ -324,5 +334,53 @@ impl HookRelay {
             code = answer.code.unwrap_or("none"),
             "hook_decided"
         );
+    }
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn each_unwritten_deny_reply_is_logged_with_its_kind() {
+        for reply in ["shutdown_deny", "refusal_deny"] {
+            let text = logged(|| reply_not_written(reply));
+            assert_readable(
+                &text,
+                "hook.reply_not_written",
+                &[&format!(r#""reply":"{reply}""#)],
+            );
+        }
     }
 }

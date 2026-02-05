@@ -194,7 +194,12 @@ impl CraftToolkit {
                 return Err(CraftError::ServerStartFailed);
             }
         };
-        tracing::info!(component = "craft", app, run_id = %owner.run_text(), "craft_server_started");
+        tracing::info!(
+            component = "craft",
+            app,
+            run_id = owner.run_text().to_string().as_str(),
+            "craft_server_started"
+        );
         self.learn_schemas(app, &tools);
         Ok(Live {
             service,
@@ -241,7 +246,7 @@ impl CraftToolkit {
         tracing::info!(
             component = "craft",
             app = app.to_string().as_str(),
-            run_id = %owner.run_text(),
+            run_id = owner.run_text().to_string().as_str(),
             reason,
             "craft_server_stopped"
         );

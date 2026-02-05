@@ -124,6 +124,11 @@
       turn = null;
       failedText = watched.text;
       error = { code: 'UI_TURN_FAILED', message: t('conv-turn-failed'), action: 'try_again' };
+      // SM-RF-2: the cause goes to Diagnostics only; the sentence stays the same.
+      // spec: ordin-desktop/components/ScreensModule#SM-RF-2
+      const tab = active;
+      const cause = untrack(() => activeState?.ordinTurnFailure.get(tab.workspaceId)) ?? 'unknown';
+      untrack(() => app.diagnostics.record('UI_TURN_FAILED', cause, tab.backend));
     }
   });
 

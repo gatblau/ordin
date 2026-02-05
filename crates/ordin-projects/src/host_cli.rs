@@ -313,13 +313,32 @@ impl ProjectService {
         if let Some(folder) = folder {
             command.current_dir(folder);
         }
-        let child = command.spawn().map_err(|_| {
-            GithubError::Other(format!("{} could not be started.", kind.tool_name()))
+        let limit_ms = limit.as_millis() as u64;
+        let tool = kind.tool_name();
+        let child = command.spawn().map_err(|e| {
+            crate::log::host_tool_failed(
+                tool,
+                "spawn",
+                format!("{:?}", e.kind()).as_str(),
+                limit_ms,
+            );
+            GithubError::Other(format!("{tool} could not be started."))
         })?;
         let output = tokio::time::timeout(limit, child.wait_with_output())
             .await
-            .map_err(|_| GithubError::Unreachable)?
-            .map_err(|_| GithubError::Other(format!("{} failed.", kind.tool_name())))?;
+            .map_err(|_| {
+                crate::log::host_tool_failed(tool, "timeout", "none", limit_ms);
+                GithubError::Unreachable
+            })?
+            .map_err(|e| {
+                crate::log::host_tool_failed(
+                    tool,
+                    "wait",
+                    format!("{:?}", e.kind()).as_str(),
+                    limit_ms,
+                );
+                GithubError::Other(format!("{tool} failed."))
+            })?;
         Ok(ToolRun {
             exit_code: output.status.code().unwrap_or(-1),
             stdout: output.stdout,

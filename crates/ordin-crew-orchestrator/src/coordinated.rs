@@ -154,7 +154,7 @@ impl Crew {
         round.note(format!("refused: {words}"), Some("CREW_GUARDRAIL_REFUSED"));
         crew_log!(
             info,
-            crew_run_id = %self.id,
+            crew_run_id = self.id.to_string().as_str(),
             round = round.number,
             code = "CREW_GUARDRAIL_REFUSED",
             decision = words,

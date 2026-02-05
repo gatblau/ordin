@@ -96,6 +96,23 @@ impl WirePage {
             .and_then(|b| b.storage.as_ref())
             .map(|s| s.value.as_str())
     }
+
+    /// The storage body, or an empty one with `confluence.page_body_missing` logged so an empty file is
+    /// never written without a record of why.
+    pub fn storage_or_empty(&self) -> &str {
+        match self.storage() {
+            Some(value) if !value.is_empty() => value,
+            found => {
+                let form = match (&self.body, found) {
+                    (None, _) => "no_body",
+                    (Some(_), None) => "no_storage",
+                    (Some(_), Some(_)) => "empty_storage",
+                };
+                crate::log::page_body_missing(&self.id, form);
+                found.unwrap_or_default()
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -331,6 +348,57 @@ pub(crate) fn cql_quote(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_page_without_a_storage_body_logs_its_id_and_form_but_not_its_title() {
+        let cases = [
+            (r#"{"id":"901","title":"Secret plans"}"#, "no_body"),
+            (
+                r#"{"id":"901","title":"Secret plans","body":{}}"#,
+                "no_storage",
+            ),
+            (
+                r#"{"id":"901","title":"Secret plans","body":{"storage":{"value":""}}}"#,
+                "empty_storage",
+            ),
+        ];
+        for (json, form) in cases {
+            let page: WirePage = serde_json::from_str(json).expect("page");
+            let lines = Lines::default();
+            let writer = lines.clone();
+            let subscriber =
+                ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+            let body = tracing::subscriber::with_default(subscriber, || {
+                page.storage_or_empty().to_owned()
+            });
+            assert_eq!(body, "");
+            let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+            assert!(
+                text.contains(r#""event":"confluence.page_body_missing""#),
+                "{form}: {text}"
+            );
+            assert!(!text.contains("invalid_event_name"), "{form}: {text}");
+            assert!(text.contains(r#""page_id":"901""#), "{form}: {text}");
+            assert!(text.contains(&format!(r#""form":"{form}""#)), "{text}");
+            assert!(!text.contains("Secret plans"), "the title leaked: {text}");
+        }
+        let page: WirePage =
+            serde_json::from_str(r#"{"id":"9","title":"t","body":{"storage":{"value":"<p/>"}}}"#)
+                .expect("page");
+        assert_eq!(page.storage_or_empty(), "<p/>");
+    }
 
     #[test]
     fn a_slash_in_a_title_is_replaced_in_paths_only() {

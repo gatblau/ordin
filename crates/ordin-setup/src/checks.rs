@@ -1328,8 +1328,41 @@ fn probe_failed(kind: HarnessKind, step: &'static str, error: &ProbeError) {
         target: TARGET,
         harness = store::harness_text(kind),
         step,
-        reason = %error,
+        reason = format!("{error:?}").as_str(),
         code = "SETUP_HARNESS_CHECK_FAILED",
         "setup.harness_check_failed"
     );
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+    #[test]
+    fn a_failed_probe_logs_the_kind_of_failure_as_text() {
+        let text = logged(|| probe_failed(HarnessKind::ClaudeCode, "locate", &ProbeError::Timeout));
+        assert!(text.contains(r#""reason":"Timeout""#), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
 }

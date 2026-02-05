@@ -41,6 +41,29 @@ macro_rules! crew_log {
 }
 pub(crate) use crew_log;
 
+/// R-6: a store failure reaches the log as its kind, never as its text, which can quote a row.
+fn sqlx_kind(e: &sqlx::Error) -> &'static str {
+    match e {
+        sqlx::Error::Database(_) => "database",
+        sqlx::Error::RowNotFound => "row_not_found",
+        sqlx::Error::PoolTimedOut => "pool_timed_out",
+        sqlx::Error::PoolClosed => "pool_closed",
+        sqlx::Error::Io(_) => "io",
+        sqlx::Error::Decode(_) | sqlx::Error::ColumnDecode { .. } => "decode",
+        sqlx::Error::Encode(_) => "encode",
+        _ => "other",
+    }
+}
+
+/// R-6: a coordinator failure reaches the log as its variant, never as Ordin's answer.
+fn coordinator_kind(e: &CoordinatorError) -> &'static str {
+    match e {
+        CoordinatorError::Unavailable => "unavailable",
+        CoordinatorError::Unusable(_) => "unusable",
+        CoordinatorError::StoppedByPerson => "stopped_by_person",
+    }
+}
+
 /// What the orchestrator shares with the running driver.
 pub(crate) struct Live {
     /// Cancelled when the crew is killed or ends.
@@ -164,7 +187,12 @@ pub(crate) enum Stop {
 
 impl From<sqlx::Error> for Stop {
     fn from(e: sqlx::Error) -> Stop {
-        crew_log!(error, code = "CREW_STORE_UNAVAILABLE", error = %e, "crew_store_failed");
+        crew_log!(
+            error,
+            code = "CREW_STORE_UNAVAILABLE",
+            error_kind = sqlx_kind(&e),
+            "crew_store_failed"
+        );
         Stop::Store
     }
 }
@@ -390,7 +418,12 @@ impl Crew {
     pub(crate) fn stop_if_limit(&self) -> Flow<()> {
         match check_limits(&self.charter.guardrails, &self.counters()) {
             Some(hit) => {
-                crew_log!(info, crew_run_id = %self.id, decision = hit.name(), "crew_guardrail");
+                crew_log!(
+                    info,
+                    crew_run_id = self.id.to_string().as_str(),
+                    decision = hit.name(),
+                    "crew_guardrail"
+                );
                 Err(Stop::Ended(EndKind::limit(hit, &self.charter)))
             }
             None => Ok(()),
@@ -433,13 +466,23 @@ impl Crew {
                     return Err(Stop::Ended(EndKind::killed()))
                 }
                 Err(CoordinatorError::Unusable(why)) => {
-                    crew_log!(warn, crew_run_id = %self.id, code = "CREW_COORDINATOR_UNUSABLE", "crew_coordinator_unusable");
+                    crew_log!(
+                        warn,
+                        crew_run_id = self.id.to_string().as_str(),
+                        code = "CREW_COORDINATOR_UNUSABLE",
+                        "crew_coordinator_unusable"
+                    );
                     if !retry_unusable {
                         return Err(Stop::Unusable(why));
                     }
                 }
                 Err(CoordinatorError::Unavailable) => {
-                    crew_log!(warn, crew_run_id = %self.id, code = "CREW_COORDINATOR_UNAVAILABLE", "crew_coordinator_unavailable");
+                    crew_log!(
+                        warn,
+                        crew_run_id = self.id.to_string().as_str(),
+                        code = "CREW_COORDINATOR_UNAVAILABLE",
+                        "crew_coordinator_unavailable"
+                    );
                 }
             }
         }
@@ -474,12 +517,22 @@ impl Crew {
             closed_at: None,
         };
         if let Err(code) = check_round(number - 1, &probe) {
-            crew_log!(error, crew_run_id = %self.id, code = code, "crew_round_invalid");
+            crew_log!(
+                error,
+                crew_run_id = self.id.to_string().as_str(),
+                code = code,
+                "crew_round_invalid"
+            );
             return Err(Stop::Ended(EndKind::new(CrewRunState::Failed, code)));
         }
         let pool = self.o.pool()?;
         store::insert_round(pool, self.id, number, &decision, probe.opened_at).await?;
-        crew_log!(info, crew_run_id = %self.id, round = number, "crew_round_opened");
+        crew_log!(
+            info,
+            crew_run_id = self.id.to_string().as_str(),
+            round = number,
+            "crew_round_opened"
+        );
         self.persist().await?;
         Ok(Arc::new(RoundCtx {
             number,
@@ -533,13 +586,24 @@ impl Crew {
             data,
         };
         if let Err(e) = self.o.journal.append_entry(entry).await {
-            crew_log!(warn, crew_run_id = %self.id, code = ordin_types::CodedError::code(&e), kind = kind, "crew_emit_failed");
+            crew_log!(
+                warn,
+                crew_run_id = self.id.to_string().as_str(),
+                code = ordin_types::CodedError::code(&e),
+                kind = kind,
+                "crew_emit_failed"
+            );
         }
     }
 
     pub(crate) async fn emit(&self, kind: EventKind, data: serde_json::Value) {
         if let Err(e) = self.o.journal.append_event(kind.as_str(), data).await {
-            crew_log!(warn, crew_run_id = %self.id, code = ordin_types::CodedError::code(&e), "crew_emit_failed");
+            crew_log!(
+                warn,
+                crew_run_id = self.id.to_string().as_str(),
+                code = ordin_types::CodedError::code(&e),
+                "crew_emit_failed"
+            );
         }
     }
 
@@ -644,7 +708,12 @@ impl Crew {
             let _ = self.o.supervisor.cancel(run).await;
         }
         if let Err(e) = self.o.approvals.expire_for_crew_run(self.id).await {
-            crew_log!(warn, crew_run_id = %self.id, code = e.code(), "crew_approvals_not_expired");
+            crew_log!(
+                warn,
+                crew_run_id = self.id.to_string().as_str(),
+                code = e.code(),
+                "crew_approvals_not_expired"
+            );
         }
         let counters = self.counters();
         let reason = cut(&kind.reason, MAX_END_REASON);
@@ -660,7 +729,12 @@ impl Crew {
             ),
         );
         if let Err(code) = checked {
-            crew_log!(error, crew_run_id = %self.id, code = code, "crew_run_invalid");
+            crew_log!(
+                error,
+                crew_run_id = self.id.to_string().as_str(),
+                code = code,
+                "crew_run_invalid"
+            );
         }
         let now = Timestamp::now();
         let stored = async {
@@ -670,7 +744,13 @@ impl Crew {
         }
         .await;
         if let Err(e) = stored {
-            crew_log!(error, crew_run_id = %self.id, code = "CREW_STORE_UNAVAILABLE", error = %e, "crew_end_not_stored");
+            crew_log!(
+                error,
+                crew_run_id = self.id.to_string().as_str(),
+                code = "CREW_STORE_UNAVAILABLE",
+                error_kind = sqlx_kind(&e),
+                "crew_end_not_stored"
+            );
         }
         self.emit_round_changed(kind.state).await;
         if matches!(
@@ -688,18 +768,32 @@ impl Crew {
                     .record_run_finished(&self.work_key(), as_run, total)
                     .await
                 {
-                    crew_log!(warn, crew_run_id = %self.id, code = ordin_types::CodedError::code(&e), "crew_usage_not_recorded");
+                    crew_log!(
+                        warn,
+                        crew_run_id = self.id.to_string().as_str(),
+                        code = ordin_types::CodedError::code(&e),
+                        "crew_usage_not_recorded"
+                    );
                 }
             }
             Err(_) => {
-                crew_log!(warn, crew_run_id = %self.id, "crew_usage_not_recorded");
+                crew_log!(
+                    warn,
+                    crew_run_id = self.id.to_string().as_str(),
+                    "crew_usage_not_recorded"
+                );
             }
         }
         let outcome = self.outcome(&kind);
         let mut view = self.view();
         view.cancel = CancellationToken::new();
         if let Err(e) = self.coordinator.crew_ended(&view, &outcome).await {
-            crew_log!(warn, crew_run_id = %self.id, error = %e, "crew_ended_call_failed");
+            crew_log!(
+                warn,
+                crew_run_id = self.id.to_string().as_str(),
+                error_kind = coordinator_kind(&e),
+                "crew_ended_call_failed"
+            );
         }
         self.journal(
             "crew_ended",
@@ -716,7 +810,7 @@ impl Crew {
         .await;
         crew_log!(
             info,
-            crew_run_id = %self.id,
+            crew_run_id = self.id.to_string().as_str(),
             state = enum_text(&kind.state).as_str(),
             rounds = counters.round_counter,
             requests_used = counters.requests_used,
@@ -741,7 +835,13 @@ impl Crew {
             Err(e) => Err(e),
         };
         if let Err(e) = stored {
-            crew_log!(error, crew_run_id = %self.id, code = "CREW_STORE_UNAVAILABLE", error = %e, "crew_pause_not_stored");
+            crew_log!(
+                error,
+                crew_run_id = self.id.to_string().as_str(),
+                code = "CREW_STORE_UNAVAILABLE",
+                error_kind = sqlx_kind(&e),
+                "crew_pause_not_stored"
+            );
         }
         self.emit_round_changed(CrewRunState::Paused).await;
         self.needs_you().await;
@@ -755,7 +855,12 @@ impl Crew {
             Stop::Gone => {}
             Stop::TakeOver { position, .. } => {
                 // A take-over is handled before the walk returns here; reaching this is a defect.
-                crew_log!(error, crew_run_id = %self.id, position = position.as_str(), "crew_take_over_unhandled");
+                crew_log!(
+                    error,
+                    crew_run_id = self.id.to_string().as_str(),
+                    position = position.as_str(),
+                    "crew_take_over_unhandled"
+                );
                 self.finish(EndKind::new(
                     CrewRunState::Failed,
                     "The crew could not go on.",
@@ -763,7 +868,13 @@ impl Crew {
                 .await;
             }
             Stop::Unusable(why) => {
-                crew_log!(error, crew_run_id = %self.id, code = "CREW_COORDINATOR_UNUSABLE", why = why.as_str(), "crew_coordinator_unusable");
+                crew_log!(
+                    error,
+                    crew_run_id = self.id.to_string().as_str(),
+                    code = "CREW_COORDINATOR_UNUSABLE",
+                    why = why.as_str(),
+                    "crew_coordinator_unusable"
+                );
                 self.finish(
                     EndKind::new(CrewRunState::Failed, "Ordin could not continue the crew.")
                         .with_code("CREW_COORDINATOR_UNUSABLE"),
@@ -817,4 +928,39 @@ pub(crate) fn startup_report(crew_run_id: CrewRunId, items: &[StartUpReportItem]
 
 pub(crate) fn startup_subject(crew_run_id: CrewRunId) -> StartUpSubject {
     StartUpSubject::CrewRun { crew_run_id }
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+    #[test]
+    fn a_store_failure_logs_its_kind_as_text() {
+        let text = logged(|| {
+            let _stop: Stop = sqlx::Error::RowNotFound.into();
+        });
+        assert!(text.contains(r#""error_kind":"row_not_found""#), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
 }

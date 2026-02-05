@@ -4542,3 +4542,30 @@ Feature: Ordin's minutes and transcription tools (OH-MIN-4 to OH-MIN-11)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — The idle event names why the turn gave no answer (OH-WK-2) (amended February 2026; user decision; Approved by the user)
+
+- **OH-WK-2 The failure word.** When the crate emits `idle` (OH-WK-1) for a turn that ended without an answer, it sets `failure` (ServiceApi.md SVC-WK-2) to the same word it logs as `reason` on `ordin_host.turn_ended_without_answer`: `timeout`, `not_sent`, `lost`, `empty_reply`, or `run_ended` when the run of Ordin ended while it was working (the run's own end reason stays in the log line only). A turn that answered emits `idle` with no `failure`. The word is the only addition; the log line keeps its run id and `elapsed_ms`, which do not reach the screens.
+
+```gherkin
+Feature: The idle event names why the turn gave no answer (OH-WK-2)
+
+  Scenario: Error path — sending the turn fails
+    Given Ordin's run refuses the turn
+    When the crate emits idle
+    Then the event carries failure "not_sent" and the log has ordin_host.turn_ended_without_answer with reason "not_sent"
+
+  Scenario: Error path — the run ends while Ordin is working
+    Given Ordin is working on a turn
+    When the run of Ordin ends
+    Then the idle event carries failure "run_ended"
+
+  Scenario: Happy path — a turn that answered
+    Given Ordin answered the turn
+    When the crate emits idle
+    Then the event carries no failure
+```
+
+### Gaps
+
+None.

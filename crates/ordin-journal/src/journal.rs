@@ -677,6 +677,14 @@ async fn poll_loop(inner: Weak<Inner>, mut stop: watch::Receiver<bool>) {
 }
 
 /// Internal Logic 3.5: the first prune 60 seconds after start, then every `interval`.
+fn prune_failed(error: &JournalError) {
+    tracing::warn!(
+        target: "ordin_journal",
+        code = ordin_types::CodedError::code(error),
+        "journal.prune_failed"
+    );
+}
+
 async fn prune_loop(inner: Weak<Inner>, mut stop: watch::Receiver<bool>, interval: Duration) {
     let mut wait = FIRST_PRUNE_DELAY;
     loop {
@@ -688,8 +696,10 @@ async fn prune_loop(inner: Weak<Inner>, mut stop: watch::Receiver<bool>, interva
         let Some(inner) = inner.upgrade() else {
             return;
         };
-        // A failed prune is logged by `prune` and retried at the next tick.
-        let _ = Journal { inner }.prune(None).await;
+        // A failed prune is logged here and retried at the next tick.
+        if let Err(error) = (Journal { inner }).prune(None).await {
+            prune_failed(&error);
+        }
     }
 }
 
@@ -702,4 +712,52 @@ pub(crate) fn transition_allowed(from: StepMark, to: StepMark) -> bool {
             | (StepMark::Next, StepMark::Skipped)
             | (StepMark::Now, StepMark::Skipped)
     )
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn a_failed_prune_is_logged_with_its_code() {
+        let error = JournalError::EntryInvalid;
+        let code = ordin_types::CodedError::code(&error);
+        let text = logged(|| prune_failed(&error));
+        assert_readable(
+            &text,
+            "journal.prune_failed",
+            &[&format!(r#""code":"{code}""#)],
+        );
+    }
 }

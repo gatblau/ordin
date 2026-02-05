@@ -443,7 +443,7 @@ impl ordin_minutes::MinutesWriter for MinutesWriterOverHost {
             tracing::warn!(
                 component = "desktop",
                 code = e.code(),
-                job_id = %req.job_id,
+                job_id = req.job_id.to_string().as_str(),
                 "minutes.write_failed"
             );
             ordin_minutes::MinutesError::WriteFailed

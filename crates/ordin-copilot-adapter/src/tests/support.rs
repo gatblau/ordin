@@ -402,6 +402,8 @@ impl RulesPort for RulesDouble {
 /// Identity: `refresh_silently(Github)` answers `refreshed`; a `true` also signs the CLI in.
 pub struct IdentityDouble {
     pub refreshed: Mutex<bool>,
+    /// `refresh_silently` fails with this retryable code.
+    pub fails: Mutex<Option<&'static str>>,
     pub calls: Mutex<Vec<CredentialKind>>,
     pub signs_in: Mutex<Option<Arc<Script>>>,
 }
@@ -410,6 +412,7 @@ impl Default for IdentityDouble {
     fn default() -> Self {
         IdentityDouble {
             refreshed: Mutex::new(false),
+            fails: Mutex::new(None),
             calls: Mutex::default(),
             signs_in: Mutex::new(None),
         }
@@ -420,6 +423,9 @@ impl Default for IdentityDouble {
 impl IdentityPort for IdentityDouble {
     async fn refresh_silently(&self, kind: CredentialKind) -> Result<bool, CredError> {
         self.calls.lock().unwrap().push(kind);
+        if let Some(code) = *self.fails.lock().unwrap() {
+            return Err(CredError::Retryable { code });
+        }
         let refreshed = *self.refreshed.lock().unwrap();
         if refreshed {
             if let Some(script) = self.signs_in.lock().unwrap().as_ref() {

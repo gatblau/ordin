@@ -35,11 +35,11 @@ macro_rules! run_log {
     ($level:ident, $run:expr, $name:literal $(, $($field:tt)+)?) => {
         tracing::$level!(
             target: "ordin_claude_adapter",
-            run_id = %$run.run_id,
+            run_id = $run.run_id.to_string().as_str(),
             runtime_session_id = $run.runtime_session_id.as_str(),
             agent_instance_id = $run.agent_instance_id.to_string().as_str(),
             workspace_id = $run.workspace_id.to_string().as_str(),
-            correlation_id = %$run.correlation_id,
+            correlation_id = $run.correlation_id.to_string().as_str(),
             $($($field)+,)?
             $name
         )

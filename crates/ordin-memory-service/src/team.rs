@@ -541,7 +541,7 @@ impl MemoryService {
         for (id, result) in report.results {
             let Some(fact) = valid.iter().find(|f| f.memory_fact_id == id) else {
                 if let ImportResult::Invalid { reason } = result {
-                    tracing::warn!(target: "ordin::memory", reason = %reason, "memory.team_item_refused");
+                    tracing::warn!(target: "ordin::memory", reason_len = reason.len(), "memory.team_item_refused");
                 }
                 continue;
             };
@@ -563,7 +563,7 @@ impl MemoryService {
                     TeamImportResult::NotTaken { code: GATE_REFUSED }
                 }
                 ImportResult::Invalid { reason } => {
-                    tracing::warn!(target: "ordin::memory", reason = %reason, "memory.team_item_refused");
+                    tracing::warn!(target: "ordin::memory", reason_len = reason.len(), "memory.team_item_refused");
                     TeamImportResult::NotTaken { code: FACT_INVALID }
                 }
             };
@@ -927,7 +927,7 @@ impl MemoryService {
         match result {
             ImportResult::Admitted | ImportResult::Unchanged => {}
             ImportResult::Invalid { reason } => {
-                tracing::warn!(target: "ordin::memory", reason = %reason, "memory.team_item_refused");
+                tracing::warn!(target: "ordin::memory", reason_len = reason.len(), "memory.team_item_refused");
                 return Err(refused("MEM_ADOPT_REFUSED"));
             }
             ImportResult::Quarantined | ImportResult::Rejected => {

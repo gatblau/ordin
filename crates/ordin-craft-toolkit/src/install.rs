@@ -481,7 +481,10 @@ impl CraftToolkit {
     /// Internal Logic 2.3.5. A program missing from the archive never started and is an install
     /// failure, not a refusal.
     async fn start_check(&self, cli: &Path) -> Result<StartCheck, CraftError> {
-        let run = self.check_command(cli, "--version").output();
+        let run = busy_retry(|| {
+            let mut command = self.check_command(cli, "--version");
+            async move { command.output().await }
+        });
         let refused = |reason: &str| Ok(StartCheck::Refused(reason.to_owned()));
         match tokio::time::timeout(self.limits.check, run).await {
             Err(_) => refused("no output before the limit"),
@@ -584,6 +587,89 @@ fn entry_path_ok(name: &str) -> bool {
         && Path::new(&unified)
             .components()
             .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
+}
+
+/// How often a just-unpacked program that Linux reports busy is started again, and the pause between.
+const BUSY_TRIES: u32 = 3;
+const BUSY_PAUSE: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Runs `start` again while it fails with `ExecutableFileBusy`: a program written a moment ago can
+/// still be open for writing in a child another thread forked meanwhile, and Linux then refuses to
+/// run it although nothing is wrong with it.
+async fn busy_retry<T, F, Fut>(mut start: F) -> std::io::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = std::io::Result<T>>,
+{
+    let mut attempt = 1;
+    loop {
+        match start().await {
+            Err(error)
+                if error.kind() == std::io::ErrorKind::ExecutableFileBusy
+                    && attempt < BUSY_TRIES =>
+            {
+                tracing::warn!(component = "craft", attempt, "craft.check_start_busy");
+                attempt += 1;
+                tokio::time::sleep(BUSY_PAUSE).await;
+            }
+            other => return other,
+        }
+    }
+}
+
+#[cfg(test)]
+mod busy_retry_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    fn busy() -> std::io::Error {
+        std::io::Error::from(std::io::ErrorKind::ExecutableFileBusy)
+    }
+
+    #[tokio::test]
+    async fn a_busy_program_is_started_again_until_it_runs() {
+        let calls = AtomicU32::new(0);
+        let result = busy_retry(|| {
+            let n = calls.fetch_add(1, Ordering::SeqCst);
+            async move {
+                if n < 2 {
+                    Err(busy())
+                } else {
+                    Ok(n)
+                }
+            }
+        })
+        .await;
+        assert_eq!(result.expect("ran"), 2);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn a_program_still_busy_after_the_last_try_gives_the_error() {
+        let calls = AtomicU32::new(0);
+        let result: std::io::Result<()> = busy_retry(|| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async { Err(busy()) }
+        })
+        .await;
+        assert_eq!(
+            result.expect_err("busy").kind(),
+            std::io::ErrorKind::ExecutableFileBusy
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), BUSY_TRIES);
+    }
+
+    #[tokio::test]
+    async fn another_error_is_not_retried() {
+        let calls = AtomicU32::new(0);
+        let result: std::io::Result<()> = busy_retry(|| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async { Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)) }
+        })
+        .await;
+        assert!(result.is_err());
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
 }
 
 #[cfg(test)]

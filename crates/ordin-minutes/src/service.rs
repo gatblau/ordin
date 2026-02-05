@@ -426,7 +426,9 @@ impl MinutesService {
         };
         if let Err(error) = files::write_json(&self.folder.join(RECORDING_FILE), &recording) {
             // No trace could be kept: the recording is not left running without one.
-            let _ = self.recorder.stop().await;
+            if let Err(stop) = self.recorder.stop().await {
+                recorder_stop_failed(&stop);
+            }
             return Err(error);
         }
         let view = recording.view();
@@ -1178,9 +1180,66 @@ fn source_name(source: MinutesSource) -> &'static str {
 fn log_job(view: &MinutesJob) {
     tracing::info!(
         component = "minutes",
-        job_id = %view.id,
+        job_id = view.id.to_string().as_str(),
         source = source_name(view.source),
         state = view.state.name(),
         "minutes.job"
     );
+}
+
+/// The recorder could not be stopped after its trace file failed to write.
+fn recorder_stop_failed(error: &ObsError) {
+    tracing::warn!(
+        component = "minutes",
+        code = ordin_types::CodedError::code(error),
+        "minutes.recorder_stop_failed"
+    );
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn a_recorder_that_cannot_be_stopped_is_logged_with_its_code() {
+        let error = ObsError::NotReachable;
+        let code = ordin_types::CodedError::code(&error);
+        let text = logged(|| recorder_stop_failed(&error));
+        assert_readable(
+            &text,
+            "minutes.recorder_stop_failed",
+            &[&format!(r#""code":"{code}""#)],
+        );
+    }
 }

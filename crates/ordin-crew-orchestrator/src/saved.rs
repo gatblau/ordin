@@ -151,7 +151,7 @@ impl Crew {
     async fn take_over(&self, position: String, reason: TakeOverReason) -> Flow<()> {
         crew_log!(
             info,
-            crew_run_id = %self.id,
+            crew_run_id = self.id.to_string().as_str(),
             position = position.as_str(),
             reason = crate::store::enum_text(&reason_kind(&reason)).as_str(),
             "crew_taken_over"
@@ -436,7 +436,13 @@ impl Crew {
             if !failed {
                 break result;
             }
-            crew_log!(info, crew_run_id = %self.id, position = position.as_str(), attempts = attempts, "crew_step_failed");
+            crew_log!(
+                info,
+                crew_run_id = self.id.to_string().as_str(),
+                position = position.as_str(),
+                attempts = attempts,
+                "crew_step_failed"
+            );
             brief.model_override = None;
             if attempts < 2 {
                 // The retry asks for the next level when the first run was on a lower one.
@@ -697,7 +703,7 @@ impl Crew {
                 let path = names.get(index).cloned().unwrap_or_default();
                 crew_log!(
                     info,
-                    crew_run_id = %self.id,
+                    crew_run_id = self.id.to_string().as_str(),
                     position = block.position.as_str(),
                     path = path.as_str(),
                     decided_by = by,

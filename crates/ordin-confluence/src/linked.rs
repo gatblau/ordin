@@ -1037,7 +1037,14 @@ impl ConfluenceAdapter {
     ) -> Result<Option<String>, ConfluenceError> {
         if kind_of(name) == "docx" {
             return Ok(match &self.word_to_markdown {
-                Some(converter) => converter.convert(bytes.to_vec()).await.ok(),
+                Some(converter) => match converter.convert(bytes.to_vec()).await {
+                    Ok(markdown) => Some(markdown),
+                    Err(_) => {
+                        // The converter's message may name the file; only its size is kept.
+                        crate::log::word_conversion_failed(bytes.len() as u64);
+                        None
+                    }
+                },
                 None => None,
             });
         }
@@ -1323,7 +1330,7 @@ impl ConfluenceAdapter {
             RemoteItemRef::Page { page_id } => {
                 let page = self.read_page(page_id).await?;
                 let tag = page.version()?.remote()?.tag;
-                let storage = page.storage().unwrap_or_default().to_owned();
+                let storage = page.storage_or_empty().to_owned();
                 self.put_page(
                     page_id,
                     Some(stem_of(&name)),

@@ -42,7 +42,10 @@ pub use envelope::{
     MAX_EVENT_DATA_BYTES, MAX_TEXT_SAVE_BODY_BYTES,
 };
 pub use error::ALL_CODES;
-pub use events::{encode_for_transport, EventError, OrdinTurnState, ServiceEvent, TransportEvent};
+pub use events::{
+    encode_for_transport, EventError, OrdinTurnFailure, OrdinTurnState, ServiceEvent,
+    TransportEvent,
+};
 pub use schema::json_schemas;
 pub use wire::{
     CommandEnvelope, CommandName, CommandOutcome, CommandReply, EventEnvelope, ServiceApiVersion,

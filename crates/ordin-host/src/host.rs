@@ -8,7 +8,7 @@ use std::time::Duration;
 use ordin_runtime_adapter::{PauseReason, ResumeDecision, RunEnd, RunEndReason, RunEvent};
 use ordin_service_api::blocks::{Block, MessageBlock};
 use ordin_service_api::commands::ordin::{ConversationEnd, MessageAuthor};
-use ordin_service_api::OrdinTurnState;
+use ordin_service_api::{OrdinTurnFailure, OrdinTurnState};
 use ordin_session_supervisor::ConversationStart;
 use ordin_types::common::{SetBy, Setting};
 use ordin_types::domain::{VoiceLength, VoiceRegister, VoiceSettings, VoiceTone};
@@ -847,7 +847,7 @@ impl OrdinHost {
         let events = match self.ports.supervisor.subscribe(run_id) {
             Ok(events) => events,
             Err(e) => {
-                let _ = self.ports.supervisor.cancel(run_id).await;
+                self.cancel_logged(run_id).await;
                 return Err(OhError::SessionStartFailed {
                     cause: e.code,
                     retryable: e.retryable,
@@ -874,7 +874,7 @@ impl OrdinHost {
         }
         .await;
         if let Err(e) = inserted {
-            let _ = self.ports.supervisor.cancel(run_id).await;
+            self.cancel_logged(run_id).await;
             return Err(e.into());
         }
         self.register(&row, events, true, Some(locale));
@@ -994,7 +994,7 @@ impl OrdinHost {
             }
             Err((position, since)) => {
                 if let Some(since) = since {
-                    self.turn_changed(workspace_id, OrdinTurnState::Working, None, since)
+                    self.turn_changed(workspace_id, OrdinTurnState::Working, None, since, None)
                         .await;
                 }
                 Ok(position)
@@ -1011,6 +1011,7 @@ impl OrdinHost {
         state: OrdinTurnState,
         doing: Option<String>,
         since: Timestamp,
+        failure: Option<OrdinTurnFailure>,
     ) {
         let event = ordin_service_api::ServiceEvent::OrdinTurnChanged {
             workspace_id,
@@ -1019,6 +1020,7 @@ impl OrdinHost {
                 .map(|d| cut_chars(d.trim(), DOING_MAX_CHARS))
                 .filter(|d| !d.is_empty()),
             since,
+            failure,
         };
         if let Err(e) = self
             .ports
@@ -1047,15 +1049,28 @@ impl OrdinHost {
             .and_then(|c| c.working_since);
         let Some(since) = since else { return };
         let doing = doing.map(|m| self.ports.localisation.message(&m));
-        self.turn_changed(workspace_id, OrdinTurnState::Working, doing, since)
+        self.turn_changed(workspace_id, OrdinTurnState::Working, doing, since, None)
             .await;
     }
 
-    /// OH-WK-1: `idle` when the turn the screens were told of has ended.
-    async fn turn_idle(&self, workspace_id: WorkspaceId, was_working: bool) {
+    /// OH-WK-1: `idle` when the turn the screens were told of has ended. OH-WK-2: `failure` is the
+    /// word logged on `ordin_host.turn_ended_without_answer`, or none for a turn that answered.
+    // spec: ordin-desktop/components/OrdinHost#OH-WK-2
+    async fn turn_idle(
+        &self,
+        workspace_id: WorkspaceId,
+        was_working: bool,
+        failure: Option<OrdinTurnFailure>,
+    ) {
         if was_working {
-            self.turn_changed(workspace_id, OrdinTurnState::Idle, None, Timestamp::now())
-                .await;
+            self.turn_changed(
+                workspace_id,
+                OrdinTurnState::Idle,
+                None,
+                Timestamp::now(),
+                failure,
+            )
+            .await;
         }
     }
 
@@ -1213,7 +1228,10 @@ impl OrdinHost {
                     .trim_end()
                     .to_owned()
             }
-            Err(_) => String::new(),
+            Err(e) => {
+                log_directory_not_read(workspace_id, &e.code);
+                String::new()
+            }
         }
     }
 
@@ -1246,7 +1264,7 @@ impl OrdinHost {
         };
         // OH-WK-1: `working` with `since` = now for every turn sent to Ordin's run.
         if let Some(since) = since {
-            self.turn_changed(workspace_id, OrdinTurnState::Working, None, since)
+            self.turn_changed(workspace_id, OrdinTurnState::Working, None, since, None)
                 .await;
         }
         if let Err(e) = self
@@ -1263,7 +1281,8 @@ impl OrdinHost {
                 "ordin_host.turn_failed"
             );
             let was_working = self.turn_lost(workspace_id, run_id);
-            self.turn_idle(workspace_id, was_working).await;
+            self.turn_idle(workspace_id, was_working, Some(OrdinTurnFailure::NotSent))
+                .await;
         }
     }
 
@@ -1322,14 +1341,28 @@ impl OrdinHost {
                     conv.turns_since_summary += 1;
                     let seed = std::mem::replace(&mut conv.seed_turn, false);
                     let quiet = std::mem::replace(&mut conv.quiet_turn, false);
-                    Some((waiter, recalls, conv.turns_since_summary, seed, quiet))
+                    let since = conv.working_since;
+                    Some((
+                        waiter,
+                        recalls,
+                        conv.turns_since_summary,
+                        seed,
+                        quiet,
+                        since,
+                    ))
                 }
                 _ => None,
             }
         };
-        let Some((waiter, recalls, turns, seed, quiet)) = taken else {
+        let Some((waiter, recalls, turns, seed, quiet, since)) = taken else {
             return;
         };
+        // A turn the person waits on that came back with no text: the screens show no answer.
+        let failure =
+            (!seed && !quiet && text.trim().is_empty()).then_some(OrdinTurnFailure::EmptyReply);
+        if let Some(failure) = failure {
+            log_turn_without_answer(workspace_id, run_id, failure.as_str(), since, 0);
+        }
         // OH-SEED-1: the reply to the seed is Ordin reading its instructions, not an answer to the person.
         // spec: ordin-desktop/components/OrdinHost#OH-SEED-1
         if seed {
@@ -1389,7 +1422,7 @@ impl OrdinHost {
                 }
             }
         }
-        self.turn_idle(workspace_id, was_working).await;
+        self.turn_idle(workspace_id, was_working, failure).await;
         if let Some(w) = waiter {
             let _ = w.send(TurnEnd::Text(text));
         }
@@ -1434,7 +1467,19 @@ impl OrdinHost {
         if let Some(conv) = state.convs.get_mut(&workspace_id) {
             if conv.run_id == run_id {
                 conv.busy = false;
-                if let Some(w) = conv.in_flight.take() {
+                let waiter = conv.in_flight.take();
+                // OH-WK-2: the same word the idle event carries, whether a caller or the person waits.
+                // spec: ordin-desktop/components/OrdinHost#OH-WK-2
+                if waiter.is_some() || conv.working_since.is_some() {
+                    log_turn_without_answer(
+                        workspace_id,
+                        run_id,
+                        OrdinTurnFailure::NotSent.as_str(),
+                        conv.working_since,
+                        0,
+                    );
+                }
+                if let Some(w) = waiter {
                     let _ = w.send(TurnEnd::Lost);
                 }
                 return conv.working_since.take().is_some();
@@ -1445,7 +1490,8 @@ impl OrdinHost {
 
     /// An `Ended` of Ordin's run not caused by this crate: the conversation stays current and the
     /// next message opens a new run (step 5).
-    async fn run_ended(&self, workspace_id: WorkspaceId, run_id: RunId) {
+    /// `why` is the end's code: a `RunEndReason` in snake case, `stopped_by_host` or `events_closed`.
+    async fn run_ended(&self, workspace_id: WorkspaceId, run_id: RunId, why: &'static str) {
         let removed = {
             let mut state = lock(&self.state);
             let removed = match state.convs.get(&workspace_id) {
@@ -1460,15 +1506,25 @@ impl OrdinHost {
             removed
         };
         if let Some(conv) = removed {
-            self.turn_idle(workspace_id, conv.working_since.is_some())
-                .await;
+            // OH-WK-2: the run's own end reason stays in the log line only.
+            self.turn_idle(
+                workspace_id,
+                conv.working_since.is_some(),
+                Some(OrdinTurnFailure::RunEnded),
+            )
+            .await;
             if !conv.ended_by_us {
                 tracing::warn!(
                     component = COMPONENT,
                     workspace_id = workspace_id.to_string().as_str(),
                     run_id = run_id.to_string().as_str(),
+                    reason = why,
                     "ordin_host.session_lost"
                 );
+            }
+            let waiting = conv.queue.iter().filter(|t| t.waiter.is_some()).count();
+            if conv.in_flight.is_some() || waiting > 0 {
+                log_turn_without_answer(workspace_id, run_id, why, conv.working_since, waiting);
             }
             if let Some(w) = conv.in_flight {
                 let _ = w.send(TurnEnd::Lost);
@@ -1491,8 +1547,9 @@ impl OrdinHost {
             })
         };
         if let Some(run_id) = run {
-            let _ = self.ports.supervisor.cancel(run_id).await;
-            self.run_ended(workspace_id, run_id).await;
+            self.cancel_logged(run_id).await;
+            self.run_ended(workspace_id, run_id, "stopped_by_host")
+                .await;
         }
         run
     }
@@ -1503,6 +1560,14 @@ impl OrdinHost {
             .convs
             .get(&workspace_id)
             .map(|c| (c.id, c.run_id))
+    }
+
+    /// Cancels a run of this crate's own; a refused cancel is logged with its code and otherwise
+    /// ignored, as before.
+    pub(crate) async fn cancel_logged(&self, run_id: RunId) {
+        if let Err(e) = self.ports.supervisor.cancel(run_id).await {
+            log_cancel_failed(run_id, &e.code);
+        }
     }
 
     pub(crate) fn dep(&self, dependency: &'static str, e: DepError) -> OhError {
@@ -1586,17 +1651,128 @@ async fn read_run(
             }) => host.turn_ended(workspace_id, run_id, question).await,
             Ok(RunEvent::Ended { end }) => {
                 let RunEnd { reason, .. } = end;
-                let _ = matches!(reason, RunEndReason::Completed);
-                host.run_ended(workspace_id, run_id).await;
+                host.run_ended(workspace_id, run_id, end_reason_code(reason))
+                    .await;
                 return;
             }
-            Ok(_) | Err(RecvError::Lagged(_)) => {}
+            Ok(_) => {}
+            // Events were dropped, possibly the pause carrying Ordin's answer.
+            Err(RecvError::Lagged(skipped)) => log_events_lagged(workspace_id, run_id, skipped),
             Err(RecvError::Closed) => {
-                host.run_ended(workspace_id, run_id).await;
+                host.run_ended(workspace_id, run_id, "events_closed").await;
                 return;
             }
         }
     }
+}
+
+/// Why a waited turn gave no text, for the log: `timeout`, `not_sent` (with the error's code
+/// logged where it was raised) or `lost`. Empty for a turn that answered.
+pub(crate) fn turn_failure<E>(
+    ended: &Result<Result<TurnEnd, E>, tokio::time::error::Elapsed>,
+) -> &'static str {
+    match ended {
+        Err(_) => "timeout",
+        Ok(Err(_)) => "not_sent",
+        Ok(Ok(TurnEnd::Lost)) => "lost",
+        Ok(Ok(TurnEnd::Text(_))) => "",
+    }
+}
+
+/// A run's end reason as its snake-case code, for the log.
+fn end_reason_code(reason: RunEndReason) -> &'static str {
+    match reason {
+        RunEndReason::Completed => "completed",
+        RunEndReason::Failed => "failed",
+        RunEndReason::StoppedAtLimit => "stopped_at_limit",
+        RunEndReason::Cancelled => "cancelled",
+        RunEndReason::Interrupted => "interrupted",
+        RunEndReason::Abandoned => "abandoned",
+        RunEndReason::NoReply => "no_reply",
+    }
+}
+
+/// Milliseconds since `since`; 0 when the turn had no start recorded.
+fn elapsed_ms(since: Option<Timestamp>) -> u64 {
+    since.map_or(0, |s| {
+        u64::try_from(Timestamp::now().unix_millis() - s.unix_millis()).unwrap_or(0)
+    })
+}
+
+/// The one line for a turn that ends without an answer: the run, the end's code, how long the turn
+/// ran and how many queued turns were lost with it. Never the turn's text.
+fn log_turn_without_answer(
+    workspace_id: WorkspaceId,
+    run_id: RunId,
+    reason: &'static str,
+    since: Option<Timestamp>,
+    waiting: usize,
+) {
+    tracing::warn!(
+        component = COMPONENT,
+        workspace_id = workspace_id.to_string().as_str(),
+        run_id = run_id.to_string().as_str(),
+        reason,
+        elapsed_ms = elapsed_ms(since),
+        waiting = waiting as u64,
+        "ordin_host.turn_ended_without_answer"
+    );
+}
+
+fn log_directory_not_read(workspace_id: WorkspaceId, code: &str) {
+    tracing::warn!(
+        component = COMPONENT,
+        workspace_id = workspace_id.to_string().as_str(),
+        code,
+        "ordin_host.directory_not_read"
+    );
+}
+
+fn log_cancel_failed(run_id: RunId, code: &str) {
+    tracing::warn!(
+        component = COMPONENT,
+        run_id = run_id.to_string().as_str(),
+        code,
+        "ordin_host.cancel_failed"
+    );
+}
+
+/// The reader of Ordin's run fell behind and `skipped` events were dropped, possibly the pause
+/// that carried Ordin's answer.
+fn log_events_lagged(workspace_id: WorkspaceId, run_id: RunId, skipped: u64) {
+    tracing::warn!(
+        component = COMPONENT,
+        workspace_id = workspace_id.to_string().as_str(),
+        run_id = run_id.to_string().as_str(),
+        skipped,
+        "ordin_host.run_events_lagged"
+    );
+}
+
+/// The conversation summary turn gave no text; `reason` as [`turn_failure`] gives it, or
+/// `empty_reply`.
+pub(crate) fn log_summary_not_written(workspace_id: WorkspaceId, reason: &'static str) {
+    tracing::warn!(
+        component = COMPONENT,
+        workspace_id = workspace_id.to_string().as_str(),
+        reason,
+        "ordin_host.summary_not_written"
+    );
+}
+
+/// The turn that tells Ordin a crew ended gave no text.
+pub(crate) fn log_crew_end_turn_unanswered(
+    crew_run_id: &str,
+    reason: &'static str,
+    elapsed_ms: u64,
+) {
+    tracing::warn!(
+        component = COMPONENT,
+        crew_run_id,
+        reason,
+        elapsed_ms,
+        "ordin_host.crew_end_turn_unanswered"
+    );
 }
 
 /// The prune participant (step 1).
@@ -1644,5 +1820,148 @@ pub(crate) fn cut_at_line(text: &str, max: usize) -> String {
     match cut.rfind('\n') {
         Some(at) => cut[..at].to_owned(),
         None => cut,
+    }
+}
+
+#[cfg(test)]
+mod failure_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// One failure point: its event, a field it must carry, and the call that logs it.
+    type Case<'a> = (&'static str, &'a str, Box<dyn Fn() + 'a>);
+
+    /// The lines `f` writes, in ordin's own log format.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
+
+    #[test]
+    fn a_turn_without_an_answer_logs_its_run_reason_and_elapsed_time() {
+        let ws = WorkspaceId::new();
+        let run = RunId::new();
+        let ten_seconds_ago =
+            Timestamp::from_unix_millis(Timestamp::now().unix_millis() - 10_000).expect("time");
+        // (reason, since, waiting): every end a turn can meet.
+        let cases: [(&'static str, Option<Timestamp>, usize); 5] = [
+            ("empty_reply", Some(ten_seconds_ago), 0),
+            ("not_sent", Some(ten_seconds_ago), 0),
+            ("no_reply", Some(ten_seconds_ago), 2),
+            ("events_closed", None, 0),
+            ("stopped_by_host", Some(ten_seconds_ago), 1),
+        ];
+        for (reason, since, waiting) in cases {
+            let text = logged(|| log_turn_without_answer(ws, run, reason, since, waiting));
+            assert_readable(&text, "ordin_host.turn_ended_without_answer");
+            assert!(text.contains(&format!(r#""reason":"{reason}""#)), "{text}");
+            assert!(text.contains(&run.to_string()), "{text}");
+            assert!(text.contains(&format!(r#""waiting":{waiting}"#)), "{text}");
+            let line: serde_json::Value =
+                serde_json::from_str(text.lines().next().expect("a line")).expect("json");
+            let elapsed = line["elapsed_ms"].as_u64().expect("elapsed_ms is a number");
+            match since {
+                Some(_) => assert!(elapsed >= 10_000, "{text}"),
+                None => assert_eq!(elapsed, 0, "{text}"),
+            }
+        }
+    }
+
+    #[test]
+    fn every_end_reason_has_a_readable_code() {
+        let cases = [
+            (RunEndReason::Completed, "completed"),
+            (RunEndReason::Failed, "failed"),
+            (RunEndReason::StoppedAtLimit, "stopped_at_limit"),
+            (RunEndReason::Cancelled, "cancelled"),
+            (RunEndReason::Interrupted, "interrupted"),
+            (RunEndReason::Abandoned, "abandoned"),
+            (RunEndReason::NoReply, "no_reply"),
+        ];
+        for (reason, code) in cases {
+            assert_eq!(end_reason_code(reason), code);
+            // The code is the wire form of the reason.
+            assert_eq!(
+                serde_json::to_value(reason).expect("json"),
+                serde_json::Value::String(code.to_owned())
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_waited_turn_names_why_it_gave_no_text() {
+        let timed_out = tokio::time::timeout(
+            Duration::from_millis(1),
+            std::future::pending::<Result<TurnEnd, OhError>>(),
+        )
+        .await;
+        assert_eq!(turn_failure(&timed_out), "timeout");
+        let cases: [(Result<TurnEnd, OhError>, &str); 3] = [
+            (Err(OhError::ConversationUnknown), "not_sent"),
+            (Ok(TurnEnd::Lost), "lost"),
+            (Ok(TurnEnd::Text("hello there".into())), ""),
+        ];
+        for (end, reason) in cases {
+            assert_eq!(turn_failure(&Ok(end)), reason);
+        }
+    }
+
+    #[test]
+    fn the_other_failure_points_log_codes_and_counts_only() {
+        let ws = WorkspaceId::new();
+        let run = RunId::new();
+        let cases: [Case<'_>; 5] = [
+            (
+                "ordin_host.run_events_lagged",
+                r#""skipped":7"#,
+                Box::new(move || log_events_lagged(ws, run, 7)),
+            ),
+            (
+                "ordin_host.cancel_failed",
+                r#""code":"SUP_RUN_NOT_FOUND""#,
+                Box::new(move || log_cancel_failed(run, "SUP_RUN_NOT_FOUND")),
+            ),
+            (
+                "ordin_host.directory_not_read",
+                r#""code":"AGT_UNAVAILABLE""#,
+                Box::new(move || log_directory_not_read(ws, "AGT_UNAVAILABLE")),
+            ),
+            (
+                "ordin_host.summary_not_written",
+                r#""reason":"timeout""#,
+                Box::new(move || log_summary_not_written(ws, "timeout")),
+            ),
+            (
+                "ordin_host.crew_end_turn_unanswered",
+                r#""elapsed_ms":1500"#,
+                Box::new(|| log_crew_end_turn_unanswered("crew-1", "lost", 1_500)),
+            ),
+        ];
+        for (event, field, f) in cases {
+            let text = logged(f);
+            assert_readable(&text, event);
+            assert!(text.contains(field), "{event}: {text}");
+        }
     }
 }

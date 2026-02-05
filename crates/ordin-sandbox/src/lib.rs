@@ -182,11 +182,11 @@ impl Core {
         match work::remove(&session.dir) {
             Ok((files, bytes)) => tracing::info!(
                 target: "ordin_sandbox",
-                run_id = %run_id, reason = reason.as_str(), files, bytes,
+                run_id = run_id.to_string().as_str(), reason = reason.as_str(), files, bytes,
                 "sandbox.session_deleted"
             ),
             Err(_) => {
-                tracing::warn!(target: "ordin_sandbox", run_id = %run_id, "sandbox.session_delete_failed");
+                tracing::warn!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), "sandbox.session_delete_failed");
                 // Put back as idle, so the next sweep retries the delete (F.3).
                 let mut retry = session;
                 retry.busy = false;

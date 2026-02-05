@@ -24,9 +24,10 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, ProjectError> + Send + 'static,
 {
-    tokio::task::spawn_blocking(step)
-        .await
-        .map_err(|_| ProjectError::GitFailed)?
+    tokio::task::spawn_blocking(step).await.map_err(|e| {
+        crate::log::git_task_failed(e.is_panic());
+        ProjectError::GitFailed
+    })?
 }
 
 /// Runs a network step: past `limit` the step is told to stop and the caller gets
@@ -40,8 +41,12 @@ where
     let flag = stop.clone();
     let task = tokio::task::spawn_blocking(move || step(flag));
     match tokio::time::timeout(limit, task).await {
-        Ok(joined) => joined.map_err(|_| ProjectError::GitFailed)?,
+        Ok(joined) => joined.map_err(|e| {
+            crate::log::git_task_failed(e.is_panic());
+            ProjectError::GitFailed
+        })?,
         Err(_) => {
+            crate::log::git_network_timed_out(limit.as_millis() as u64);
             stop.store(true, Ordering::SeqCst);
             Err(ProjectError::RemoteUnreachable)
         }
@@ -181,9 +186,10 @@ impl NetAuth {
 /// configuration says nothing about where the token goes. Both effective URLs must pass, before
 /// any connection is made (Internal Logic 3.1).
 fn open_origin<'r>(repo: &'r Repository, auth: &NetAuth) -> Result<Remote<'r>, ProjectError> {
-    let remote = repo
-        .find_remote("origin")
-        .map_err(|_| ProjectError::RemoteUnreachable)?;
+    let remote = repo.find_remote("origin").map_err(|e| {
+        crate::log::git_origin_unopened("find_origin", class_name(&e));
+        ProjectError::RemoteUnreachable
+    })?;
     // PROJ-SSH-1: with a key chosen, a GitHub `origin` is reached at its SSH address, whatever form
     // `origin` is written in. Both effective URLs must name the same GitHub repository.
     // spec: ordin-desktop/components/ProjectService#PROJ-SSH-1
@@ -205,7 +211,10 @@ fn open_origin<'r>(repo: &'r Repository, auth: &NetAuth) -> Result<Remote<'r>, P
         }
         return repo
             .remote_anonymous(&crate::ssh::github_ssh_url(&repository))
-            .map_err(|_| ProjectError::RemoteUnreachable);
+            .map_err(|e| {
+                crate::log::git_origin_unopened("github_ssh_remote", class_name(&e));
+                ProjectError::RemoteUnreachable
+            });
     }
     let urls = [Some(remote.url_bytes()), remote.pushurl_bytes()];
     for url in urls.into_iter().flatten() {

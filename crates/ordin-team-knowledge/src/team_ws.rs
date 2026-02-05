@@ -2742,7 +2742,7 @@ impl TeamKnowledgeService {
             Ok(Some(f)) => f,
             Ok(None) => return,
             Err(e) => {
-                tracing::warn!(target: "ordin::team_knowledge", run_id = %run_id, code = e.code, "team.activity_failed");
+                tracing::warn!(target: "ordin::team_knowledge", run_id = run_id.to_string().as_str(), code = e.code, "team.activity_failed");
                 return;
             }
         };

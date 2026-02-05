@@ -4122,6 +4122,104 @@ async fn error_a_failed_turn_event_never_fails_the_turn() {
         .is_some_and(|c| c.working_since.is_none()));
 }
 
+// ---------------------------------------------------------------- OH-WK-2 the failure word
+
+/// The `failure` of each `idle` `ordin_turn_changed` appended so far, in order.
+fn idle_failures(w: &W) -> Vec<Option<String>> {
+    w.f.journal
+        .events
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(kind, data)| {
+            kind == "ordin_turn_changed"
+                && data["workspace_id"] == json!(w.ws)
+                && data["state"] == "idle"
+        })
+        .map(|(_, data)| data["failure"].as_str().map(str::to_owned))
+        .collect()
+}
+
+/// A log writer that keeps the lines in memory.
+#[derive(Clone, Default)]
+struct LogLines(Arc<Mutex<Vec<u8>>>);
+
+impl std::io::Write for LogLines {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("lines").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+// Scenario: Error path — sending the turn fails (OH-WK-2)
+// spec: ordin-desktop/components/OrdinHost#OH-WK-2
+#[tokio::test]
+async fn error_sending_the_turn_fails_names_not_sent() {
+    let w = world().await;
+    w.open().await;
+    w.settle().await;
+    let before = idle_failures(&w).len();
+    let lines = LogLines::default();
+    let writer = lines.clone();
+    let _guard = tracing::subscriber::set_default(ordin_types::log::subscriber(
+        move || writer.clone(),
+        tracing::Level::INFO,
+    ));
+    w.f.f
+        .always("supervisor.resume_with_decision", "SUP_RUN_GONE", true);
+    let _ = w.host.send_message(w.ws, "Hello".to_owned(), vec![]).await;
+    w.settle().await;
+    let failures: Vec<_> = idle_failures(&w).into_iter().skip(before).collect();
+    assert_eq!(failures, vec![Some("not_sent".to_owned())]);
+    let text = String::from_utf8(lines.0.lock().unwrap().clone()).expect("utf-8");
+    let line = text
+        .lines()
+        .find(|l| l.contains(r#""event":"ordin_host.turn_ended_without_answer""#))
+        .unwrap_or_else(|| panic!("{text}"));
+    assert!(line.contains(r#""reason":"not_sent""#), "{line}");
+}
+
+// Scenario: Error path — the run ends while Ordin is working (OH-WK-2)
+// spec: ordin-desktop/components/OrdinHost#OH-WK-2
+#[tokio::test]
+async fn error_the_run_ends_while_ordin_is_working_names_run_ended() {
+    let w = world().await;
+    let run = w.open().await;
+    w.settle().await;
+    let before = idle_failures(&w).len();
+    // Ordin never answers: the turn stays working until the run ends.
+    w.f.supervisor
+        .respond(Arc::new(|_, _| Box::pin(async { None })));
+    let _ = w.host.send_message(w.ws, "Hello".to_owned(), vec![]).await;
+    // The turn never ends on its own, so wait a moment instead of settling.
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(idle_failures(&w).len(), before, "still working");
+    w.f.supervisor.end(run);
+    assert!(
+        eventually(|| idle_failures(&w).len() > before).await,
+        "idle after the run ends"
+    );
+    let failures: Vec<_> = idle_failures(&w).into_iter().skip(before).collect();
+    assert_eq!(failures, vec![Some("run_ended".to_owned())]);
+}
+
+// Scenario: Happy path — a turn that answered (OH-WK-2)
+// spec: ordin-desktop/components/OrdinHost#OH-WK-2
+#[tokio::test]
+async fn happy_a_turn_that_answered_carries_no_failure() {
+    let w = world().await;
+    w.open().await;
+    w.settle().await;
+    let before = idle_failures(&w).len();
+    w.f.supervisor.respond(reply_with("Hi."));
+    say(&w, "Hello").await;
+    let failures: Vec<_> = idle_failures(&w).into_iter().skip(before).collect();
+    assert_eq!(failures, vec![None]);
+}
+
 // ---------------------------------------------------------------- OH-DC-1 delete an earlier conversation
 
 async fn message_rows(w: &W, id: ConversationId) -> i64 {

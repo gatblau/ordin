@@ -160,7 +160,7 @@ impl WorkShared {
             Ok(_) => {}
             Err(error) => tracing::warn!(
                 component = "mcp_front",
-                run_id = %run_id,
+                run_id = run_id.to_string().as_str(),
                 code = CodedError::code(&error),
                 "mcp_front.plan_rebuild_failed"
             ),
@@ -254,8 +254,8 @@ impl WorkShared {
         let Some(store) = self.block_store.get() else {
             tracing::error!(
                 component = "mcp_front",
-                run_id = %ctx.run_id,
-                correlation_id = %ctx.correlation_id,
+                run_id = ctx.run_id.to_string().as_str(),
+                correlation_id = ctx.correlation_id.to_string().as_str(),
                 "mcp_front.block_store_missing"
             );
             return Err(WorkFailure::plain(
@@ -270,8 +270,8 @@ impl WorkShared {
             .map_err(|failure| {
                 tracing::warn!(
                     component = "mcp_front",
-                    run_id = %ctx.run_id,
-                    correlation_id = %ctx.correlation_id,
+                    run_id = ctx.run_id.to_string().as_str(),
+                    correlation_id = ctx.correlation_id.to_string().as_str(),
                     code = failure.code.as_str(),
                     "mcp_front.block_keep_failed"
                 );
@@ -304,8 +304,8 @@ impl WorkShared {
         let journal_failed = |_: JournalError| {
             tracing::error!(
                 component = "mcp_front",
-                run_id = %ctx.run_id,
-                correlation_id = %ctx.correlation_id,
+                run_id = ctx.run_id.to_string().as_str(),
+                correlation_id = ctx.correlation_id.to_string().as_str(),
                 code = "MCP_JOURNAL_FAILED",
                 "mcp_front.journal_failed"
             );
@@ -422,8 +422,8 @@ impl WorkShared {
         let journal_failed = |_: JournalError| {
             tracing::error!(
                 component = "mcp_front",
-                run_id = %ctx.run_id,
-                correlation_id = %ctx.correlation_id,
+                run_id = ctx.run_id.to_string().as_str(),
+                correlation_id = ctx.correlation_id.to_string().as_str(),
                 code = "MCP_JOURNAL_FAILED",
                 "mcp_front.journal_failed"
             );
@@ -458,9 +458,9 @@ impl WorkShared {
                     Err(error) => {
                         tracing::warn!(
                             component = "mcp_front",
-                            run_id = %ctx.run_id,
-                            correlation_id = %ctx.correlation_id,
-                            error = %error,
+                            run_id = ctx.run_id.to_string().as_str(),
+                            correlation_id = ctx.correlation_id.to_string().as_str(),
+                            code = ordin_types::CodedError::code(&error),
                             "mcp_front.plan_start_failed"
                         );
                         None

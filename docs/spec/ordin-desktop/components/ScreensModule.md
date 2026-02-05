@@ -7012,3 +7012,26 @@ Feature: A turn that fails before any reply says so (SM-RF-1)
 ### Gaps
 
 None. The working line's source is `ordin_turn_changed` (`apps/desktop/ui/src/lib/store/backend-state.svelte.ts:329-331`), which carries `workspace_id`, `state` and `since` only.
+
+## Amendment February 2026 — The failed turn's cause reaches Diagnostics (SM-RF-2) (amended February 2026; user decision; Approved by the user)
+
+- **SM-RF-2 The cause in Diagnostics.** When SM-RF-1 draws `conv-turn-failed` and the `idle` event carries `failure` (ServiceApi.md SVC-WK-2), the panel records `UI_TURN_FAILED` in this window's diagnostics ring (step 12) with the `failure` word as its detail, for the backend the conversation belongs to; with no `failure` the detail is `unknown`. The conversation's sentence is unchanged and shows no code: Diagnostics stays the only view that shows codes (SM-NS-3), and it lists the ring in the order recorded, so the last failed turn's cause is its lowest `UI_TURN_FAILED` line.
+
+```gherkin
+Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
+
+  Scenario: Error path — the turn timed out
+    Given the person sent "who are you?" and the working line is shown
+    When ordin_turn_changed arrives with state idle and failure "timeout"
+    Then "Ordin couldn't get an answer this time." is drawn
+    And the diagnostics ring holds UI_TURN_FAILED with detail "timeout"
+
+  Scenario: Edge case — an older service sends no failure
+    Given the working line is shown
+    When ordin_turn_changed arrives with state idle and no failure
+    Then the diagnostics ring holds UI_TURN_FAILED with detail "unknown"
+```
+
+### Gaps
+
+None.

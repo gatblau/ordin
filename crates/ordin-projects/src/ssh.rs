@@ -187,10 +187,10 @@ pub fn add_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, key: &'a Path) {
         } else {
             // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
             tracing::warn!(
-                event = "ssh.host_key_refused",
                 github = host.eq_ignore_ascii_case(GITHUB_HOST),
-                key_type = ?cert.as_hostkey().and_then(|k| k.hostkey_type()),
-                "the host key presented is not one of GitHub's"
+                key_type =
+                    format!("{:?}", cert.as_hostkey().and_then(|k| k.hostkey_type())).as_str(),
+                "ssh.host_key_refused"
             );
             Err(git2::Error::new(
                 ErrorCode::Certificate,
@@ -366,10 +366,9 @@ pub enum CheckOutcome {
 // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
 fn outcome_of(error: &git2::Error) -> CheckOutcome {
     tracing::warn!(
-        event = "ssh.check_failed",
-        code = ?error.code(),
-        class = ?error.class(),
-        "checking the SSH key with GitHub failed"
+        code = format!("{:?}", error.code()).as_str(),
+        class = format!("{:?}", error.class()).as_str(),
+        "ssh.check_failed"
     );
     if error.code() == ErrorCode::Auth
         || error.message().contains("authenticat")
@@ -402,11 +401,7 @@ pub fn check_key(key: &Path, limit: Duration) -> CheckOutcome {
     });
     receive.recv_timeout(limit).unwrap_or_else(|_| {
         // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
-        tracing::warn!(
-            event = "ssh.check_timed_out",
-            limit_ms = limit.as_millis() as u64,
-            "GitHub did not answer the SSH key check in time"
-        );
+        tracing::warn!(limit_ms = limit.as_millis() as u64, "ssh.check_timed_out");
         CheckOutcome::Unreachable
     })
 }
@@ -599,10 +594,8 @@ mod ssh_tests {
     fn proj_ssh_6_a_failed_check_logs_its_code_and_class_but_not_its_message() {
         let lines = Lines::default();
         let writer = lines.clone();
-        let subscriber = tracing_subscriber::fmt()
-            .with_writer(move || writer.clone())
-            .with_ansi(false)
-            .finish();
+        // ordin's own log format, where the message is the event name (Logging.md R-2).
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
         let error = git2::Error::new(
             ErrorCode::GenericError,
             ErrorClass::Ssh,
@@ -611,7 +604,8 @@ mod ssh_tests {
         let outcome = tracing::subscriber::with_default(subscriber, || outcome_of(&error));
         assert_eq!(outcome, CheckOutcome::Unreachable);
         let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
-        assert!(text.contains("ssh.check_failed"), "{text}");
+        assert!(text.contains(r#""event":"ssh.check_failed""#), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
         assert!(
             text.contains("GenericError") && text.contains("Ssh"),
             "{text}"

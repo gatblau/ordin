@@ -393,13 +393,16 @@ async fn resume_taken(
     let q = QueueRun::new(queue.clone(), taken.view.record.clone(), run_id, true);
     let Some(decision) = taken.decision.as_ref().and_then(decision_of) else {
         tracing::warn!(run_id = id.as_str(), "sup_record_invalid");
-        let _ = sup
+        if let Err(e) = sup
             .record_end_outside(
                 row,
                 RunState::Failed,
                 Some("the session ended unexpectedly".into()),
             )
-            .await;
+            .await
+        {
+            end_not_recorded(id.as_str(), e.code());
+        }
         end_untouched(queue, &id, &instance, None).await;
         return;
     };
@@ -407,13 +410,16 @@ async fn resume_taken(
     if let Some(control) = sup.host.run_resuming(run_id).await {
         journal_code(sup, run_id, "SUP_RESUME_REFUSED").await;
         let limit_seconds = row.run.limits.wall_clock_secs;
-        let _ = sup
+        if let Err(e) = sup
             .record_end_outside(
                 row,
                 RunState::Completed,
                 Some(format!("ended by the control {control}")),
             )
-            .await;
+            .await
+        {
+            end_not_recorded(id.as_str(), e.code());
+        }
         let controls = sup.host.run_controls(run_id).await;
         let actions = read_actions(sup, run_id).await;
         let delivery = delivery_of(&actions, &q.record.thread_id);
@@ -456,9 +462,12 @@ async fn resume_taken(
         return;
     }
     let Some(handle) = handle_of(&row) else {
-        let _ = sup
+        if let Err(e) = sup
             .record_end_outside(row, RunState::Interrupted, None)
-            .await;
+            .await
+        {
+            end_not_recorded(id.as_str(), e.code());
+        }
         return;
     };
     let Some(mut launch) = sup.reattach_launch(row, handle, Some(decision)) else {
@@ -977,6 +986,11 @@ pub(crate) fn summary(
         "run_summary"
     );
     text
+}
+
+/// A queued run's end could not be written outside its task; `recover` reconciles the row.
+pub(crate) fn end_not_recorded(run_id: &str, code: &str) {
+    tracing::warn!(run_id, code, "sup_end_not_recorded");
 }
 
 #[cfg(test)]

@@ -126,6 +126,8 @@ export class BackendState implements HasGroups {
   conversation = new SvelteMap<string, ConversationItem[]>();
   /** SM-WK-1: per workspace, whether Ordin is working (`ordin_turn_changed`); never stored. */
   ordinWorking = new SvelteMap<string, OrdinWorking>();
+  /** SM-RF-2: per workspace, the `failure` word of the last `idle` (SVC-WK-2); read when a turn fails. */
+  ordinTurnFailure = new Map<string, string>();
 
   /** Bumped when the matching event arrives, so a view can `$effect` on it and re-read (sign-ins, setup, one workspace). */
   signInRevision = $state(0);
@@ -327,6 +329,9 @@ export class BackendState implements HasGroups {
         return true;
       // spec: ordin-desktop/components/ScreensModule#SM-WK-1
       case 'ordin_turn_changed':
+        // spec: ordin-desktop/components/ScreensModule#SM-RF-2
+        if (e.state === 'idle' && e.failure != null) this.ordinTurnFailure.set(e.workspace_id, e.failure);
+        else this.ordinTurnFailure.delete(e.workspace_id);
         if (e.state === 'working') this.ordinWorking.set(e.workspace_id, { since: e.since, ...(e.doing != null ? { doing: e.doing } : {}) });
         else this.ordinWorking.delete(e.workspace_id);
         return true;
@@ -441,6 +446,7 @@ export class BackendState implements HasGroups {
     this.seenCards.clear();
     this.conversation.clear();
     this.ordinWorking.clear();
+    this.ordinTurnFailure.clear();
     this.trees.clear();
     this.workspaces = [];
     this.needsYouRows = [];
@@ -466,6 +472,7 @@ export class BackendState implements HasGroups {
     this.loading = true;
     // SM-WK-1: the working line is cleared when the backend reloads; a turn still running says so again.
     this.ordinWorking.clear();
+    this.ordinTurnFailure.clear();
     try {
       const hello = await this.handle.call('service.hello', {});
       if (hello.kind !== 'ok') return false;

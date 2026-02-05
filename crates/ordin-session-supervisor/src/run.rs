@@ -111,7 +111,7 @@ pub(crate) struct RunTask {
 
 /// Journals a code with a run, as an internal entry (never fails the run).
 pub(crate) async fn journal_code(sup: &SessionSupervisor, run_id: RunId, code: &str) {
-    let _ = sup
+    let kept = sup
         .journal
         .append_entry(NewJournalEntry {
             kind: "run_code".into(),
@@ -123,6 +123,9 @@ pub(crate) async fn journal_code(sup: &SessionSupervisor, run_id: RunId, code: &
             data: serde_json::json!({ "code": code }),
         })
         .await;
+    if let Err(e) = kept {
+        journal_failed(run_id, "run_code", &e);
+    }
 }
 
 /// C.3 `Ended`: the full final message and artefacts, as entry `run_result`.
@@ -135,7 +138,7 @@ pub(crate) async fn journal_result(sup: &SessionSupervisor, run_id: RunId, end: 
         // The Journal caps an entry at 65,536 bytes; a final message is at most 32,768 characters.
         data["final_message"] = serde_json::Value::String(cut(message, 16_000));
     }
-    let _ = sup
+    let kept = sup
         .journal
         .append_entry(NewJournalEntry {
             kind: "run_result".into(),
@@ -147,6 +150,43 @@ pub(crate) async fn journal_result(sup: &SessionSupervisor, run_id: RunId, end: 
             data,
         })
         .await;
+    if let Err(e) = kept {
+        journal_failed(run_id, "run_result", &e);
+    }
+}
+
+/// A Journal entry that could not be kept: the run goes on, the line names the entry's kind and
+/// the Journal's code.
+pub(crate) fn journal_failed(run_id: RunId, kind: &'static str, e: &ordin_journal::JournalError) {
+    journal_not_kept(
+        Some(run_id.to_string().as_str()),
+        kind,
+        ordin_types::CodedError::code(e),
+    );
+}
+
+/// `sup_journal_not_kept`, with the run when the entry has one.
+pub(crate) fn journal_not_kept(run_id: Option<&str>, kind: &'static str, code: &str) {
+    tracing::warn!(run_id, kind, code, "sup_journal_not_kept");
+}
+
+/// An adapter `cancel` that failed: the run is ended in the store all the same.
+fn cancel_failed(run_id: &str, e: &AdapterError) {
+    tracing::warn!(
+        run_id,
+        code = ordin_types::CodedError::code(e),
+        "sup_cancel_failed"
+    );
+}
+
+/// The adapter would not open the run's event stream; the run's end is then read once (C.4).
+fn events_not_opened(run_id: &str, code: &str) {
+    tracing::warn!(run_id, code, "sup_events_not_opened");
+}
+
+/// The one read of a run's end after a broken stream failed or gave an invalid snapshot (C.4).
+fn end_not_read(run_id: &str, code: &str) {
+    tracing::warn!(run_id, code, "sup_end_not_read");
 }
 
 fn end_reason_of(state: RunState) -> RunEndReason {
@@ -243,7 +283,9 @@ impl RunTask {
         if let Some(handle) = self.handle.clone() {
             if check_verb(self.l.adapter.as_ref(), AdapterVerb::Cancel).is_ok() {
                 let ctx = adapter_ctx(&self.id_text(), &CancellationToken::new());
-                let _ = bounded(self.l.adapter.cancel(&ctx, &handle)).await;
+                if let Err(e) = bounded(self.l.adapter.cancel(&ctx, &handle)).await {
+                    cancel_failed(&self.id_text(), &e);
+                }
             }
         }
         self.broadcast(RunEvent::Ended {
@@ -281,7 +323,10 @@ impl RunTask {
         let ctx = adapter_ctx(&self.id_text(), &self.token);
         let stream = match self.l.adapter.events(&ctx, &handle) {
             Ok(stream) => guard_events(self.l.kind, self.run_id(), stream),
-            Err(_) => return self.event_order(None).await,
+            Err(e) => {
+                events_not_opened(&self.id_text(), ordin_types::CodedError::code(&e));
+                return self.event_order(None).await;
+            }
         };
         self.supervise(stream, rx).await
     }
@@ -543,7 +588,9 @@ impl RunTask {
         if let Some(handle) = self.handle.clone() {
             if check_verb(self.l.adapter.as_ref(), AdapterVerb::Cancel).is_ok() {
                 let ctx = adapter_ctx(&self.id_text(), &CancellationToken::new());
-                let _ = bounded(self.l.adapter.cancel(&ctx, &handle)).await;
+                if let Err(e) = bounded(self.l.adapter.cancel(&ctx, &handle)).await {
+                    cancel_failed(&self.id_text(), &e);
+                }
             }
         }
     }
@@ -624,7 +671,7 @@ impl RunTask {
         let event = match item {
             Guarded::Event(event) => event,
             Guarded::Violation(violation) => {
-                let _ = self
+                let kept = self
                     .sup
                     .journal
                     .append_entry(NewJournalEntry {
@@ -637,6 +684,9 @@ impl RunTask {
                         data: serde_json::json!({ "code": violation.code, "field": violation.field }),
                     })
                     .await;
+                if let Err(e) = kept {
+                    journal_failed(self.run_id(), "run_event_violation", &e);
+                }
                 if violation.code == "RA_EVENT_ORDER" {
                     return Some(self.event_order(Some(stream)).await);
                 }
@@ -972,12 +1022,16 @@ impl RunTask {
         tracing::warn!(run_id = self.id_text().as_str(), "sup_event_order");
         if let Some(handle) = self.handle.clone() {
             let ctx = adapter_ctx(&self.id_text(), &self.token);
-            if let Ok(snapshot) = bounded(self.l.adapter.read(&ctx, &handle)).await {
-                if ordin_runtime_adapter::check_snapshot(&snapshot).is_ok() {
-                    if let Some(end) = snapshot.end {
-                        return Outcome::End(Ending::from_end(end));
+            match bounded(self.l.adapter.read(&ctx, &handle)).await {
+                Ok(snapshot) => match ordin_runtime_adapter::check_snapshot(&snapshot) {
+                    Ok(_) => {
+                        if let Some(end) = snapshot.end {
+                            return Outcome::End(Ending::from_end(end));
+                        }
                     }
-                }
+                    Err(e) => end_not_read(&self.id_text(), ordin_types::CodedError::code(&e)),
+                },
+                Err(e) => end_not_read(&self.id_text(), ordin_types::CodedError::code(&e)),
             }
         }
         Outcome::End(Ending::failed(
@@ -1154,4 +1208,93 @@ async fn wait_for_end(
         None
     };
     tokio::time::timeout(deadline, wait).await.ok().flatten()
+}
+
+#[cfg(test)]
+mod failure_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// One failure point: its event, a field it must carry, and the call that logs it.
+    type Case<'a> = (&'static str, &'a str, Box<dyn Fn() + 'a>);
+
+    /// The lines `f` writes, in ordin's own log format.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    #[test]
+    fn each_failure_point_logs_its_code_and_run() {
+        let run = RunId::new();
+        let id = run.to_string();
+        let gone = AdapterError::Deadline;
+        let gone_code = ordin_types::CodedError::code(&gone);
+        let cases: [Case<'_>; 6] = [
+            (
+                "sup_wake_read_failed",
+                gone_code,
+                Box::new(|| crate::supervisor::wake_read_failed(&id, gone_code)),
+            ),
+            (
+                "sup_events_not_opened",
+                gone_code,
+                Box::new(|| events_not_opened(&id, gone_code)),
+            ),
+            (
+                "sup_end_not_read",
+                gone_code,
+                Box::new(|| end_not_read(&id, gone_code)),
+            ),
+            (
+                "sup_cancel_failed",
+                gone_code,
+                Box::new(|| cancel_failed(&id, &gone)),
+            ),
+            (
+                "sup_journal_not_kept",
+                "JRN_STORE_UNAVAILABLE",
+                Box::new(|| journal_not_kept(Some(&id), "run_result", "JRN_STORE_UNAVAILABLE")),
+            ),
+            (
+                "sup_end_not_recorded",
+                "SUP_STORE_UNAVAILABLE",
+                Box::new(|| agent::end_not_recorded(&id, "SUP_STORE_UNAVAILABLE")),
+            ),
+        ];
+        for (event, code, f) in cases {
+            let text = logged(f);
+            assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+            assert!(!text.contains("invalid_event_name"), "{text}");
+            assert!(!text.contains("<debug>"), "{text}");
+            assert!(
+                text.contains(&format!(r#""code":"{code}""#)),
+                "{event}: {text}"
+            );
+            assert!(text.contains(&id), "{event}: {text}");
+        }
+    }
+
+    #[test]
+    fn a_journal_entry_without_a_run_names_its_kind() {
+        let text = logged(|| journal_not_kept(None, "sup_recovered", "JRN_STORE_UNAVAILABLE"));
+        assert!(text.contains(r#""event":"sup_journal_not_kept""#), "{text}");
+        assert!(text.contains(r#""kind":"sup_recovered""#), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
 }

@@ -94,7 +94,10 @@ impl ConfluenceAdapter {
         {
             Ok(_) => Ok(()),
             Err(e) if e.code() == "EXT_KEY_DUPLICATE" => Err(ConfluenceError::ActionKeyUsed),
-            Err(_) => Err(ConfluenceError::DatastoreUnavailable),
+            Err(e) => {
+                crate::log::journal_begin_failed(e.code());
+                Err(ConfluenceError::DatastoreUnavailable)
+            }
         }
     }
 
@@ -125,7 +128,10 @@ impl ConfluenceAdapter {
     async fn remember(&self, item: &RemoteItemRef, version: &RemoteVersion) {
         let Ok(pool) = self.pool() else { return };
         if let Ok(number) = version_number(&version.tag) {
-            let _ = store::update_item_version(pool, &item_key(item), number, version).await;
+            if let Err(e) = store::update_item_version(pool, &item_key(item), number, version).await
+            {
+                crate::log::store_write_failed("item_version", e.code());
+            }
         }
     }
 
@@ -552,7 +558,9 @@ impl ConfluenceAdapter {
         self.settle(key).await;
         if let Ok(pool) = self.pool() {
             // Best effort: if this fails the removal is reported once.
-            let _ = store::delete_item(pool, &item_key(item)).await;
+            if let Err(e) = store::delete_item(pool, &item_key(item)).await {
+                crate::log::store_write_failed("item_delete", e.code());
+            }
         }
         Ok(())
     }

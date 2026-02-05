@@ -18,7 +18,8 @@ use ordin_types::{BlockId, KeptSlackMessageId, KnowledgePageId, SlackLinkId, Wor
 
 use crate::error::OhError;
 use crate::host::{
-    cut_chars, lock, Carry, Kept, OrdinHost, Turn, TurnEnd, COMPONENT, MESSAGE_MAX_CHARS,
+    cut_chars, lock, turn_failure, Carry, Kept, OrdinHost, Turn, TurnEnd, COMPONENT,
+    MESSAGE_MAX_CHARS,
 };
 use crate::ids::{ConversationId, OrdinConversationId};
 use crate::ports::LocMessage;
@@ -621,7 +622,16 @@ impl OrdinHost {
         .await;
         let summary = match end {
             Some(Ok(TurnEnd::Text(t))) if !t.trim().is_empty() => cut_chars(&t, SUMMARY_MAX_CHARS),
-            _ => return Err(failed),
+            other => {
+                let reason = match other {
+                    None => "timeout",
+                    Some(Err(_)) => "not_sent",
+                    Some(Ok(TurnEnd::Lost)) => "lost",
+                    Some(Ok(TurnEnd::Text(_))) => "empty_reply",
+                };
+                crate::host::log_summary_not_written(workspace_id, reason);
+                return Err(failed);
+            }
         };
         self.replace_conversation(
             workspace_id,
@@ -789,6 +799,7 @@ impl OrdinHost {
             tracing::info!(
                 component = COMPONENT,
                 count = points.len(),
+                reason = turn_failure(&ended),
                 "ordin_host.points_not_kept"
             );
         }
@@ -900,7 +911,7 @@ impl OrdinHost {
         let events = match self.ports.supervisor.subscribe(run_id) {
             Ok(e) => e,
             Err(e) => {
-                let _ = self.ports.supervisor.cancel(run_id).await;
+                self.cancel_logged(run_id).await;
                 return Err(OhError::SessionStartFailed {
                     cause: e.code,
                     retryable: e.retryable,
@@ -933,7 +944,7 @@ impl OrdinHost {
         }
         .await;
         if switched.is_err() {
-            let _ = self.ports.supervisor.cancel(run_id).await;
+            self.cancel_logged(run_id).await;
             return Err(OhError::DatastoreUnavailable);
         }
         self.register(&row, events, true, Some(locale));

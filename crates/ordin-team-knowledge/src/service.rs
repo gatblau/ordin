@@ -355,7 +355,7 @@ impl TeamKnowledgeService {
             data,
         };
         if let Err(e) = self.deps.journal.append_entry(entry).await {
-            tracing::warn!(target: "ordin::team_knowledge", error = %e, "team.journal_failed");
+            tracing::warn!(target: "ordin::team_knowledge", code = ordin_types::CodedError::code(&e), "team.journal_failed");
         }
     }
 

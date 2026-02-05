@@ -4615,6 +4615,9 @@ export interface OrdinSummariseResult {
   conversation_id: OrdinConversationId;
 }
 
+/** Why a turn ended without an answer, carried by an `idle` `ordin_turn_changed` (SVC-WK-2). A closed set: any other word fails decoding and is refused with `SVC_EVENT_INVALID`. */
+export type OrdinTurnFailure = ("timeout" | "not_sent" | "lost" | "empty_reply" | "run_ended");
+
 /** The state `ordin_turn_changed` carries (SVC-WK-1). */
 export type OrdinTurnState = "working" | "idle";
 
@@ -6388,6 +6391,8 @@ export type ServiceEvent = ({
   workspace_id: string;
 } | {
   doing?: string | null;
+  /** Why the turn ended without an answer; only with `state` `idle` (SVC-WK-2). */
+  failure?: (OrdinTurnFailure | null);
   kind: "ordin_turn_changed";
   since: Timestamp;
   state: OrdinTurnState;

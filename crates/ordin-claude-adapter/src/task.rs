@@ -124,7 +124,7 @@ fn stretch_span(inner: &Inner, run: &Run) -> tracing::Span {
         tracing::info_span!(
             target: "ordin_claude_adapter",
             "claude.session",
-            run_id = %run.run_id,
+            run_id = run.run_id.to_string().as_str(),
             reason = tracing::field::Empty
         )
     } else {
@@ -409,7 +409,7 @@ async fn on_line(
         }
         StreamItem::Result(result) => return on_result(inner, run, process, turn, result).await,
         StreamItem::Other => {
-            tracing::debug!(target: "ordin_claude_adapter", run_id = %run.run_id, "claude.stream.ignored");
+            tracing::debug!(target: "ordin_claude_adapter", run_id = run.run_id.to_string().as_str(), "claude.stream.ignored");
         }
     }
     None
@@ -597,7 +597,24 @@ fn spawn_login(inner: &Inner) -> Option<Child> {
         .stderr(std::process::Stdio::null());
     #[cfg(unix)]
     command.process_group(0);
-    command.spawn().ok()
+    spawn_or_log(command)
+}
+
+/// Starts `command`; a failure is logged as its io kind (never its text, which can name a path) and
+/// read as no child.
+fn spawn_or_log(mut command: tokio::process::Command) -> Option<Child> {
+    match command.spawn() {
+        Ok(child) => Some(child),
+        Err(error) => {
+            tracing::warn!(
+                target: "ordin_claude_adapter",
+                code = "CLA_SPAWN_FAILED",
+                io_kind = format!("{:?}", error.kind()).as_str(),
+                "claude.sign_in.spawn_failed"
+            );
+            None
+        }
+    }
 }
 
 /// *Sign-in flow*. True when the harness is signed in; false when the run has ended.
@@ -679,5 +696,40 @@ async fn wait_login(login: &mut Option<Child>) -> bool {
     match login.as_mut() {
         Some(child) => child.wait().await.is_ok_and(|status| status.success()),
         None => std::future::pending().await,
+    }
+}
+
+#[cfg(test)]
+mod spawn_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sign_in_that_cannot_start_logs_its_io_kind_but_not_the_path() {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        let command = tokio::process::Command::new("/no/such/folder/claude-missing");
+        let child = tracing::subscriber::with_default(subscriber, || spawn_or_log(command));
+        assert!(child.is_none());
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        assert!(
+            text.contains(r#""event":"claude.sign_in.spawn_failed""#),
+            "{text}"
+        );
+        assert!(text.contains(r#""io_kind":"NotFound""#), "{text}");
+        assert!(!text.contains("claude-missing"), "the path leaked: {text}");
+        assert!(!text.contains("<debug>"), "{text}");
     }
 }

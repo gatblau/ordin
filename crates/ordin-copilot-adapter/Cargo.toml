@@ -33,6 +33,8 @@ tokio-util = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+# Paused time for the request time limit's log test.
+tokio = { workspace = true, features = ["test-util"] }
 base64 = { workspace = true }
 # The real services of the integration test: a real Hook Relay, MCP Front and Rules Engine over a
 # real SQLite file.

@@ -56,6 +56,57 @@ impl CliCopilotPort {
     }
 }
 
+/// Why reading the CLI's output stopped. Logged by its name only: the frame itself may hold text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReadEnd {
+    /// The output ended cleanly between messages.
+    Ended,
+    /// A header line could not be read (an I/O error, or text that is not UTF-8).
+    HeaderUnreadable(std::io::ErrorKind),
+    /// The header block held no usable `Content-Length`.
+    NoLength,
+    /// The claimed length is over [`MAX_MESSAGE`].
+    TooLarge(usize),
+    /// The body ended before its claimed length.
+    BodyUnreadable(std::io::ErrorKind, usize),
+    /// The body is not JSON.
+    NotJson(serde_json::error::Category, usize),
+}
+
+impl ReadEnd {
+    fn kind(&self) -> &'static str {
+        match self {
+            ReadEnd::Ended => "ended",
+            ReadEnd::HeaderUnreadable(_) => "header_unreadable",
+            ReadEnd::NoLength => "no_length",
+            ReadEnd::TooLarge(_) => "too_large",
+            ReadEnd::BodyUnreadable(..) => "body_unreadable",
+            ReadEnd::NotJson(..) => "not_json",
+        }
+    }
+
+    /// The claimed length of the frame, where one was read; zero otherwise.
+    fn length(&self) -> u64 {
+        match self {
+            ReadEnd::TooLarge(n) | ReadEnd::BodyUnreadable(_, n) | ReadEnd::NotJson(_, n) => {
+                *n as u64
+            }
+            _ => 0,
+        }
+    }
+
+    /// The I/O error kind or JSON error category, as a name; empty when there is none.
+    fn cause(&self) -> String {
+        match self {
+            ReadEnd::HeaderUnreadable(kind) | ReadEnd::BodyUnreadable(kind, _) => {
+                format!("{kind:?}")
+            }
+            ReadEnd::NotJson(category, _) => format!("{category:?}"),
+            _ => String::new(),
+        }
+    }
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex
         .lock()
@@ -79,8 +130,19 @@ impl CopilotPort for CliCopilotPort {
             .stderr(Stdio::null())
             .kill_on_drop(true)
             .spawn()
-            .map_err(port_error)?;
+            .map_err(|error| {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    io_kind = format!("{:?}", error.kind()).as_str(),
+                    "copilot.cli.spawn_failed"
+                );
+                port_error(error)
+            })?;
         let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                "copilot.cli.streams_missing"
+            );
             return Err(PortError::new("the CLI server's streams are missing"));
         };
         let connection = Connection::open(stdout, stdin);
@@ -159,22 +221,43 @@ impl Connection {
     }
 
     async fn write(&self, message: &Value) -> Result<(), CallError> {
-        let body = serde_json::to_vec(message).map_err(|_| CallError::Closed)?;
+        let body = serde_json::to_vec(message).map_err(|_| {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                stage = "encode",
+                "copilot.cli.write_failed"
+            );
+            CallError::Closed
+        })?;
         let mut writer = self.0.writer.lock().await;
         let header = format!("Content-Length: {}\r\n\r\n", body.len());
-        writer
-            .write_all(header.as_bytes())
-            .await
-            .map_err(|_| CallError::Closed)?;
-        writer
-            .write_all(&body)
-            .await
-            .map_err(|_| CallError::Closed)?;
-        writer.flush().await.map_err(|_| CallError::Closed)
+        let written = match writer.write_all(header.as_bytes()).await {
+            Ok(()) => match writer.write_all(&body).await {
+                Ok(()) => writer.flush().await.map_err(|e| ("flush", e)),
+                Err(error) => Err(("body", error)),
+            },
+            Err(error) => Err(("header", error)),
+        };
+        written.map_err(|(stage, error)| {
+            // The error's kind only: its text is the operating system's and adds nothing.
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                stage = stage,
+                io_kind = format!("{:?}", error.kind()).as_str(),
+                bytes = body.len() as u64,
+                "copilot.cli.write_failed"
+            );
+            CallError::Closed
+        })
     }
 
     async fn call(&self, method: &str, params: Value) -> Result<Value, CallError> {
         if *lock(&self.0.closed) {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                method = method,
+                "copilot.cli.call_after_close"
+            );
             return Err(CallError::Closed);
         }
         let id = self.0.next_id.fetch_add(1, Ordering::SeqCst);
@@ -187,16 +270,46 @@ impl Connection {
         }
         match tokio::time::timeout(CALL_TIMEOUT, rx).await {
             Ok(Ok(result)) => result.map_err(|error| match error {
-                CallError::Refused { code, message, .. } => CallError::Refused {
-                    method: method.to_owned(),
-                    code,
-                    message,
-                },
-                other => other,
+                CallError::Refused { code, message, .. } => {
+                    // The code only: the CLI's message may quote what the person wrote.
+                    tracing::warn!(
+                        target: "ordin_copilot_adapter",
+                        method = method,
+                        code = code,
+                        message_chars = message.chars().count() as u64,
+                        "copilot.cli.call_refused"
+                    );
+                    CallError::Refused {
+                        method: method.to_owned(),
+                        code,
+                        message,
+                    }
+                }
+                other => {
+                    tracing::warn!(
+                        target: "ordin_copilot_adapter",
+                        method = method,
+                        "copilot.cli.call_closed"
+                    );
+                    other
+                }
             }),
-            Ok(Err(_)) => Err(CallError::Closed),
+            Ok(Err(_)) => {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    method = method,
+                    "copilot.cli.call_closed"
+                );
+                Err(CallError::Closed)
+            }
             Err(_) => {
                 lock(&self.0.waiting).remove(&id);
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    method = method,
+                    timeout_ms = CALL_TIMEOUT.as_millis() as u64,
+                    "copilot.cli.call_timed_out"
+                );
                 Err(CallError::NoAnswer(method.to_owned()))
             }
         }
@@ -209,13 +322,44 @@ impl Connection {
                 json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": text}})
             }
         };
+        // A failed write is logged by `write`; there is no one else to tell.
         let _ = self.write(&message).await;
     }
 
     /// Reads messages until the CLI's output ends; then every call and event stream ends too.
     async fn read_loop(self, mut reader: BufReader<impl AsyncRead + Send + Unpin>) {
-        while let Some(message) = read_message(&mut reader).await {
-            self.dispatch(message);
+        let mut messages: u64 = 0;
+        let end = loop {
+            match read_message(&mut reader).await {
+                Ok(message) => {
+                    messages += 1;
+                    self.dispatch(message);
+                }
+                Err(end) => break end,
+            }
+        };
+        // Every call and event stream of this connection ends here; this line says why.
+        let pending_calls = lock(&self.0.waiting).len() as u64;
+        let open_sessions = lock(&self.0.sessions).len() as u64;
+        if end == ReadEnd::Ended {
+            tracing::info!(
+                target: "ordin_copilot_adapter",
+                messages = messages,
+                pending_calls = pending_calls,
+                open_sessions = open_sessions,
+                "copilot.cli.output_ended"
+            );
+        } else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                kind = end.kind(),
+                cause = end.cause().as_str(),
+                length = end.length(),
+                messages = messages,
+                pending_calls = pending_calls,
+                open_sessions = open_sessions,
+                "copilot.cli.read_failed"
+            );
         }
         *lock(&self.0.closed) = true;
         for (_, waiter) in lock(&self.0.waiting).drain() {
@@ -232,6 +376,12 @@ impl Connection {
             (None, Some(id)) => {
                 let Some(waiter) = id.as_u64().and_then(|id| lock(&self.0.waiting).remove(&id))
                 else {
+                    // A reply after its call timed out, or to an id ordin never sent.
+                    tracing::warn!(
+                        target: "ordin_copilot_adapter",
+                        is_error = message.get("error").is_some(),
+                        "copilot.cli.reply_unmatched"
+                    );
                     return;
                 };
                 let result = match message.get("error") {
@@ -255,16 +405,30 @@ impl Connection {
                 let params = message.get("params").cloned().unwrap_or(Value::Null);
                 self.session_event(params);
             }
-            _ => {}
+            (method, _) => tracing::warn!(
+                target: "ordin_copilot_adapter",
+                method = method.unwrap_or(""),
+                "copilot.cli.message_ignored"
+            ),
         }
     }
 
     fn session_event(&self, params: Value) {
         let Some(session_id) = text(&params, "sessionId") else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                missing = "sessionId",
+                "copilot.cli.event_malformed"
+            );
             return;
         };
         let event = params.get("event").cloned().unwrap_or(Value::Null);
         let Some(kind) = text(&event, "type") else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                missing = "type",
+                "copilot.cli.event_malformed"
+            );
             return;
         };
         let data = event.get("data").cloned().unwrap_or(Value::Null);
@@ -285,20 +449,39 @@ impl Connection {
             let request = data.clone();
             tokio::spawn(async move { connection.answer_tool_call(&session, request).await });
         }
-        if let Some(route) = lock(&self.0.sessions).get(&session_id) {
-            let _ = route.events.send((kind, data));
+        match lock(&self.0.sessions).get(&session_id) {
+            // A send fails only once the session's stream was dropped: the run has ended.
+            Some(route) => {
+                let _ = route.events.send((kind, data));
+            }
+            None => tracing::warn!(
+                target: "ordin_copilot_adapter",
+                kind = kind.as_str(),
+                "copilot.cli.event_unrouted"
+            ),
         }
     }
 
     /// `permission.requested`: the gate decides, and the decision goes back to the CLI.
     async fn decide_permission(&self, session_id: &str, data: Value) {
         let Some(request_id) = text(&data, "requestId") else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                kind = "permission.requested",
+                missing = "requestId",
+                "copilot.cli.event_malformed"
+            );
             return;
         };
         let Some(gate) = lock(&self.0.sessions)
             .get(session_id)
             .map(|route| route.permission.clone())
         else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                kind = "permission.requested",
+                "copilot.cli.event_unrouted"
+            );
             return;
         };
         let request = data.get("permissionRequest").unwrap_or(&data);
@@ -319,6 +502,12 @@ impl Connection {
     // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
     async fn answer_tool_call(&self, session_id: &str, data: Value) {
         let Some(request_id) = text(&data, "requestId") else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                kind = "external_tool.requested",
+                missing = "requestId",
+                "copilot.cli.event_malformed"
+            );
             return;
         };
         let handler = lock(&self.0.sessions)
@@ -386,10 +575,17 @@ impl Connection {
                 json!({})
             }
             // A pre-tool-use request for a session ordin does not know is denied (fail closed).
-            (None, "preToolUse") => json!({
-                "permissionDecision": "deny",
-                "permissionDecisionReason": crate::gate::COULD_NOT_CHECK,
-            }),
+            (None, "preToolUse") => {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    hook = "preToolUse",
+                    "copilot.cli.hook_unrouted"
+                );
+                json!({
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": crate::gate::COULD_NOT_CHECK,
+                })
+            }
             _ => json!({}),
         };
         self.reply(id, Ok(json!({ "output": output }))).await;
@@ -400,13 +596,17 @@ fn text(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
-/// One `Content-Length`-framed message; `None` at the end of the stream or on a broken frame.
-async fn read_message(reader: &mut BufReader<impl AsyncRead + Unpin>) -> Option<Value> {
+/// One `Content-Length`-framed message; at the end of the stream or on a broken frame, why not.
+async fn read_message(reader: &mut BufReader<impl AsyncRead + Unpin>) -> Result<Value, ReadEnd> {
     let mut length = None;
     loop {
         let mut line = String::new();
-        if reader.read_line(&mut line).await.ok()? == 0 {
-            return None;
+        let read = reader
+            .read_line(&mut line)
+            .await
+            .map_err(|error| ReadEnd::HeaderUnreadable(error.kind()))?;
+        if read == 0 {
+            return Err(ReadEnd::Ended);
         }
         let line = line.trim_end();
         if line.is_empty() {
@@ -418,10 +618,16 @@ async fn read_message(reader: &mut BufReader<impl AsyncRead + Unpin>) -> Option<
             }
         }
     }
-    let length = length.filter(|n| *n <= MAX_MESSAGE)?;
+    let length = length.ok_or(ReadEnd::NoLength)?;
+    if length > MAX_MESSAGE {
+        return Err(ReadEnd::TooLarge(length));
+    }
     let mut body = vec![0; length];
-    reader.read_exact(&mut body).await.ok()?;
-    serde_json::from_slice(&body).ok()
+    reader
+        .read_exact(&mut body)
+        .await
+        .map_err(|error| ReadEnd::BodyUnreadable(error.kind(), length))?;
+    serde_json::from_slice(&body).map_err(|error| ReadEnd::NotJson(error.classify(), length))
 }
 
 /// The tool a permission request is about: an MCP tool as `mcp__<server>__<tool>`, otherwise the
@@ -533,9 +739,32 @@ impl CopilotServer for CliServer {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(port_error)?;
+            .map_err(|error| {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    io_kind = format!("{:?}", error.kind()).as_str(),
+                    "copilot.sign_in.login_not_started"
+                );
+                port_error(error)
+            })?;
         tokio::spawn(async move {
-            let _ = login.wait().await;
+            // How `copilot login` ended: its exit code only, as it writes nowhere ordin reads.
+            match login.wait().await {
+                Ok(status) if status.success() => tracing::info!(
+                    target: "ordin_copilot_adapter",
+                    "copilot.sign_in.login_ended"
+                ),
+                Ok(status) => tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    exit_code = status.code().map(i64::from),
+                    "copilot.sign_in.login_failed"
+                ),
+                Err(error) => tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    io_kind = format!("{:?}", error.kind()).as_str(),
+                    "copilot.sign_in.login_failed"
+                ),
+            }
         });
         Ok(())
     }
@@ -579,6 +808,10 @@ impl CopilotServer for CliServer {
             .get_mut(session_id)
             .and_then(|route| route.pending.take());
         let Some(receiver) = pending else {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                "copilot.cli.events_unavailable"
+            );
             return futures::stream::iter([CopilotEvent::ServerExited { status: None }]).boxed();
         };
         futures::stream::unfold(
@@ -618,10 +851,28 @@ impl CopilotServer for CliServer {
 
     async fn stop(&self, deadline: Duration) {
         // Closing standard input asks the CLI to end; it is killed if it has not after `deadline`.
-        let _ = self.connection.0.writer.lock().await.shutdown().await;
+        // A failed close is expected when the CLI has already ended; the wait below says how.
+        if let Err(error) = self.connection.0.writer.lock().await.shutdown().await {
+            tracing::info!(
+                target: "ordin_copilot_adapter",
+                io_kind = format!("{:?}", error.kind()).as_str(),
+                "copilot.cli.stdin_close_failed"
+            );
+        }
         let mut child = self.child.lock().await;
         if tokio::time::timeout(deadline, child.wait()).await.is_err() {
-            let _ = child.start_kill();
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                deadline_ms = deadline.as_millis() as u64,
+                "copilot.cli.stop_timed_out"
+            );
+            if let Err(error) = child.start_kill() {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    io_kind = format!("{:?}", error.kind()).as_str(),
+                    "copilot.cli.kill_failed"
+                );
+            }
             let _ = child.wait().await;
         }
         lock(&self.connection.0.sessions).clear();
@@ -634,6 +885,19 @@ impl CopilotServer for CliServer {
 struct EventState {
     tools: HashMap<String, String>,
     last_message: Option<String>,
+    /// The event types already logged as ignored, so a stream of one type logs once.
+    ignored: std::collections::HashSet<String>,
+}
+
+/// An event ordin reads but which lacks the field it needs: logged, then dropped.
+fn incomplete(kind: &str, missing: &'static str) -> Option<CopilotEvent> {
+    tracing::warn!(
+        target: "ordin_copilot_adapter",
+        kind = kind,
+        missing = missing,
+        "copilot.event.incomplete"
+    );
+    None
 }
 
 fn count_of(data: &Value, key: &str) -> Option<u64> {
@@ -645,19 +909,28 @@ impl EventState {
         match kind {
             "session.start" => Some(CopilotEvent::SessionStarted),
             "assistant.message" => {
-                let text = text(data, "content")?;
+                let Some(text) = text(data, "content") else {
+                    return incomplete(kind, "content");
+                };
                 self.last_message = Some(text.clone());
                 Some(CopilotEvent::AssistantText { text })
             }
             "tool.execution_start" => {
-                let tool = text(data, "toolName")?;
+                let Some(tool) = text(data, "toolName") else {
+                    return incomplete(kind, "toolName");
+                };
                 if let Some(id) = text(data, "toolCallId") {
                     self.tools.insert(id, tool.clone());
                 }
                 Some(CopilotEvent::ToolStarted { tool })
             }
             "tool.execution_complete" => {
-                let tool = self.tools.remove(&text(data, "toolCallId")?)?;
+                let Some(id) = text(data, "toolCallId") else {
+                    return incomplete(kind, "toolCallId");
+                };
+                let Some(tool) = self.tools.remove(&id) else {
+                    return incomplete(kind, "started_tool");
+                };
                 let succeeded = data
                     .get("success")
                     .and_then(Value::as_bool)
@@ -670,18 +943,41 @@ impl EventState {
                 output_tokens: count_of(data, "outputTokens"),
                 cached_input_tokens: count_of(data, "cacheReadTokens"),
             }),
-            "session.idle" => Some(CopilotEvent::TurnEnded {
-                final_text: self.last_message.take(),
-            }),
+            "session.idle" => {
+                let final_text = self.last_message.take();
+                tracing::info!(
+                    target: "ordin_copilot_adapter",
+                    has_final_text = final_text.is_some(),
+                    final_text_chars = final_text.as_ref().map_or(0, |t| t.chars().count() as u64),
+                    "copilot.event.turn_ended"
+                );
+                Some(CopilotEvent::TurnEnded { final_text })
+            }
             "session.error" => {
                 let message = text(data, "message").unwrap_or_default();
+                // The error's type only: its message is the service's and may quote the turn.
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    error_type = text(data, "errorType").as_deref().unwrap_or(""),
+                    message_chars = message.chars().count() as u64,
+                    "copilot.event.session_error"
+                );
                 Some(match text(data, "errorType").as_deref() {
                     Some("authentication") => CopilotEvent::SignedOut,
                     Some("quota") => CopilotEvent::AllowanceExhausted { message },
                     _ => CopilotEvent::Error { message },
                 })
             }
-            _ => None,
+            _ => {
+                if self.ignored.insert(kind.to_owned()) {
+                    tracing::info!(
+                        target: "ordin_copilot_adapter",
+                        kind = kind,
+                        "copilot.event.ignored"
+                    );
+                }
+                None
+            }
         }
     }
 }
@@ -1017,5 +1313,430 @@ mod tests {
             connection.call("ping", json!({})).await,
             Err(CallError::Closed)
         ));
+    }
+
+    // ---- failures are logged (plan 08 Phase 18) ----
+
+    #[derive(Clone, Default)]
+    struct Lines(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            lock(&self.0).extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Lines {
+        /// Installs ordin's own line format for this thread until the guard drops.
+        fn install(&self) -> tracing::subscriber::DefaultGuard {
+            let writer = self.clone();
+            tracing::subscriber::set_default(ordin_types::log::subscriber(
+                move || writer.clone(),
+                tracing::Level::INFO,
+            ))
+        }
+        fn text(&self) -> String {
+            String::from_utf8(lock(&self.0).clone()).expect("utf-8")
+        }
+        /// The one line of `event`, parsed.
+        fn line(&self, event: &str) -> Value {
+            let text = self.text();
+            assert!(!text.contains("invalid_event_name"), "{text}");
+            assert!(!text.contains("<debug>"), "{text}");
+            let found = text
+                .lines()
+                .map(|line| serde_json::from_str::<Value>(line).expect("json line"))
+                .find(|line| line["event"] == event);
+            found.unwrap_or_else(|| panic!("no {event} line in {text}"))
+        }
+    }
+
+    /// A connection whose CLI wrote `output` and then ended; returns once reading has stopped.
+    async fn read_to_end(output: &[u8]) -> Connection {
+        let connection = Connection::open(std::io::Cursor::new(output.to_vec()), tokio::io::sink());
+        while !*lock(&connection.0.closed) {
+            tokio::task::yield_now().await;
+        }
+        connection
+    }
+
+    #[tokio::test]
+    async fn the_end_of_the_cli_output_is_logged_with_why() {
+        let frame =
+            |body: &str| format!("Content-Length: {}\r\n\r\n{body}", body.len()).into_bytes();
+        let short = b"Content-Length: 50\r\n\r\n{\"secret words\"".to_vec();
+        let cases: Vec<(&str, Vec<u8>, &str, &str, u64)> = vec![
+            (
+                "not_json",
+                frame("{secret words}"),
+                "not_json",
+                "Syntax",
+                14,
+            ),
+            (
+                "too_large",
+                b"Content-Length: 999999999999\r\n\r\n".to_vec(),
+                "too_large",
+                "",
+                999_999_999_999,
+            ),
+            (
+                "no_length",
+                b"X-Secret-Words: 1\r\n\r\n".to_vec(),
+                "no_length",
+                "",
+                0,
+            ),
+            (
+                "body_unreadable",
+                short,
+                "body_unreadable",
+                "UnexpectedEof",
+                50,
+            ),
+            (
+                "header_unreadable",
+                b"\xff\xfe secret words\r\n".to_vec(),
+                "header_unreadable",
+                "InvalidData",
+                0,
+            ),
+        ];
+        for (name, output, kind, cause, length) in cases {
+            let lines = Lines::default();
+            let _guard = lines.install();
+            read_to_end(&output).await;
+            let line = lines.line("copilot.cli.read_failed");
+            assert_eq!(line["level"], "WARNING", "{name}");
+            assert_eq!(line["kind"], kind, "{name}");
+            assert_eq!(line["cause"], cause, "{name}");
+            assert_eq!(line["length"], length, "{name}");
+            assert_eq!(line["messages"], 0, "{name}");
+            assert!(!lines.text().contains("secret"), "{name}: {}", lines.text());
+        }
+
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let output = frame(
+            r#"{"jsonrpc":"2.0","method":"session.event","params":{"sessionId":"s9","event":{"type":"session.idle"}}}"#,
+        );
+        read_to_end(&output).await;
+        let line = lines.line("copilot.cli.output_ended");
+        assert_eq!(line["level"], "INFO");
+        assert_eq!(line["messages"], 1);
+        assert_eq!(line["pending_calls"], 0);
+        // The event for a session ordin does not hold is logged by its type.
+        assert_eq!(
+            lines.line("copilot.cli.event_unrouted")["kind"],
+            "session.idle"
+        );
+    }
+
+    #[tokio::test]
+    async fn messages_ordin_cannot_use_are_logged_by_shape() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let connection = read_to_end(b"").await;
+        connection
+            .dispatch(json!({"jsonrpc": "2.0", "id": 77, "result": {"text": "secret words"}}));
+        assert_eq!(lines.line("copilot.cli.reply_unmatched")["is_error"], false);
+        connection.dispatch(
+            json!({"jsonrpc": "2.0", "method": "log.note", "params": {"text": "secret words"}}),
+        );
+        assert_eq!(
+            lines.line("copilot.cli.message_ignored")["method"],
+            "log.note"
+        );
+        connection.dispatch(json!({"jsonrpc": "2.0", "method": "session.event", "params": {"event": {"type": "x"}}}));
+        assert_eq!(
+            lines.line("copilot.cli.event_malformed")["missing"],
+            "sessionId"
+        );
+        assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    #[tokio::test]
+    async fn failed_calls_are_logged_by_method_and_code() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        // Refused: the code is logged, the CLI's message is not.
+        let (ours, theirs) = tokio::io::duplex(1 << 16);
+        let (our_read, our_write) = tokio::io::split(ours);
+        let (their_read, mut their_write) = tokio::io::split(theirs);
+        let connection = Connection::open(our_read, our_write);
+        let mut their_read = BufReader::new(their_read);
+        let call = tokio::spawn({
+            let connection = connection.clone();
+            async move { connection.call("session.send", json!({})).await }
+        });
+        let request = read_message(&mut their_read).await.unwrap();
+        write_frame(
+            &mut their_write,
+            json!({"jsonrpc": "2.0", "id": request["id"],
+            "error": {"code": -32000, "message": "secret words"}}),
+        )
+        .await;
+        assert!(call.await.unwrap().is_err());
+        let line = lines.line("copilot.cli.call_refused");
+        assert_eq!(line["method"], "session.send");
+        assert_eq!(line["code"], -32000);
+        assert_eq!(line["message_chars"], 12);
+
+        // A write to a CLI that has gone: the I/O error's kind.
+        drop(their_read);
+        drop(their_write);
+        while !*lock(&connection.0.closed) {
+            tokio::task::yield_now().await;
+        }
+        *lock(&connection.0.closed) = false;
+        assert!(connection.call("ping", json!({})).await.is_err());
+        let line = lines.line("copilot.cli.write_failed");
+        assert_eq!(line["stage"], "header");
+        assert_eq!(line["io_kind"], "BrokenPipe");
+
+        // After the output ended.
+        *lock(&connection.0.closed) = true;
+        assert!(connection.call("ping", json!({})).await.is_err());
+        assert_eq!(lines.line("copilot.cli.call_after_close")["method"], "ping");
+        assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    #[test]
+    fn events_ordin_drops_are_logged_without_their_text() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let mut state = EventState::default();
+        assert_eq!(
+            state.map("assistant.message", &json!({"other": "secret words"})),
+            None
+        );
+        assert_eq!(state.map("tool.execution_start", &json!({})), None);
+        assert_eq!(
+            state.map("tool.execution_complete", &json!({"toolCallId": "nope"})),
+            None
+        );
+        let incomplete: Vec<(String, String)> = lines
+            .text()
+            .lines()
+            .map(|l| serde_json::from_str::<Value>(l).unwrap())
+            .filter(|l| l["event"] == "copilot.event.incomplete")
+            .map(|l| {
+                (
+                    l["kind"].as_str().unwrap().to_owned(),
+                    l["missing"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            incomplete,
+            [
+                ("assistant.message".to_owned(), "content".to_owned()),
+                ("tool.execution_start".to_owned(), "toolName".to_owned()),
+                (
+                    "tool.execution_complete".to_owned(),
+                    "started_tool".to_owned()
+                ),
+            ]
+        );
+        assert_eq!(lines.line("copilot.event.incomplete")["level"], "WARNING");
+
+        // An unknown type is logged once per stream.
+        state.map(
+            "assistant.message_delta",
+            &json!({"deltaContent": "secret words"}),
+        );
+        state.map(
+            "assistant.message_delta",
+            &json!({"deltaContent": "secret words"}),
+        );
+        assert_eq!(
+            lines.line("copilot.event.ignored")["kind"],
+            "assistant.message_delta"
+        );
+        assert_eq!(lines.text().matches("copilot.event.ignored").count(), 1);
+
+        state.map(
+            "session.error",
+            &json!({"errorType": "network", "message": "secret words"}),
+        );
+        let line = lines.line("copilot.event.session_error");
+        assert_eq!(line["error_type"], "network");
+        assert_eq!(line["message_chars"], 12);
+
+        state.map("session.idle", &json!({}));
+        let line = lines.line("copilot.event.turn_ended");
+        assert_eq!(line["has_final_text"], false);
+        assert_eq!(line["final_text_chars"], 0);
+        assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    #[tokio::test]
+    async fn a_cli_that_cannot_start_logs_the_error_kind_not_the_path() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let spec = CliServerSpec {
+            cli_path: PathBuf::from("/nowhere/secret-words/copilot"),
+            working_folder: std::env::temp_dir(),
+            env: BTreeMap::new(),
+        };
+        assert!(CliCopilotPort::new().start_server(spec).await.is_err());
+        assert_eq!(
+            lines.line("copilot.cli.spawn_failed")["io_kind"],
+            "NotFound"
+        );
+
+        // `copilot login` that cannot start: the same, through a server whose child is this test.
+        let child = Command::new(std::env::current_exe().unwrap())
+            .arg("--list")
+            .stdout(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let server = CliServer {
+            connection: read_to_end(b"").await,
+            child: tokio::sync::Mutex::new(child),
+            cli_path: PathBuf::from("/nowhere/secret-words/copilot"),
+            env: BTreeMap::new(),
+            working_folder: std::env::temp_dir(),
+        };
+        assert!(server.start_login().await.is_err());
+        assert_eq!(
+            lines.line("copilot.sign_in.login_not_started")["io_kind"],
+            "NotFound"
+        );
+        assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    /// A writer whose close fails, as a pipe to a CLI that has already gone.
+    struct CloseFails;
+    impl AsyncWrite for CloseFails {
+        fn poll_write(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+            buf: &[u8],
+        ) -> std::task::Poll<std::io::Result<usize>> {
+            std::task::Poll::Ready(Ok(buf.len()))
+        }
+        fn poll_flush(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Err(std::io::ErrorKind::BrokenPipe.into()))
+        }
+    }
+
+    /// A server over `connection` whose child runs `program args`, and whose `copilot login` is
+    /// `cli_path`.
+    #[cfg(unix)]
+    fn server_of(
+        connection: Connection,
+        program: &str,
+        args: &[&str],
+        cli_path: &str,
+    ) -> CliServer {
+        let child = Command::new(program)
+            .args(args)
+            .kill_on_drop(true)
+            .spawn()
+            .expect("child");
+        CliServer {
+            connection,
+            child: tokio::sync::Mutex::new(child),
+            cli_path: PathBuf::from(cli_path),
+            env: BTreeMap::from([("PATH".to_owned(), "/usr/bin:/bin".to_owned())]),
+            working_folder: std::env::temp_dir(),
+        }
+    }
+
+    /// Waits until `lines` holds `event`.
+    async fn until_logged(lines: &Lines, event: &str) {
+        for _ in 0..500 {
+            if lines.text().contains(event) {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("never logged {event}: {}", lines.text());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_request_with_no_answer_logs_its_method_and_time_limit() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let (ours, _theirs) = tokio::io::duplex(1 << 16);
+        let (our_read, our_write) = tokio::io::split(ours);
+        let connection = Connection::open(our_read, our_write);
+        assert!(matches!(
+            connection.call("auth.getStatus", json!({})).await,
+            Err(CallError::NoAnswer(_))
+        ));
+        let line = lines.line("copilot.cli.call_timed_out");
+        assert_eq!(line["method"], "auth.getStatus");
+        assert_eq!(line["timeout_ms"], 60_000);
+    }
+
+    #[tokio::test]
+    async fn a_hook_for_an_unknown_session_is_logged_and_denied() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+        let connection = read_to_end(b"").await;
+        connection
+            .answer(
+                "hooks.invoke",
+                json!(5),
+                json!({"sessionId": "gone", "hookType": "preToolUse",
+                       "input": {"toolName": "bash", "toolArgs": {"command": "secret words"}}}),
+            )
+            .await;
+        assert_eq!(
+            lines.line("copilot.cli.hook_unrouted")["hook"],
+            "preToolUse"
+        );
+        assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn the_servers_own_failures_are_logged() {
+        let lines = Lines::default();
+        let _guard = lines.install();
+
+        // Events for a session with no route.
+        let server = server_of(read_to_end(b"").await, "true", &[], "true");
+        let mut events = server.events("unknown");
+        assert_eq!(
+            events.next().await,
+            Some(CopilotEvent::ServerExited { status: None })
+        );
+        lines.line("copilot.cli.events_unavailable");
+
+        // `copilot login` that ends well, and one that fails.
+        server.start_login().await.expect("login");
+        until_logged(&lines, "copilot.sign_in.login_ended").await;
+        assert_eq!(lines.line("copilot.sign_in.login_ended")["level"], "INFO");
+        let failing = server_of(read_to_end(b"").await, "true", &[], "false");
+        failing.start_login().await.expect("login");
+        until_logged(&lines, "copilot.sign_in.login_failed").await;
+        assert_eq!(lines.line("copilot.sign_in.login_failed")["exit_code"], 1);
+
+        // A stop whose close fails and whose child outlives the deadline.
+        let connection = Connection::open(tokio::io::empty(), CloseFails);
+        let slow = server_of(connection, "sleep", &["30"], "true");
+        slow.stop(Duration::from_millis(50)).await;
+        assert_eq!(
+            lines.line("copilot.cli.stdin_close_failed")["io_kind"],
+            "BrokenPipe"
+        );
+        assert_eq!(lines.line("copilot.cli.stop_timed_out")["deadline_ms"], 50);
+        assert!(!lines.text().contains("copilot.cli.kill_failed"));
     }
 }

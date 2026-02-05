@@ -19,6 +19,7 @@ mod client;
 mod convert;
 mod error;
 mod linked;
+mod log;
 mod push;
 mod read;
 mod store;

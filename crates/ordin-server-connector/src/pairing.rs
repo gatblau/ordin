@@ -128,7 +128,9 @@ impl Inner {
             .await
             .is_err()
         {
-            let _ = store::delete(&self.pool, id).await;
+            if let Err(error) = store::delete(&self.pool, id).await {
+                pairing_rollback_failed(&error);
+            }
             return Err(ConnectorError::Keychain);
         }
         drop(key);
@@ -301,4 +303,59 @@ fn decode_key(reply: &PairReply) -> Result<Zeroizing<[u8; 32]>, ConnectorError> 
     let mut key = Zeroizing::new([0u8; 32]);
     key.copy_from_slice(&raw);
     Ok(key)
+}
+
+/// The half-made connection row could not be removed after the keychain refused the key.
+fn pairing_rollback_failed(error: &ConnectorError) {
+    tracing::warn!(
+        component = "server_connector",
+        code = ordin_types::CodedError::code(error),
+        "pairing.rollback_failed"
+    );
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn a_failed_pairing_rollback_is_logged_with_its_code() {
+        let text = logged(|| pairing_rollback_failed(&ConnectorError::Keychain));
+        assert_readable(
+            &text,
+            "pairing.rollback_failed",
+            &[r#""code":"CONN_KEYCHAIN""#],
+        );
+    }
 }

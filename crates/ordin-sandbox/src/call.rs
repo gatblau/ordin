@@ -70,7 +70,7 @@ impl Drop for CallGuard<'_> {
 fn refuse(ctx: &ToolCallContext, r: Refusal) -> ToolFailure {
     tracing::info!(
         target: "ordin_sandbox",
-        run_id = %ctx.run_id, agent_instance_id = ctx.agent_instance_id.to_string().as_str(),
+        run_id = ctx.run_id.to_string().as_str(), agent_instance_id = ctx.agent_instance_id.to_string().as_str(),
         tool = PYTHON_TOOL, code = r.code,
         "sandbox.run_refused"
     );
@@ -257,7 +257,7 @@ async fn run(
         None
     };
     if save_failed {
-        tracing::warn!(target: "ordin_sandbox", run_id = %run_id, saved = saved.len(), "sandbox.output_save_failed");
+        tracing::warn!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), saved = saved.len(), "sandbox.output_save_failed");
         return Err(Refusal::output_save_failed());
     }
 
@@ -287,13 +287,13 @@ async fn run(
         }),
     };
     if core.journal.append_entry(entry).await.is_err() {
-        tracing::warn!(target: "ordin_sandbox", run_id = %run_id, kind = "sandbox_run", "sandbox.journal_failed");
+        tracing::warn!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), kind = "sandbox_run", "sandbox.journal_failed");
     }
 
     // C.15
     tracing::info!(
         target: "ordin_sandbox",
-        run_id = %run_id, agent_instance_id = agent.to_string().as_str(), workspace_id = workspace.to_string().as_str(),
+        run_id = run_id.to_string().as_str(), agent_instance_id = agent.to_string().as_str(), workspace_id = workspace.to_string().as_str(),
         tool = key.tool.as_str(), exit_code = result.exit_code, duration_ms,
         api_calls = result.api_calls.len(), module_calls, files_in, files_out,
         truncated = result.truncated, work_session = args.work_session,
@@ -555,7 +555,7 @@ fn module_tools(core: &Core, run_id: RunId) -> Vec<(ToolKey, ToolSpec)> {
     let listed = match core.dispatch.session_tools(run_id) {
         Ok(listed) => listed,
         Err(_) => {
-            tracing::info!(target: "ordin_sandbox", run_id = %run_id, reason = "session_unknown", "sandbox.module_tool_skipped");
+            tracing::info!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), reason = "session_unknown", "sandbox.module_tool_skipped");
             return Vec::new();
         }
     };
@@ -565,11 +565,11 @@ fn module_tools(core: &Core, run_id: RunId) -> Vec<(ToolKey, ToolSpec)> {
             continue;
         }
         if !module_name(&key.tool) {
-            tracing::info!(target: "ordin_sandbox", run_id = %run_id, tool = key.tool.as_str(), reason = "name", "sandbox.module_tool_skipped");
+            tracing::info!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), tool = key.tool.as_str(), reason = "name", "sandbox.module_tool_skipped");
             continue;
         }
         if kept.iter().any(|(k, _)| k.tool == key.tool) {
-            tracing::info!(target: "ordin_sandbox", run_id = %run_id, tool = key.tool.as_str(), reason = "duplicate", "sandbox.module_tool_skipped");
+            tracing::info!(target: "ordin_sandbox", run_id = run_id.to_string().as_str(), tool = key.tool.as_str(), reason = "duplicate", "sandbox.module_tool_skipped");
             continue;
         }
         kept.push((key, spec));

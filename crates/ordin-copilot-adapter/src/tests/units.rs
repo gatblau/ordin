@@ -452,3 +452,49 @@ async fn a_sign_in_finished_elsewhere_is_seen_by_a_fresh_probe_server() {
     assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
     assert_eq!(started(), 2);
 }
+
+// ---- failures are logged (plan 08 Phase 18) ----
+
+#[tokio::test]
+async fn a_failed_sign_in_probe_logs_its_stage() {
+    let h = Harness::new();
+    h.script().start_fails.store(true, Ordering::SeqCst);
+    h.adapter.probe_repair().await.unwrap_err();
+    expect_log(&[
+        "copilot.sign_in.probe_failed",
+        r#""stage":"server_start""#,
+        "CPA_PROBE_FAILED",
+    ])
+    .await;
+    h.script().start_fails.store(false, Ordering::SeqCst);
+    h.script().auth_fails.store(true, Ordering::SeqCst);
+    h.adapter.probe_sign_in().await.unwrap_err();
+    expect_log(&["copilot.sign_in.probe_failed", r#""stage":"status""#]).await;
+    assert!(log_lines(&["invalid_event_name"]).is_empty());
+}
+
+#[tokio::test]
+async fn a_failed_silent_refresh_logs_its_code() {
+    let h = Harness::with(ScriptedCopilotPort::default(), |_| {});
+    *h.identity.fails.lock().unwrap() = Some("ID_TEST_REFRESH_FAILED");
+    let req = free_text("Do the work.");
+    let run = req.run_id.to_string();
+    let _handle = h.start(req).await.expect("start");
+    expect_log(&[
+        &run,
+        "copilot.sign_in.refresh_failed",
+        "ID_TEST_REFRESH_FAILED",
+        r#""retryable":true"#,
+    ])
+    .await;
+}
+
+#[tokio::test]
+async fn a_failed_abort_is_logged() {
+    let h = Harness::new();
+    let (handle, _) = h.start_live("Do the work.").await;
+    h.script().abort_fails.store(true, Ordering::SeqCst);
+    h.adapter.cancel(&ctx(), &handle).await.expect("cancel");
+    h.until_ended(&handle).await;
+    expect_log(&[&handle.run_id.to_string(), "copilot.abort.failed"]).await;
+}

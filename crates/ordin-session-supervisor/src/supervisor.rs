@@ -191,6 +191,11 @@ pub(crate) fn adapter_ctx(correlation: &str, parent: &CancellationToken) -> Adap
     }
 }
 
+/// After a wake, a running run's state could not be read; the run is left to its own stream.
+pub(crate) fn wake_read_failed(run_id: &str, code: &str) {
+    tracing::warn!(run_id, code, "sup_wake_read_failed");
+}
+
 /// An adapter call bounded by [`ADAPTER_DEADLINE`]; an overrun is `AdapterError::Deadline`.
 pub(crate) async fn bounded<T>(
     call: impl std::future::Future<Output = Result<T, AdapterError>>,
@@ -1049,7 +1054,7 @@ impl SessionSupervisor {
                 }
             }
         }
-        let _ = self
+        let kept = self
             .journal
             .append_entry(ordin_journal::NewJournalEntry {
                 kind: "sup_recovered".into(),
@@ -1061,6 +1066,9 @@ impl SessionSupervisor {
                 data: serde_json::to_value(&report).unwrap_or_default(),
             })
             .await;
+        if let Err(e) = kept {
+            crate::run::journal_not_kept(None, "sup_recovered", ordin_types::CodedError::code(&e));
+        }
         tracing::info!(
             resumed = report.resumed,
             interrupted = report.interrupted,
@@ -1308,7 +1316,10 @@ impl SessionSupervisor {
                             .await;
                     }
                 }
-                Err(_) => {}
+                Err(e) => wake_read_failed(
+                    run_id.to_string().as_str(),
+                    ordin_types::CodedError::code(&e),
+                ),
             }
         }
         tracing::info!(slept_seconds = slept_for.as_secs(), interrupted, "sup_woke");

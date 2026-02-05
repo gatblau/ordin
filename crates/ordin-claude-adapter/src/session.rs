@@ -373,12 +373,14 @@ impl Inner {
         #[cfg(unix)]
         command.process_group(0);
         let spawn_failed = || Failure::unreachable("CLA_SPAWN_FAILED", true);
-        let mut child = command.spawn().map_err(|_| {
+        let mut child = command.spawn().map_err(|error| {
+            // The io kind only: the error's text can name the program's path.
             run_log!(
                 warn,
                 run,
                 "claude.session.spawn_failed",
-                code = "CLA_SPAWN_FAILED"
+                code = "CLA_SPAWN_FAILED",
+                io_kind = format!("{:?}", error.kind()).as_str()
             );
             spawn_failed()
         })?;

@@ -603,11 +603,15 @@ impl WorkspaceService {
     async fn undo_remote(&self, link: &SourceLink, place: PlaceId) {
         match link.kind {
             SourceLinkKind::SharepointLocation => {
-                let _ = self.sharepoint.untrack_link(link.id).await;
+                if let Err(error) = self.sharepoint.untrack_link(link.id).await {
+                    log::rollback_failed("untrack_link", error.code());
+                }
             }
             SourceLinkKind::ConfluenceLocation => {
                 if let Some(confluence) = &self.confluence {
-                    let _ = confluence.untrack_link(link.id).await;
+                    if let Err(error) = confluence.untrack_link(link.id).await {
+                        log::rollback_failed("untrack_link", error.code());
+                    }
                 }
             }
             _ => {}
@@ -673,7 +677,9 @@ impl WorkspaceService {
                     proposed.kind,
                     SourceLinkKind::SharepointLocation | SourceLinkKind::ConfluenceLocation
                 ) {
-                    let _ = self.decline_link(proposed.id).await;
+                    if let Err(error) = self.decline_link(proposed.id).await {
+                        log::rollback_failed("decline_link", error.code());
+                    }
                 }
                 Err(error)
             }
@@ -709,9 +715,13 @@ impl WorkspaceService {
             self.delete_grants_on(ws, link.place_id).await?;
             if let Err(error) = self.publish(ws).await {
                 for grant in &held {
-                    let _ = self.restore_grant(grant).await;
+                    if let Err(error) = self.restore_grant(grant).await {
+                        log::rollback_failed("restore_grant", error.code());
+                    }
                 }
-                let _ = self.publish(ws).await;
+                if let Err(error) = self.publish(ws).await {
+                    log::rollback_failed("publish", error.code());
+                }
                 return Err(error);
             }
         }

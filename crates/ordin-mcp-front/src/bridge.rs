@@ -599,7 +599,7 @@ pub(crate) fn spawn_accept_loop(
                     Err(error) => {
                         tracing::warn!(
                             component = "mcp_front",
-                            detail = ?error.kind(),
+                            detail = format!("{:?}", error.kind()).as_str(),
                             "mcp_front.accept_failed"
                         );
                         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -632,7 +632,7 @@ pub(crate) fn spawn_accept_loop(
             if let Err(error) = connected {
                 tracing::warn!(
                     component = "mcp_front",
-                    detail = ?error.kind(),
+                    detail = format!("{:?}", error.kind()).as_str(),
                     "mcp_front.accept_failed"
                 );
                 tokio::time::sleep(Duration::from_millis(50)).await;
@@ -643,7 +643,7 @@ pub(crate) fn spawn_accept_loop(
                 Err(error) => {
                     tracing::warn!(
                         component = "mcp_front",
-                        detail = ?error.kind(),
+                        detail = format!("{:?}", error.kind()).as_str(),
                         "mcp_front.accept_failed"
                     );
                     break;

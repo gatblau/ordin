@@ -164,9 +164,9 @@ fn read_tokenizer(
     })
 }
 
-fn load_failed(error: impl std::fmt::Display) -> ProviderError {
-    // A loader's error names a file or an operator, never fact content.
-    tracing::error!(target: "ordin::memory", detail = %error, "memory.model_load_failed");
+fn load_failed(_error: impl std::fmt::Display) -> ProviderError {
+    // A loader's error can name a file under the person's home, so the line carries no detail.
+    tracing::error!(target: "ordin::memory", "memory.model_load_failed");
     ProviderError::Transport("the model could not be loaded".to_owned())
 }
 
@@ -350,6 +350,41 @@ impl RerankClient for OnnxReranker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    #[test]
+    fn a_model_load_failure_is_logged_without_the_loader_text() {
+        let text = logged(|| {
+            let _ = load_failed("cannot open /home/sam/models/tokenizer.json");
+        });
+        assert!(
+            text.contains(r#""event":"memory.model_load_failed""#),
+            "{text}"
+        );
+        assert!(!text.contains("/home/sam"), "the path leaked: {text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
 
     #[tokio::test]
     async fn a_recall_embeds_as_a_query_and_everything_else_as_a_passage() {

@@ -373,7 +373,7 @@ impl DesktopServiceApi {
         if restarting {
             tracing::info!(
                 component = "desktop",
-                harness = ?to_use,
+                harness = format!("{to_use:?}").as_str(),
                 "harness_chosen_restart"
             );
             if let Some(shell) = &self.modules.shell {

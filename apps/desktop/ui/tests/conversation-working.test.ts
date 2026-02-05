@@ -233,6 +233,33 @@ describe('A turn that fails before any reply (SM-RF-1)', () => {
     expect(failed(target)).toBeNull();
   });
 
+  const turnFailures = (app: AppContext) => app.diagnostics.entries.filter((e) => e.code === 'UI_TURN_FAILED');
+
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-2
+  it('Error path — the turn timed out', async () => {
+    const { target, app, transport, seq } = await draw();
+    await sendText(target, 'who are you?');
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'working', since: SINCE } as never));
+    await flush();
+    expect(line(target)).not.toBeNull();
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'idle', since: SINCE, failure: 'timeout' } as never));
+    await flush();
+    expect(text(failed(target))).toContain("Ordin couldn't get an answer this time.");
+    expect(text(failed(target))).not.toContain('timeout');
+    expect(turnFailures(app)).toEqual([expect.objectContaining({ code: 'UI_TURN_FAILED', detail: 'timeout', backend: LOCAL })]);
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-2
+  it('Edge case — an older service sends no failure', async () => {
+    const { target, app, transport, seq } = await draw();
+    await sendText(target, 'who are you?');
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'working', since: SINCE } as never));
+    await flush();
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'idle', since: SINCE } as never));
+    await flush();
+    expect(turnFailures(app)).toEqual([expect.objectContaining({ detail: 'unknown' })]);
+  });
+
   // spec: ordin-desktop/components/ScreensModule#SM-RF-1
   it('Edge case — a failure after a reply draws nothing', async () => {
     const { target, transport, seq } = await draw();

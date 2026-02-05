@@ -39,7 +39,7 @@ fn log_error(identifier: &str, error: &PartSourceError) {
     tracing::warn!(
         component = "catalogue",
         identifier,
-        error = ?error,
+        code = ordin_types::CodedError::code(error),
         "catalogue.part_source_error"
     );
 }
@@ -631,5 +631,40 @@ impl PartSource for CatalogueService {
             ))
         });
         self.sourced_all(pairs).await
+    }
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+    #[test]
+    fn a_part_source_error_logs_its_code_as_text() {
+        let error = PartSourceError::Unavailable { retryable: true };
+        let text = logged(|| log_error("a-part", &error));
+        let code = ordin_types::CodedError::code(&error);
+        assert!(text.contains(&format!(r#""code":"{code}""#)), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
     }
 }

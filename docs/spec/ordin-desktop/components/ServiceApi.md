@@ -3675,3 +3675,30 @@ Feature: setup.choose_harness (SVC-CHO-1)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — A turn's idle event says why it gave no answer (SVC-WK-2) (amended February 2026; user decision; Approved by the user)
+
+- **SVC-WK-2 `failure` on `ordin_turn_changed`.** The event gains `failure?: String`, present only with `state` `idle` and only when the turn ended without an answer. Its value is one word from this closed set: `timeout` (no answer within the turn's limit), `not_sent` (the turn could not be handed to the run), `lost` (the run ended the turn without text), `empty_reply` (the run answered with no text), `run_ended` (the run of Ordin ended while it was working). Any other value is refused with `SVC_EVENT_INVALID`. It never carries message text, a path or an error message. Older readers ignore the field (it is optional and skipped when absent). The generated `types.gen.ts` and `schema.gen.json` carry it.
+
+```gherkin
+Feature: A turn's idle event says why it gave no answer (SVC-WK-2)
+
+  Scenario: Happy path — an idle event with a failure is checked and decoded
+    Given ordin_turn_changed with state idle and failure "timeout"
+    When the event is checked and decoded
+    Then it is accepted and carries failure "timeout"
+
+  Scenario: Error path — an unknown failure word is refused
+    Given ordin_turn_changed with state idle and failure "whatever"
+    When the event is checked
+    Then it is refused with SVC_EVENT_INVALID
+
+  Scenario: Edge case — failure on a working event is refused
+    Given ordin_turn_changed with state working and failure "lost"
+    When the event is checked
+    Then it is refused with SVC_EVENT_INVALID
+```
+
+### Gaps
+
+None.

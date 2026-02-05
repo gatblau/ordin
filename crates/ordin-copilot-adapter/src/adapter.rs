@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use futures::stream::BoxStream;
 use ordin_hook_relay::HookRelay;
-use ordin_identity::IdentityService;
+use ordin_identity::{CredError, IdentityService};
 use ordin_mcp_front::{McpFront, ProgramProfile};
 use ordin_rules::RulesEngine;
 use ordin_runtime_adapter::{
@@ -202,7 +202,19 @@ impl Inner {
             return Ok(true);
         }
         // Step 6.1 (03 golden path). A refresh that fails is a refresh that did not help.
-        let _ = self.identity.refresh_silently(CredentialKind::Github).await;
+        if let Err(error) = self.identity.refresh_silently(CredentialKind::Github).await {
+            let (code, retryable) = match error {
+                CredError::Retryable { code } => (code, true),
+                CredError::Permanent { code } => (code, false),
+            };
+            run_log!(
+                warn,
+                run,
+                "copilot.sign_in.refresh_failed",
+                code = code,
+                retryable = retryable
+            );
+        }
         let status = server.auth_status().await.map_err(unreadable)?;
         run_log!(
             info,
@@ -347,7 +359,7 @@ impl Inner {
             .await
             .filter(|found| found.path.is_absolute())
         else {
-            return Err(CopilotAdapterError::probe_failed());
+            return Err(probe_failed("no_cli"));
         };
         let mut probe = self.probe.lock().await;
         if let Some((started_from, server)) = probe.as_ref() {
@@ -367,7 +379,7 @@ impl Inner {
             self.port
                 .start_server(spec)
                 .await
-                .map_err(|_| CopilotAdapterError::probe_failed())?,
+                .map_err(|_| probe_failed("server_start"))?,
         );
         tracing::info!(
             target: "ordin_copilot_adapter",
@@ -408,6 +420,18 @@ fn log_failure(run_id: RunId, failure: &Failure) {
         retryable = failure.retryable,
         "copilot.call.failed"
     );
+}
+
+/// `CPA_PROBE_FAILED` for a sign-in probe call that failed at `stage`. The port's reason is not
+/// logged: the CLI layer has already logged its kind, and the reason's text may hold a path.
+fn probe_failed(stage: &'static str) -> CopilotAdapterError {
+    tracing::warn!(
+        target: "ordin_copilot_adapter",
+        stage = stage,
+        code = "CPA_PROBE_FAILED",
+        "copilot.sign_in.probe_failed"
+    );
+    CopilotAdapterError::probe_failed()
 }
 
 fn unknown_run() -> Failure {
@@ -537,9 +561,31 @@ impl CopilotLocalAdapter {
             }
         }
         let limit = self.inner.config.stop_deadline + Duration::from_secs(1);
-        let _ = tokio::time::timeout(limit, futures::future::join_all(waits)).await;
+        let waiting = waits.len() as u64;
+        if tokio::time::timeout(limit, futures::future::join_all(waits))
+            .await
+            .is_err()
+        {
+            tracing::warn!(
+                target: "ordin_copilot_adapter",
+                stage = "runs",
+                runs = waiting,
+                limit_ms = limit.as_millis() as u64,
+                "copilot.shutdown.timed_out"
+            );
+        }
         if let Some((_, server)) = self.inner.probe.lock().await.take() {
-            let _ = tokio::time::timeout(limit, server.stop(self.inner.config.stop_deadline)).await;
+            if tokio::time::timeout(limit, server.stop(self.inner.config.stop_deadline))
+                .await
+                .is_err()
+            {
+                tracing::warn!(
+                    target: "ordin_copilot_adapter",
+                    stage = "probe",
+                    limit_ms = limit.as_millis() as u64,
+                    "copilot.shutdown.timed_out"
+                );
+            }
         }
     }
 
@@ -555,14 +601,14 @@ impl CopilotLocalAdapter {
         let mut status = server
             .auth_status()
             .await
-            .map_err(|_| CopilotAdapterError::probe_failed())?;
+            .map_err(|_| probe_failed("status"))?;
         if !status.signed_in && self.recheck_due() {
             self.probe_repair().await?;
             let server = self.inner.probe_server().await?;
             status = server
                 .auth_status()
                 .await
-                .map_err(|_| CopilotAdapterError::probe_failed())?;
+                .map_err(|_| probe_failed("recheck"))?;
         }
         if status.signed_in {
             *lock(&self.inner.login) = None;
@@ -593,7 +639,7 @@ impl CopilotLocalAdapter {
         server
             .start_login()
             .await
-            .map_err(|_| CopilotAdapterError::probe_failed())?;
+            .map_err(|_| probe_failed("start_login"))?;
         let now = tokio::time::Instant::now();
         *lock(&self.inner.login) = Some((now, now));
         Ok(())

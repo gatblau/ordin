@@ -987,7 +987,7 @@ impl Inner {
                     json!({ "place": store::scope_key(place), "term_key": term.key, "origin": term.origin }),
                 )
                 .await;
-                tracing::info!(target: "ordin::memory", term_key = %term.key, origin = term.origin.as_str(), "memory.term_added");
+                tracing::info!(target: "ordin::memory", term_key_len = term.key.len(), origin = term.origin.as_str(), "memory.term_added");
             }
         }
         // Step 4.
@@ -1388,7 +1388,7 @@ impl MemoryService {
                 json!({ "place": place_key_of(place), "term_key": key }),
             )
             .await;
-        tracing::info!(target: "ordin::memory", term_key = %key, "memory.term_renamed");
+        tracing::info!(target: "ordin::memory", term_key_len = key.len(), "memory.term_renamed");
         let term = inner
             .term(place, &key)
             .await?
@@ -1509,7 +1509,7 @@ impl MemoryService {
                 json!({ "place": place_key_of(place), "term_key": key, "into": into, "rewritten": rewritten }),
             )
             .await;
-        tracing::info!(target: "ordin::memory", term_key = %key, into = %into, rewritten, "memory.term_merged");
+        tracing::info!(target: "ordin::memory", term_key_len = key.len(), into_len = into.len(), rewritten, "memory.term_merged");
         let count = inner.kept_with_term(place, &into).await?;
         Ok(MergeTermReceipt {
             kept: kept.view(count as u32),

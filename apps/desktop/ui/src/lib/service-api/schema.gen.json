@@ -17807,6 +17807,36 @@
       ],
       "type": "object"
     },
+    "OrdinTurnFailure": {
+      "description": "Why a turn ended without an answer, carried by an `idle` `ordin_turn_changed` (SVC-WK-2). A closed\nset: any other word fails decoding and is refused with `SVC_EVENT_INVALID`.",
+      "oneOf": [
+        {
+          "const": "timeout",
+          "description": "No answer within the turn's limit.",
+          "type": "string"
+        },
+        {
+          "const": "not_sent",
+          "description": "The turn could not be handed to the run.",
+          "type": "string"
+        },
+        {
+          "const": "lost",
+          "description": "The run ended the turn without text.",
+          "type": "string"
+        },
+        {
+          "const": "empty_reply",
+          "description": "The run answered with no text.",
+          "type": "string"
+        },
+        {
+          "const": "run_ended",
+          "description": "The run of Ordin ended while it was working.",
+          "type": "string"
+        }
+      ]
+    },
     "OrdinTurnState": {
       "description": "The state `ordin_turn_changed` carries (SVC-WK-1).",
       "enum": [
@@ -25030,6 +25060,17 @@
                 "string",
                 "null"
               ]
+            },
+            "failure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/OrdinTurnFailure"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Why the turn ended without an answer; only with `state` `idle` (SVC-WK-2)."
             },
             "kind": {
               "const": "ordin_turn_changed",

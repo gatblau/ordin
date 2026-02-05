@@ -360,3 +360,7 @@ Feature: Identifiers reach the line as text (LOG-ID-1, LOG-ID-2)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — Every warning and error line has a findable name (amended February 2026; user decision; Approved by the user)
+
+- **LOG-EV-1 The name is checked at build time.** R-2 writes a line whose message is not an event name as `invalid_event_name`, which loses what the line was for. `crates/ordin-arch-test/tests/architecture.rs` scans every `.rs` file under `crates/ordin-*/src` and `apps/desktop/src`, outside `#[cfg(test)]` modules, for `warn!` and `error!` (with or without `tracing::`) and fails when the message, the macro's last top-level string literal, neither matches `EVENT_NAME` nor is a single `{<identifier>}` placeholder (a name held in a variable). A call with `target:` naming a target outside ordin's own crates is a library's line (R-5) and is not checked. The failure lists each file and line.

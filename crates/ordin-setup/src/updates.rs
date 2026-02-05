@@ -34,8 +34,6 @@ const ARCHIVE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// The unpack limits of H.3.3, used again by SET-UP-19.
 pub(crate) const UNPACK_MAX_ENTRIES: usize = 20_000;
 pub(crate) const UNPACK_MAX_BYTES: u64 = 2 * 1024 * 1024 * 1024;
-/// `setup.server_update.restart_failed`'s `reason`: at most 200 characters.
-const REASON_MAX: usize = 200;
 /// The two programs a server archive replaces, in replacement order (SET-UP-20).
 const SERVER_PROGRAMS: [&str; 2] = ["ordin-hook", "ordin-server"];
 
@@ -76,6 +74,22 @@ pub(crate) fn https_or_loopback(address: &str) -> Option<url::Url> {
         }
         _ => None,
     }
+}
+
+/// Releases the server-update claim after a refusal; a failure is logged, and the claim stays until
+/// the next attempt clears it.
+async fn release_or_log(pool: &sqlx::SqlitePool) {
+    if let Err(error) = store::release_server_update(pool).await {
+        release_failed(&error);
+    }
+}
+
+fn release_failed(error: &SetupError) {
+    tracing::warn!(
+        target: TARGET,
+        code = ordin_types::CodedError::code(error),
+        "setup.server_update.release_failed"
+    );
 }
 
 fn cut(text: &str, max: usize) -> String {
@@ -430,7 +444,7 @@ impl Inner {
             Err(reason) => {
                 tracing::warn!(
                     target: TARGET,
-                    reason = %cut(&reason, REASON_MAX),
+                    reason_len = reason.len(),
                     "setup.server_update.restart_failed"
                 );
                 for name in SERVER_PROGRAMS.iter().rev() {
@@ -797,16 +811,16 @@ impl SetupAssistant {
         let feed = match self.inner.read_feed().await {
             Ok(feed) => self.inner.newer_feed(feed),
             Err(e) => {
-                let _ = store::release_server_update(&self.inner.pool).await;
+                release_or_log(&self.inner.pool).await;
                 return Err(e);
             }
         };
         let Some(feed) = feed else {
-            let _ = store::release_server_update(&self.inner.pool).await;
+            release_or_log(&self.inner.pool).await;
             return Err(SetupError::permanent("SETUP_UPDATE_NONE"));
         };
         if feed.version.to_string() != version {
-            let _ = store::release_server_update(&self.inner.pool).await;
+            release_or_log(&self.inner.pool).await;
             return Err(SetupError::permanent("SETUP_UPDATE_VERSION_CHANGED"));
         }
         let inner = self.inner.clone();
@@ -835,5 +849,53 @@ impl SetupAssistant {
         )
         .await?;
         self.inner.replace_programs(&feed, &platform).await
+    }
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn a_failed_release_of_the_update_claim_is_logged_with_its_code() {
+        let error = SetupError::permanent("SETUP_UPDATE_NONE");
+        let code = ordin_types::CodedError::code(&error);
+        let text = logged(|| release_failed(&error));
+        assert_readable(
+            &text,
+            "setup.server_update.release_failed",
+            &[&format!(r#""code":"{code}""#)],
+        );
     }
 }

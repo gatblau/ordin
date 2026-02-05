@@ -168,8 +168,8 @@ pub(crate) async fn run_call(
     }
     tracing::info!(
         component = "mcp_front",
-        correlation_id = %correlation_id,
-        run_id = %session.grant.run_id,
+        correlation_id = correlation_id.to_string().as_str(),
+        run_id = session.grant.run_id.to_string().as_str(),
         call_id = local_id.to_string().as_str(),
         server = key.server.as_str(),
         tool = key.tool.as_str(),
@@ -309,10 +309,10 @@ async fn pipeline(
     if let Err(problem) = slot.provider.check_arguments(key, &arguments) {
         tracing::debug!(
             component = "mcp_front",
-            run_id = %grant.run_id,
+            run_id = grant.run_id.to_string().as_str(),
             server = key.server.as_str(),
             tool = key.tool.as_str(),
-            at = %problem.at,
+            at = problem.at.as_str(),
             "mcp_front.arguments_invalid"
         );
         return Ended::new(
@@ -499,7 +499,7 @@ async fn pipeline(
             if error.is_panic() {
                 tracing::error!(
                     component = "mcp_front",
-                    correlation_id = %correlation_id,
+                    correlation_id = correlation_id.to_string().as_str(),
                     provider_id = slot.id,
                     "mcp_front.provider_panicked"
                 );
@@ -552,7 +552,7 @@ fn cancelled_now(call: &CancellationToken, external: &CancellationToken) -> bool
 fn decision_failed(run_id: RunId, tool: &str, code: &str) -> Ended {
     tracing::error!(
         component = "mcp_front",
-        run_id = %run_id,
+        run_id = run_id.to_string().as_str(),
         tool,
         code,
         "mcp_front.decision_failed"
@@ -588,8 +588,8 @@ fn limit_output(inner: &Inner, run_id: RunId, correlation_id: &str, text: String
         // spec: ordin-desktop/components/McpFront#ADR-062
         tracing::warn!(
             component = "mcp_front",
-            run_id = %run_id,
-            correlation_id = %correlation_id,
+            run_id = run_id.to_string().as_str(),
+            correlation_id = correlation_id.to_string().as_str(),
             bytes = text.len() as u64,
             code = "MCP_OUTPUT_TRUNCATED",
             "mcp_front.output_truncated"
@@ -644,7 +644,11 @@ async fn forward_progress(
         }
         if let Some((count, total)) = sink.take() {
             if total.is_some_and(|t| count > t) {
-                tracing::debug!(component = "mcp_front", run_id = %run_id, "mcp_front.progress_dropped");
+                tracing::debug!(
+                    component = "mcp_front",
+                    run_id = run_id.to_string().as_str(),
+                    "mcp_front.progress_dropped"
+                );
             } else {
                 if let Some(relay) = &relay {
                     let mut params = json!({"progressToken": relay.token, "progress": count});
@@ -695,7 +699,7 @@ async fn emit_progress(inner: &Inner, run_id: RunId, plain: &str, done: u64, tot
     {
         tracing::error!(
             component = "mcp_front",
-            run_id = %run_id,
+            run_id = run_id.to_string().as_str(),
             code = CodedError::code(&error),
             "mcp_front.journal_failed"
         );
@@ -733,7 +737,7 @@ pub(crate) async fn tools_changed_pass(front: &McpFront, server: &crate::names::
                     if !launched {
                         tracing::debug!(
                             component = "mcp_front",
-                            run_id = %session.grant.run_id,
+                            run_id = session.grant.run_id.to_string().as_str(),
                             server = key.server.as_str(),
                             "mcp_front.tools_changed_unlaunched"
                         );
@@ -745,7 +749,7 @@ pub(crate) async fn tools_changed_pass(front: &McpFront, server: &crate::names::
                 // Fail closed: a tool whose grant cannot be confirmed is withdrawn.
                 tracing::warn!(
                     component = "mcp_front",
-                    run_id = %session.grant.run_id,
+                    run_id = session.grant.run_id.to_string().as_str(),
                     provider_id,
                     code = failure.code.as_str(),
                     "mcp_front.tools_changed_failed"

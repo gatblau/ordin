@@ -344,8 +344,8 @@ impl McpFront {
             registry.started = true;
         }
         let _ = self.inner.shutdown.set(shutdown.clone());
-        let endpoint = self.inner.endpoint.get().cloned().unwrap_or_default();
-        tracing::info!(component = "mcp_front", endpoint = %endpoint, "mcp_front.started");
+        // The endpoint is a path under the person's home, so the line does not carry it.
+        tracing::info!(component = "mcp_front", "mcp_front.started");
         bridge::spawn_accept_loop(self.inner.clone(), listener, shutdown);
         Ok(())
     }
@@ -380,7 +380,7 @@ impl McpFront {
                 Err(failure) => {
                     tracing::warn!(
                         component = "mcp_front",
-                        run_id = %grant.run_id,
+                        run_id = grant.run_id.to_string().as_str(),
                         provider_id = slot.id,
                         code = failure.code.as_str(),
                         "mcp_front.open_failed"
@@ -445,14 +445,19 @@ impl McpFront {
         }
         tracing::info!(
             component = "mcp_front",
-            run_id = %grant.run_id,
+            run_id = grant.run_id.to_string().as_str(),
             workspace_id = grant.workspace_id.to_string().as_str(),
             agent_instance_id = grant.agent_instance_id.to_string().as_str(),
             harness = match grant.harness {
                 HarnessKind::ClaudeCode => "claude_code",
                 HarnessKind::CopilotCli => "copilot_cli",
             },
-            servers = servers.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(",").as_str(),
+            servers = servers
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+                .as_str(),
             tool_count,
             "mcp_front.session_opened"
         );
@@ -477,13 +482,13 @@ impl McpFront {
         if tokio::time::timeout(CLOSE_WAIT, closing).await.is_err() {
             tracing::warn!(
                 component = "mcp_front",
-                run_id = %run_id,
+                run_id = run_id.to_string().as_str(),
                 "mcp_front.session_close_slow"
             );
         }
         tracing::info!(
             component = "mcp_front",
-            run_id = %run_id,
+            run_id = run_id.to_string().as_str(),
             calls = session.calls.load(Ordering::SeqCst),
             denied = session.denied.load(Ordering::SeqCst),
             failed = session.failed.load(Ordering::SeqCst),

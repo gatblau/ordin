@@ -196,7 +196,7 @@ impl CrewOrchestrator {
         }
         crew_log!(
             info,
-            crew_run_id = %id,
+            crew_run_id = id.to_string().as_str(),
             mode = store::enum_text(&mode).as_str(),
             members = charter.members.len() as u64,
             "crew_started"
@@ -208,7 +208,12 @@ impl CrewOrchestrator {
             .store_startup_report(startup_report(id, &items), false)
             .await
         {
-            crew_log!(warn, crew_run_id = %id, code = ordin_types::CodedError::code(&e), "crew_startup_not_kept");
+            crew_log!(
+                warn,
+                crew_run_id = id.to_string().as_str(),
+                code = ordin_types::CodedError::code(&e),
+                "crew_startup_not_kept"
+            );
         }
         o.emit(
             EventKind::StartUpReportReady,
@@ -249,8 +254,7 @@ impl CrewOrchestrator {
         let id = crew.id;
         let crew = Arc::new(crew);
         lock(&self.inner.live).insert(id, crew.live.clone());
-        let span =
-            tracing::info_span!(target: "ordin_crew_orchestrator", "crew", crew_run_id = %id);
+        let span = tracing::info_span!(target: "ordin_crew_orchestrator", "crew", crew_run_id = id.to_string().as_str());
         tokio::spawn(
             async move {
                 let stop = crew.run(settle).await;
@@ -490,7 +494,12 @@ impl CrewOrchestrator {
             }),
         };
         if let Err(e) = o.journal.append_entry(entry).await {
-            crew_log!(warn, crew_run_id = %crew_run_id, code = ordin_types::CodedError::code(&e), "crew_emit_failed");
+            crew_log!(
+                warn,
+                crew_run_id = crew_run_id.to_string().as_str(),
+                code = ordin_types::CodedError::code(&e),
+                "crew_emit_failed"
+            );
         }
         result
     }

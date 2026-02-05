@@ -937,6 +937,59 @@ fn happy_path_ordin_turn_changed_is_checked_and_decoded() {
     }
 }
 
+// Scenario: Happy path — an idle event with a failure is checked and decoded (SVC-WK-2)
+// spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+#[test]
+fn happy_path_idle_event_with_a_failure_is_checked_and_decoded() {
+    let w = "0192a1c5-0000-7000-8000-000000000001";
+    let at = "2026-02-10T12:00:00.000Z";
+    let event = ServiceEvent::from_journal(
+        "ordin_turn_changed",
+        json!({ "workspace_id": w, "state": "idle", "since": at, "failure": "timeout" }),
+    )
+    .expect("decoded");
+    let ServiceEvent::OrdinTurnChanged { failure, .. } = &event else {
+        panic!("ordin_turn_changed");
+    };
+    assert_eq!(*failure, Some(ordin_service_api::OrdinTurnFailure::Timeout));
+    assert_eq!(event.to_journal_data()["failure"], json!("timeout"));
+    // Every word of the closed set decodes and round-trips.
+    for word in ["timeout", "not_sent", "lost", "empty_reply", "run_ended"] {
+        let event = ServiceEvent::from_journal(
+            "ordin_turn_changed",
+            json!({ "workspace_id": w, "state": "idle", "since": at, "failure": word }),
+        )
+        .expect("decoded");
+        assert_eq!(event.to_journal_data()["failure"], json!(word));
+    }
+}
+
+// Scenario: Error path — an unknown failure word is refused (SVC-WK-2)
+// spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+#[test]
+fn error_path_unknown_failure_word_is_refused() {
+    let err = ServiceEvent::from_journal(
+        "ordin_turn_changed",
+        json!({ "workspace_id": "0192a1c5-0000-7000-8000-000000000001", "state": "idle",
+                "since": "2026-02-10T12:00:00.000Z", "failure": "whatever" }),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "SVC_EVENT_INVALID");
+}
+
+// Scenario: Edge case — failure on a working event is refused (SVC-WK-2)
+// spec: ordin-desktop/components/ServiceApi#SVC-WK-2
+#[test]
+fn edge_case_failure_on_a_working_event_is_refused() {
+    let err = ServiceEvent::from_journal(
+        "ordin_turn_changed",
+        json!({ "workspace_id": "0192a1c5-0000-7000-8000-000000000001", "state": "working",
+                "since": "2026-02-10T12:00:00.000Z", "failure": "lost" }),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "SVC_EVENT_INVALID");
+}
+
 // Scenario: Contract — runs.try_again starts a stopped run's task again (SVC-TA-1)
 // spec: ordin-desktop/components/ServiceApi#SVC-TA-1
 #[test]

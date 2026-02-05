@@ -380,11 +380,18 @@ impl Coordinator for OrdinCoordinator {
             serde_json::to_string(&outcome.results.iter().map(|r| &r.summary).collect::<Vec<_>>()).unwrap_or_default()
         );
         if host.current_run(ws).is_some() {
-            let _ = tokio::time::timeout(
+            let ended = tokio::time::timeout(
                 host.config.coordinator_turn_timeout,
                 host.run_turn(ws, text),
             )
             .await;
+            if !matches!(ended, Ok(Ok(TurnEnd::Text(_)))) {
+                crate::host::log_crew_end_turn_unanswered(
+                    view.crew_run_id.to_string().as_str(),
+                    crate::host::turn_failure(&ended),
+                    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                );
+            }
         }
         // OH-CL-2: the charter is read once its start is recorded, so the archive follows it.
         // spec: ordin-desktop/components/OrdinHost#OH-CL-2

@@ -331,7 +331,7 @@ impl DesktopSessionSetup {
             Err(code) => {
                 tracing::warn!(
                     component = "desktop",
-                    run_id = %run_id,
+                    run_id = run_id.to_string().as_str(),
                     code = code.as_str(),
                     "shell_allowed_unread"
                 );
@@ -641,7 +641,7 @@ pub async fn attachment_paths(
         } else if run.crew_round {
             tracing::info!(
                 component = "desktop",
-                run_id = %run.run_id,
+                run_id = run.run_id.to_string().as_str(),
                 artefact_id = id.to_string().as_str(),
                 "crew_input_not_attached"
             );
@@ -651,7 +651,7 @@ pub async fn attachment_paths(
     }
     tracing::debug!(
         component = "desktop",
-        run_id = %run.run_id,
+        run_id = run.run_id.to_string().as_str(),
         count = paths.len(),
         "session_attachments"
     );

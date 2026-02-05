@@ -152,7 +152,69 @@ pub(crate) fn jira_item_brought_up_to_date(link: SourceLinkId) {
     );
 }
 
+/// An undo step after a failure that itself failed; the first failure is still what the caller gets.
+pub(crate) fn rollback_failed(step: &'static str, code: &'static str) {
+    tracing::warn!(component = COMPONENT, step, code, "rollback_failed");
+}
+
 /// A background step that failed and will run again at its next trigger.
 pub(crate) fn background_failed(step: &'static str, code: &'static str) {
     tracing::warn!(component = COMPONENT, step, code, "background_failed");
+}
+
+#[cfg(test)]
+mod discard_log_tests {
+    use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The text ordin's own log format writes while `f` runs.
+    fn logged(f: impl FnOnce()) -> String {
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        tracing::subscriber::with_default(subscriber, f);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        text
+    }
+
+    fn assert_readable(text: &str, event: &str, fields: &[&str]) {
+        assert!(text.contains(&format!(r#""event":"{event}""#)), "{text}");
+        for field in fields {
+            assert!(text.contains(field), "{field} missing: {text}");
+        }
+        assert!(!text.contains("<debug>"), "{text}");
+        assert!(!text.contains("invalid_event_name"), "{text}");
+    }
+
+    #[test]
+    fn each_failed_rollback_step_is_logged_with_its_step_and_code() {
+        for step in [
+            "restore_grant",
+            "delete_grant",
+            "untrack_link",
+            "decline_link",
+            "publish",
+        ] {
+            let text = logged(|| rollback_failed(step, "WS_DATASTORE_UNAVAILABLE"));
+            assert_readable(
+                &text,
+                "rollback_failed",
+                &[
+                    &format!(r#""step":"{step}""#),
+                    r#""code":"WS_DATASTORE_UNAVAILABLE""#,
+                ],
+            );
+        }
+    }
 }

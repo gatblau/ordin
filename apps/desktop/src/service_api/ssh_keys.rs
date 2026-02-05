@@ -98,8 +98,8 @@ impl DesktopServiceApi {
         let at = folder.clone();
         let made =
             tokio::task::spawn_blocking(move || ssh::create_key(&at, Path::new("ssh-keygen")))
-                .await
-                .unwrap_or(Err(KeygenError::Failed));
+                .await;
+        let made = joined(made, "create", Err(KeygenError::Failed));
         let made = match made {
             Ok(made) => made,
             Err(KeygenError::Missing) => {
@@ -148,18 +148,81 @@ impl DesktopServiceApi {
         let key = self
             .chosen_ssh_key()?
             .ok_or_else(|| self.own_refusal(SSH_NO_KEY, false))?;
-        let found = tokio::task::spawn_blocking(move || ssh::check_key(&key, CHECK_LIMIT))
-            .await
-            .unwrap_or(CheckOutcome::Unreachable);
+        let started = std::time::Instant::now();
+        let found = tokio::task::spawn_blocking(move || ssh::check_key(&key, CHECK_LIMIT)).await;
+        let found = joined(found, "check", CheckOutcome::Unreachable);
+        check_finished(found, started.elapsed());
         Ok(SshKeyCheck {
             outcome: outcome(found),
         })
     }
 }
 
+/// A blocking SSH task that did not finish (it panicked or was cancelled) is logged, then read as
+/// `fallback`, so the person still gets an answer.
+fn joined<T>(result: Result<T, tokio::task::JoinError>, task: &'static str, fallback: T) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!(
+                component = "desktop",
+                task,
+                panicked = error.is_panic(),
+                "ssh.check_task_failed"
+            );
+            fallback
+        }
+    }
+}
+
+/// The outcome of a key check, as its variant name, and how long it took.
+fn check_finished(found: CheckOutcome, elapsed: std::time::Duration) {
+    tracing::info!(
+        component = "desktop",
+        outcome = format!("{found:?}").as_str(),
+        elapsed_ms = elapsed.as_millis() as u64,
+        "ssh.check_finished"
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone, Default)]
+    struct Lines(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lines").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failed_ssh_task_and_a_finished_check_are_logged_as_text() {
+        let failed = tokio::task::spawn_blocking(|| -> CheckOutcome { panic!("boom") }).await;
+        let lines = Lines::default();
+        let writer = lines.clone();
+        let subscriber = ordin_types::log::subscriber(move || writer.clone(), tracing::Level::INFO);
+        let found = tracing::subscriber::with_default(subscriber, || {
+            let found = joined(failed, "check", CheckOutcome::Unreachable);
+            check_finished(found, std::time::Duration::from_millis(42));
+            found
+        });
+        assert_eq!(found, CheckOutcome::Unreachable);
+        let text = String::from_utf8(lines.0.lock().expect("lines").clone()).expect("utf-8");
+        assert!(
+            text.contains(r#""event":"ssh.check_task_failed""#),
+            "{text}"
+        );
+        assert!(text.contains(r#""panicked":true"#), "{text}");
+        assert!(text.contains(r#""outcome":"Unreachable""#), "{text}");
+        assert!(text.contains(r#""elapsed_ms":42"#), "{text}");
+        assert!(!text.contains("<debug>"), "{text}");
+    }
 
     struct Home(PathBuf);
     impl Drop for Home {

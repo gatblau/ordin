@@ -226,7 +226,6 @@ impl CatalogueService {
             if let Some(reason) = self.entry_invalid(entry) {
                 tracing::warn!(
                     component = "catalogue",
-                    host = %entry.host,
                     reason_code = reason,
                     "catalogue.profile_entry_invalid"
                 );
