@@ -376,6 +376,51 @@ fn copilot_cli_folders_follow_the_install_routes() {
     }
 }
 
+// SET-CPX-7: an npm install under a Node version manager is found, newest version first, in both
+// folder layouts; anything that is not a version folder with a `bin` is skipped.
+// spec: ordin-desktop/components/SetupAssistant#SET-CPX-7
+#[test]
+fn copilot_under_a_node_version_manager_is_found_newest_first() {
+    use crate::process::nvm_bin_folders;
+    let home = TempDir::new();
+    let versions = home.path().join(".nvm").join("versions");
+    for dir in [
+        "node/v20.11.1/bin",
+        "node/v24.16.0/bin",
+        "v22.3.0/bin",
+        "node/not-a-version/bin",
+        "v18.0.0",
+    ] {
+        std::fs::create_dir_all(versions.join(dir)).unwrap();
+    }
+    assert_eq!(
+        nvm_bin_folders(&versions),
+        [
+            versions.join("node").join("v24.16.0").join("bin"),
+            versions.join("v22.3.0").join("bin"),
+            versions.join("node").join("v20.11.1").join("bin"),
+        ]
+    );
+    assert!(nvm_bin_folders(&home.path().join("missing")).is_empty());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let copilot = versions
+            .join("node")
+            .join("v24.16.0")
+            .join("bin")
+            .join("copilot");
+        std::fs::write(&copilot, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&copilot, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let none = std::ffi::OsString::new();
+        assert_eq!(
+            crate::process::find_copilot_cli(Some(&none), Some(home.path()), None, None),
+            Some(copilot)
+        );
+    }
+}
+
 // SET-CPX-2: on Windows `copilot.exe` is taken before `copilot.cmd`, and `copilot.cmd` (npm) alone is
 // found in `<APPDATA>\npm`.
 #[cfg(windows)]

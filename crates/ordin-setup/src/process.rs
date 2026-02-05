@@ -228,8 +228,8 @@ pub fn find_claude_code(path: Option<&OsStr>, home: Option<&Path>) -> Option<Pat
 
 /// The folders searched for `copilot` after `PATH` (SET-CPX-2), in order: `<home>/.local/bin` (the
 /// install script), on macOS `/opt/homebrew/bin` and `/usr/local/bin` (Homebrew), on Windows
-/// `<LOCALAPPDATA>\Microsoft\WinGet\Links` (WinGet) and `<APPDATA>\npm` (npm). An absent variable
-/// skips its folder. Conditional on C-112.
+/// `<LOCALAPPDATA>\Microsoft\WinGet\Links` (WinGet) and `<APPDATA>\npm` (npm), then off Windows the
+/// Node version manager's folders (SET-CPX-7). An absent variable skips its folder. Conditional on C-112.
 // spec: ordin-desktop/components/SetupAssistant#SET-CPX-2
 pub(crate) fn copilot_cli_folders(
     home: Option<&Path>,
@@ -248,7 +248,46 @@ pub(crate) fn copilot_cli_folders(
         folders.extend(local_app_data.map(|d| d.join("Microsoft").join("WinGet").join("Links")));
         folders.extend(app_data.map(|d| d.join("npm")));
     }
+    if !cfg!(windows) {
+        if let Some(home) = home {
+            folders.extend(nvm_bin_folders(&home.join(".nvm").join("versions")));
+        }
+    }
     folders
+}
+
+/// SET-CPX-7: the `bin` folder of each Node.js version a Node version manager installed under
+/// `versions` (`versions/node/<v>/bin`, then `versions/<v>/bin`), newest version first. A program
+/// opened from the Dock or a desktop menu has none of the shell's version-manager `PATH`, so an npm
+/// install of `copilot` is found only here; `node` sits in the same folder, which SET-CPX-3 adds to
+/// `PATH`. A missing or unreadable folder gives none.
+// spec: ordin-desktop/components/SetupAssistant#SET-CPX-7
+pub(crate) fn nvm_bin_folders(versions: &Path) -> Vec<PathBuf> {
+    let mut found: Vec<(Vec<u64>, PathBuf)> = Vec::new();
+    for parent in [versions.join("node"), versions.to_path_buf()] {
+        let Ok(entries) = std::fs::read_dir(&parent) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(key) = node_version_key(&name.to_string_lossy()) else {
+                continue;
+            };
+            let bin = entry.path().join("bin");
+            if bin.is_dir() {
+                found.push((key, bin));
+            }
+        }
+    }
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found.into_iter().map(|(_, bin)| bin).collect()
+}
+
+/// `v24.16.0` → `[24, 16, 0]`; a name that is not a version → `None`.
+fn node_version_key(name: &str) -> Option<Vec<u64>> {
+    let digits = name.strip_prefix('v')?;
+    let key: Option<Vec<u64>> = digits.split('.').map(|p| p.parse().ok()).collect();
+    key.filter(|k| !k.is_empty())
 }
 
 /// `copilot` (`copilot.exe`, then `copilot.cmd`, on Windows) in the `PATH` entries, then in `extra`.

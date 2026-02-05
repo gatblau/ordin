@@ -1555,6 +1555,12 @@ None.
 
 None.
 
+## Amendment 2026-02-05 — Copilot installed through a Node version manager is found (SET-CPX-7)
+
+> **Status:** Approved by the user, 2026-02-05 ("can you not just fix the binary so it can find the correct path?"), after the 0.2.1-test.1 smoke test on a Mac whose Copilot CLI was installed with npm under a Node version manager and was not found. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **SET-CPX-7 The Node version manager's folders.** Off Windows, SET-CPX-2's person's own folders gain, after the Homebrew folders, the `bin` folder of every Node.js version under `<home>/.nvm/versions/node/` and then under `<home>/.nvm/versions/`: each sub-folder whose name is `v` followed by dot-separated numbers and which holds a `bin` folder, ordered newest version first by number. A program opened from the Dock or a desktop menu does not inherit the shell's version-manager `PATH`, so an npm install of `copilot` is otherwise never found. `node` lives in the same folder, and SET-CPX-3 already adds the found folder to `PATH`, so the npm `copilot` can start. A missing or unreadable folder adds nothing. Windows is unchanged: `<APPDATA>\npm` already covers npm there.
+
 ## Amendment 2026-02-04 — The person chooses the assistant at first start (SET-CHO-1 to SET-CHO-7)
 
 > **Status:** Approved by the user, 2026-02-04 ("approve as written"). Source: HLD ADR-125, acceptance criteria 1–5 and 8; user decision 2026-02-04 ("go with your recommendations": the answer takes effect by ordin starting again once; criterion 7, an assistant without a licence, is specified later from the probe's evidence). HLD ADR-125. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
