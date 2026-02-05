@@ -1,6 +1,6 @@
 [package]
 name = "ordin-desktop"
-version = "0.2.1-test.2"
+version = "0.2.1-test.3"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
