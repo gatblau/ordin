@@ -13,6 +13,7 @@
 // the person, and `setup.choose_harness`.
 // spec: ordin-desktop/components/ScreensModule#SM-FS-10
 // spec: ordin-desktop/components/ScreensModule#SM-FS-11
+// spec: ordin-desktop/components/ScreensModule#SM-FS-13
 import type { BackendHandle, EventEnvelope } from '../../backend/backend';
 import { t } from '../../i18n/fluent';
 import { WebPageOpener } from '../Settings/web-page.svelte';
@@ -105,6 +106,8 @@ export class FirstStartModel {
   choiceAnswered = $state(false);
   /** The answer was `restarting: true`: the harness ordin starts again with (SM-FS-11). */
   restartingWith = $state<HarnessKind | null>(null);
+  /** The harness ordin runs with now (`app.agent_settings` `harness_in_use`), read at first start (SM-FS-13). */
+  inUse = $state<HarnessKind | null>(null);
   readonly handle: BackendHandle;
   /** **Install Claude Code** opens the official install page with `app.open_web_page` (SM-FS-9). */
   readonly pages: WebPageOpener;
@@ -149,6 +152,13 @@ export class FirstStartModel {
     this.attachments = out.result.attachments;
     this.progress = out.result.progress;
     this.phase = out.result.needs_guided ? 'first_start' : 'regions';
+    if (this.phase === 'first_start' && this.inUse === null) await this.readInUse();
+  }
+
+  /** SM-FS-13: the harness the guided run walks is the one in use, which a stored choice decides. */
+  async readInUse(): Promise<void> {
+    const out = await this.handle.call('app.agent_settings', {});
+    if (out.kind === 'ok') this.inUse = out.result.harness_in_use === 'copilot' ? 'copilot_cli' : 'claude_code';
   }
 
   /** Sends `setup.run_guided {}` the first time only (SM-FS-2); `FirstStart` calls it once it is drawn. */
@@ -173,11 +183,12 @@ export class FirstStartModel {
   }
 
   /**
-   * The chosen harness once the question is answered (SM-FS-11), else the answer's first attachment;
-   * `claude_code` when there is none (SM-FS-2, SM-FS-3).
+   * The chosen harness once the question is answered (SM-FS-11), else the harness in use when it has an
+   * attachment (SM-FS-13), else the answer's first attachment; `claude_code` when there is none (SM-FS-2, SM-FS-3).
    */
   get harness(): HarnessKind {
-    return this.chosen ?? this.attachments[0]?.harness ?? 'claude_code';
+    const inUse = this.attachments.some((a) => a.harness === this.inUse) ? this.inUse : null;
+    return this.chosen ?? inUse ?? this.attachments[0]?.harness ?? 'claude_code';
   }
 
   /** The harness's name for the words (`harness-claude-code` or `harness-copilot`). */

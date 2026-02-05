@@ -6948,6 +6948,8 @@ None.
 
 Every sentence says what the person can do (SetupAssistant.md SET-R1-9); none mentions IT, accounts or passwords (SM-FS-2).
 
+- **SM-FS-13 Which assistant the words name** *(amended 2026-02-05, found in the 0.2.1-test.3 smoke test: after choosing Copilot and the restart, first start named Claude Code and signed in to it, while the guided run waited for Copilot; approved by the user 2026-02-05)*. When `setup.status` says `needs_guided`, `FirstStart` also sends `app.agent_settings {}` once and keeps `harness_in_use` (`copilot` → `copilot_cli`). The harness SM-FS-2 and SM-FS-3 name, and the one `setup.sign_in_harness` is sent for, is the chosen row once the question is answered, else that harness in use when the `setup.status` answer holds an attachment for it (a default `claude_code` with only Copilot installed has none), else the first attachment of the `setup.status` answer as before. When the question appears during the guided run, `setup.status {}` is sent again once and its attachments give the rows of SM-FS-10, because the assistants are looked for after the first answer.
+
 ```gherkin
 Feature: Which assistant, asked at first start (SM-FS-10 to SM-FS-12)
 

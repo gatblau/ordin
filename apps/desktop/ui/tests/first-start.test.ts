@@ -6,7 +6,7 @@ import App from '../src/App.svelte';
 import type { CheckResult, ProgressStep, SetupProgress, SetupReport } from '../src/lib/service-api/types.gen';
 import FirstStart from '../src/lib/views/setup/FirstStart.svelte';
 import { harnessNameId, resultMessageId, stateMessageId, stepMessageId } from '../src/lib/views/setup/first-start-model.svelte';
-import { EN_GB_FTL, err, event, type FakeTransport, LOCAL, ok, settle } from './support/fake-backend';
+import { AGENT_SETTINGS_DEFAULT, EN_GB_FTL, err, event, type FakeTransport, LOCAL, ok, settle } from './support/fake-backend';
 import { appWith, html, loadWindowCatalogue } from './support/ssr';
 import { text } from './settings-support';
 
@@ -453,6 +453,23 @@ describe('Which assistant, asked at first start (SM-FS-10 to SM-FS-12)', () => {
     expect(text(after)).toContain('Starting ordin again with GitHub Copilot…');
     expect(text(after)).not.toContain('Which assistant should ordin use?');
     expect(after).not.toContain('<button');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-13
+  it('after the restart with Copilot chosen, the steps and the sign-in name Copilot (SM-FS-13)', async () => {
+    const { app, transport } = await appWith((t) => {
+      // Claude Code is first in the stored list; the stored choice is Copilot.
+      t.on('setup.status', ok({ needs_guided: true, progress: progress([step('harness', 'done'), step('harness_sign_in', 'needs_you')]), attachments: both('needs_sign_in') }));
+      t.on('setup.run_guided', () => new Promise(() => undefined) as never);
+      t.on('app.agent_settings', ok({ ...AGENT_SETTINGS_DEFAULT, harness_in_use: 'copilot' }));
+      t.on('setup.sign_in_harness', ok(attachment('ready', 'copilot_cli')));
+    });
+    const words = text(screen(app));
+    expect(words).toContain('Signing you in to GitHub Copilot');
+    expect(words).toContain('Sign in to GitHub Copilot');
+    expect(words).not.toContain('Claude Code');
+    await app.firstStart.signIn();
+    expect(transport.sentOf('setup.sign_in_harness')[0]?.input).toEqual({ harness: 'copilot_cli' });
   });
 
   // spec: ordin-desktop/components/ScreensModule#SM-FS-10
