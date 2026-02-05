@@ -27,7 +27,8 @@ base64 -d -i "$KEY" > "$WORK/key.minisign" 2>/dev/null || base64 -d < "$KEY" > "
 printf '\nStep 1 of 2: minisign asks for the key'"'"'s current password, then a new one twice.\n' >&2
 printf 'Choose a long new password (20 characters or more); you will not need to type it again.\n\n' >&2
 minisign -C -s "$WORK/key.minisign" < /dev/tty || die "minisign did not change the password. Nothing was changed."
-base64 -i "$WORK/key.minisign" > "$WORK/key.new" 2>/dev/null || base64 < "$WORK/key.minisign" | tr -d '\n' > "$WORK/key.new"
+# Tauri reads the key file as one base64 line with no newline at the end, like the file it generated.
+base64 < "$WORK/key.minisign" | tr -d '\n' > "$WORK/key.new"
 
 printf '\nStep 2 of 2: type the NEW password again, twice, for the keychain item %s.\n\n' "$ITEM" >&2
 "$SECURITY" add-generic-password -U -a "${USER:-$(id -un)}" -s "$ITEM" -w < /dev/tty \
@@ -39,8 +40,12 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$("$SECURITY" find-generic-password -a "${US
   || die "the keychain item $ITEM could not be read back. The key file is unchanged."
 export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 printf 'ordin key check\n' > "$WORK/probe"
-sign_file "$WORK/probe" >/dev/null 2>&1 && [ -s "$WORK/probe.sig" ] \
-  || die "the new key did not sign with the keychain's password (the two passwords typed may differ). The key file is unchanged; run this again."
+if ! SIGN_OUT="$(sign_file "$WORK/probe" 2>&1)" || [ ! -s "$WORK/probe.sig" ]; then
+  case "$SIGN_OUT" in
+    *"Wrong password"*|*"password"*) die "the new key did not sign with the keychain's password (the two passwords typed may differ). The key file is unchanged; run this again." ;;
+    *) die "the new key did not sign: $(printf '%s' "$SIGN_OUT" | tail -n 1 | cut -c1-200). The key file is unchanged." ;;
+  esac
+fi
 base64 -d < "$WORK/probe.sig" > "$WORK/probe.minisig"
 minisign -Vm "$WORK/probe" -p "$PUBLIC_KEY_FILE" -x "$WORK/probe.minisig" >/dev/null 2>&1 \
   || die "the key signs, but not as release/ordin-update.pub. The key file is unchanged."
