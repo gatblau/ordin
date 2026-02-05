@@ -456,6 +456,31 @@ describe('Which assistant, asked at first start (SM-FS-10 to SM-FS-12)', () => {
   });
 
   // spec: ordin-desktop/components/ScreensModule#SM-FS-10
+  it('the rows come from setup.status asked again when the question appears during the run (SM-FS-10)', async () => {
+    let calls = 0;
+    const { app, transport } = await appWith((t) => {
+      t.on('setup.status', () => {
+        calls += 1;
+        // At start-up nothing has been looked for yet; the guided run finds both.
+        return ok({ needs_guided: true, progress: progress(SIGNED_OUT), attachments: calls === 1 ? [] : both() }) as never;
+      });
+      t.on('setup.run_guided', () => new Promise(() => undefined) as never);
+    });
+    app.firstStart.begin();
+    transport.emit(event(LOCAL, 1, { kind: 'setup_progress', progress: progress(CHOICE) } as never));
+    await settle();
+    transport.emit(event(LOCAL, 2, { kind: 'setup_progress', progress: progress(CHOICE) } as never));
+    await settle();
+    expect(transport.sentOf('setup.status')).toHaveLength(2);
+    const words = text(screen(app));
+    expect(words).toContain('Which assistant should ordin use?');
+    expect(words).toContain('Claude Code');
+    expect(words).toContain('GitHub Copilot');
+    app.firstStart.pick('copilot_cli');
+    expect(text(screen(app))).toContain('Use GitHub Copilot');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-10
   it('Edge case — an assistant that needs signing in is marked (SM-FS-10)', async () => {
     const { app } = await appWith((t) => asking(t, 'needs_sign_in'));
     const words = text(screen(app));

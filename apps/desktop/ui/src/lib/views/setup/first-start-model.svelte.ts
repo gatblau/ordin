@@ -109,6 +109,8 @@ export class FirstStartModel {
   /** **Install Claude Code** opens the official install page with `app.open_web_page` (SM-FS-9). */
   readonly pages: WebPageOpener;
   #guidedSent = false;
+  /** `setup.status` has been asked again for the question's rows (SM-FS-10). */
+  #choiceStatusSent = false;
 
   /** `handle` is the local backend's: first start asks the local backend only (SM-FS-1). */
   constructor(handle: BackendHandle) {
@@ -118,7 +120,20 @@ export class FirstStartModel {
 
   /** One event of the local backend's store; `setup_progress` is taken from the local backend only (SM-FS-2). */
   receive(env: EventEnvelope): void {
-    if (env.kind === 'setup_progress' && this.phase === 'first_start') this.progress = env.progress;
+    if (env.kind !== 'setup_progress' || this.phase !== 'first_start') return;
+    this.progress = env.progress;
+    // SM-FS-10: the rows come from the latest `setup.status` answer. The assistants are found during the
+    // guided run, after the first answer, so the answer is asked for again when the question appears.
+    if (this.showChoice && !this.#choiceStatusSent) {
+      this.#choiceStatusSent = true;
+      void this.refreshOffered();
+    }
+  }
+
+  /** `setup.status {}` for the attachments only, when the question appears (SM-FS-10). */
+  async refreshOffered(): Promise<void> {
+    const out = await this.handle.call('setup.status', {});
+    if (out.kind === 'ok') this.attachments = out.result.attachments;
   }
 
   /** `setup.status {}` (SM-FS-1). Sent at start-up, and again by Try again after a failure. */
