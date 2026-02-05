@@ -92,6 +92,14 @@ TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$HOME/ordin-update.key}"
 require_public_key
 need_tool minisign "brew install minisign"
 
+# With RELEASE_KEY_KEYCHAIN naming a macOS keychain item (its service name), the password is read from it,
+# never printed; an item that cannot be read stops the release.
+# spec: ordin-desktop/phase-5-playbook#PB-REL-34
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ] && [ -n "${RELEASE_KEY_KEYCHAIN:-}" ]; then
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$("${RELEASE_SECURITY_TOOL:-security}" find-generic-password -a "${USER:-$(id -un)}" -s "$RELEASE_KEY_KEYCHAIN" -w 2>/dev/null)" \
+    || die "the keychain item $RELEASE_KEY_KEYCHAIN could not be read; add it with: security add-generic-password -a \"\$USER\" -s $RELEASE_KEY_KEYCHAIN -w. Nothing was built."
+  note "the update key's password comes from the keychain item $RELEASE_KEY_KEYCHAIN"
+fi
 if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ]; then
   [ "$INTERACTIVE" = 1 ] || open_input
   printf 'Password for the update key %s: ' "$TAURI_SIGNING_PRIVATE_KEY" >&2

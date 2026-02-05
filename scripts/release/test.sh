@@ -294,6 +294,16 @@ run release.sh VERSION=1.2.3 PUBLISH=0 TAURI_SIGNING_PRIVATE_KEY="$KEY" RELEASE_
 expect_pass "a password already in the environment is not asked for"
 run release.sh VERSION=1.2.3 PUBLISH=0 TAURI_SIGNING_PRIVATE_KEY="$KEY" RELEASE_PROMPT_INPUT="$T/none" "${ALLOW[@]}"
 expect_fail "no terminal and no password stops" "there is no terminal to ask on"
+# --- the password from the keychain (PB-REL-34)
+SEC="$T/security-shim"
+printf '#!/bin/sh\n[ "$5" = ordin-update-key ] && [ "$6" = -w ] && printf "%%s\\n" "%s" && exit 0\nexit 44\n' "$PASSWORD" > "$SEC"; chmod +x "$SEC"
+rm -rf "$T/out" "$T/bundle"
+run release.sh VERSION=1.2.3 PUBLISH=0 TAURI_SIGNING_PRIVATE_KEY="$KEY" RELEASE_PROMPT_INPUT="$T/none" RELEASE_KEY_KEYCHAIN=ordin-update-key RELEASE_SECURITY_TOOL="$SEC" "${ALLOW[@]}"
+expect_pass "the password is read from the keychain with no terminal"
+printf '%s' "$OUTPUT" | grep -qF "$PASSWORD" && bad "the keychain password is never printed" || ok "the keychain password is never printed"
+run release.sh VERSION=1.2.3 PUBLISH=0 TAURI_SIGNING_PRIVATE_KEY="$KEY" RELEASE_PROMPT_INPUT="$T/none" RELEASE_KEY_KEYCHAIN=missing-item RELEASE_SECURITY_TOOL="$SEC" "${ALLOW[@]}"
+expect_fail "a keychain item that cannot be read stops" "could not be read"
+expect_no_calls "a missing keychain item built nothing" 'make|tauri build'
 expect_no_calls "no terminal built nothing" 'make|tauri build'
 run release.sh VERSION=1.2.3 PUBLISH=0 TAURI_SIGNING_PRIVATE_KEY="$KEY" RELEASE_PROMPT_INPUT="$T/answer" SHIM_SIGN_FAIL=1 "${ALLOW[@]}"
 expect_fail "a wrong password stops before the gate" "the password is wrong"
