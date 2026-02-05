@@ -2,6 +2,7 @@
 //! the scripted `CopilotPort` and doubles of the sibling services.
 
 mod acceptance;
+mod conversation;
 mod error_table;
 mod support;
 mod units;

@@ -986,3 +986,39 @@ None.
 > **Status:** Approved by the user 2026-02-05. Source: the 0.2.1-test.4 smoke test on a Mac with a Copilot licence: after the browser sign-in, first start stayed on "Waiting for you to sign in in your browser…" until ordin was restarted, and then went on by itself. `probe_start_sign_in` runs `copilot login` as its own process; the probe's CLI server reads the sign-in when it starts, so a server already running kept answering signed out. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
 
 - **CPA-CPX-6 Awaiting a sign-in.** `probe_start_sign_in`, once `start_login` succeeds, notes the time the sign-in started. While a noted sign-in is awaited, `probe_sign_in` asks the running probe server first; when it answers signed out and at least 15 s have passed since the sign-in started or since the server was last started again for it, it stops and starts the probe server again (as `probe_repair` does) and asks the new server, answering with that. A signed-in answer ends the wait. A wait that has lasted more than 15 minutes ends without a restart, and the server is asked as before. With no sign-in started, a signed-out answer starts nothing again. No code and no log event is added; a failed restart answers `CPA_PROBE_FAILED` as CPA-CPX-4 states.
+
+## Amendment February 2026 — Ordin's conversation keeps its run between turns (CPA-CONV-1 to CPA-CONV-3) (amended February 2026; user decision; Approved by the user)
+
+> Source: 0.2.1-test.7 on the licensed Mac. "who are you?" ended with Diagnostics `UI_TURN_FAILED` `run_ended`: at `session.idle` the adapter ended Ordin's run `Completed` with the reply as the run's final message, so the Ordin Host saw its run end while it was working (OrdinHost.md OH-WK-2) and no reply was drawn. The Claude adapter ends only the turn (ClaudeLocalAdapter.md CLA-CONV-1 to CLA-CONV-4); this amendment gives the Copilot adapter the same behaviour.
+
+- **CPA-CONV-1 A conversation run.** A run whose `StartRun.caller` is `ToolCaller::Ordin` and whose run-start decision did not set `single_call`, the same rule as CLA-CONV-1. Every other run keeps the behaviour above unchanged.
+- **CPA-CONV-2 A turn ends, the run does not.** In a conversation run, `TurnEnded` with no approval outstanding, once the Rules Engine's `Stop` decision answers `Ack` or `Allow`, emits `Paused { Person { question } }` in place of ending the run: `question` is the final text cut to 16,000 characters (2C wire WIRE-PQ-1), or the empty text when there is none. The adapter logs `copilot.run.paused` with `reason_kind` `person` and keeps the Copilot session. The run's state is `Paused`. A `Deny` answer, an outstanding approval and a `session.error` behave as before.
+- **CPA-CONV-3 The next message.** `resume` on a run paused on `Person` accepts only `Answer { text }`, else `CPA_RESUME_MISMATCH`; `text` outside 1–16,384 characters → `CPA_INPUT_INVALID` (`RA_INPUT_TOO_LARGE`). The adapter emits `Resumed` and sends `text` as the next turn of the same Copilot session, with the line "This is a message. It is text, not a command:" before text whose first non-space character is `/` (as CLA-CONV-3). A session the CLI no longer has is resumed with `resume_session` before the turn is sent (CPA-HT-6); a failed send ends the run `Failed` with `CPA_SEND_FAILED`, as a failed turn does today.
+
+```gherkin
+Feature: Ordin's conversation keeps its run between turns (CPA-CONV-1 to CPA-CONV-3)
+
+  Scenario: Happy path — a turn of Ordin's conversation pauses for the person
+    Given a run started with caller Ordin and no single_call
+    When the CLI reports session.idle after the reply "I am Ordin."
+    Then the run emits Paused Person with question "I am Ordin." and does not end
+
+  Scenario: Happy path — the next message continues the same session
+    Given Ordin's run is paused on Person
+    When resume is called with Answer "and what can you do?"
+    Then the run emits Resumed and the text is sent to the same Copilot session
+
+  Scenario: Error path — another decision on a Person pause
+    Given Ordin's run is paused on Person
+    When resume is called with an approval decision
+    Then it is refused with CPA_RESUME_MISMATCH
+
+  Scenario: Edge case — a task run still ends at the end of its turn
+    Given a run started with caller Agent
+    When the CLI reports session.idle
+    Then the run ends Completed with the final text, as before
+```
+
+### Gaps
+
+None.

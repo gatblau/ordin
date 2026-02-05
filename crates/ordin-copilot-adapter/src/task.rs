@@ -16,9 +16,11 @@ use tokio::sync::mpsc;
 use crate::adapter::Inner;
 use crate::error::Failure;
 use crate::gate::{classify, ServerNames};
-use crate::port::CopilotEvent;
+use crate::port::{CopilotEvent, PortErrorKind};
 use crate::progress::{plain_line, WAITING_FOR_APPROVAL};
-use crate::run::{cut, lock, run_log, Run, RunCommand, MAX_FINAL_MESSAGE, MAX_SERVICE_MESSAGE};
+use crate::run::{
+    cut, lock, run_log, Run, RunCommand, MAX_FINAL_MESSAGE, MAX_SERVICE_MESSAGE, MAX_TURN_TEXT,
+};
 use crate::session::Live;
 
 /// How a run's task begins.
@@ -195,6 +197,14 @@ impl Task {
                 let sent = self.resume_with(&turn).await;
                 let _ = ack.send(sent);
             }
+            // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+            RunCommand::Answer { turn, ack } => {
+                let sent = self.answer(&turn).await;
+                if let Err(failure) = &sent {
+                    self.end_failed(failure.code, None).await;
+                }
+                let _ = ack.send(sent);
+            }
             RunCommand::RestartSignIn => {
                 if let Some(server) = self.run.server() {
                     self.inner.start_login(&self.run, server.as_ref()).await;
@@ -208,12 +218,59 @@ impl Task {
         }
     }
 
-    /// A tool approval was decided: `Resumed`, then the decision's turn.
+    /// A tool approval was decided, or the person sent the next message: `Resumed`, then the turn.
     async fn resume_with(&mut self, turn: &str) -> Result<(), Failure> {
         *lock(&self.run.holding) = None;
         self.run.emit(RunEvent::Resumed);
         run_log!(info, self.run, "copilot.run.resumed");
         self.send(turn).await
+    }
+
+    /// The person's next message: `Resumed`, then the turn. A session the CLI no longer has is
+    /// resumed with `resume_session` and the turn sent once more (CPA-HT-6).
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+    async fn answer(&mut self, turn: &str) -> Result<(), Failure> {
+        self.run.emit(RunEvent::Resumed);
+        run_log!(info, self.run, "copilot.run.resumed");
+        let (Some(server), Some(session_id)) = (self.run.server(), self.run.session_id()) else {
+            return self.send(turn).await;
+        };
+        match server.send(&session_id, turn).await {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind == PortErrorKind::SessionNotFound => {}
+            Err(_) => return Err(self.send_failed()),
+        }
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-6
+        let options = self.inner.session_options(&self.run, self.names())?;
+        if server.resume_session(&session_id, options).await.is_err() {
+            run_log!(
+                warn,
+                self.run,
+                "copilot.send.failed",
+                code = "CPA_SEND_FAILED",
+                missing = "session"
+            );
+            return Err(Failure::unreachable("CPA_SEND_FAILED", true));
+        }
+        run_log!(info, self.run, "copilot.session.resumed");
+        if let Some(live) = self.live.as_mut() {
+            // The resumed session's events come on a new stream.
+            live.copilot = server.events(&session_id);
+        }
+        server
+            .send(&session_id, turn)
+            .await
+            .map_err(|_| self.send_failed())
+    }
+
+    fn send_failed(&self) -> Failure {
+        run_log!(
+            warn,
+            self.run,
+            "copilot.send.failed",
+            code = "CPA_SEND_FAILED"
+        );
+        Failure::unreachable("CPA_SEND_FAILED", true)
     }
 
     async fn send(&mut self, turn: &str) -> Result<(), Failure> {
@@ -393,6 +450,9 @@ impl Task {
             )
             .await;
         match reply {
+            HookReply::Ack { .. } | HookReply::Allow { .. } if self.run.is_conversation() => {
+                self.end_conversation_turn(final_text);
+            }
             HookReply::Ack { .. } | HookReply::Allow { .. } => {
                 let message = final_text.map(|text| cut(&text, MAX_FINAL_MESSAGE));
                 self.end(RunEndReason::Completed, message).await;
@@ -408,6 +468,20 @@ impl Task {
                 *lock(&self.run.holding) = Some(approval_id);
             }
         }
+    }
+
+    /// A conversation's turn has ended: the run waits for the person's next message, keeping the
+    /// Copilot session and the task's loop. The text itself is never logged.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-2
+    fn end_conversation_turn(&mut self, final_text: Option<String>) {
+        let question = final_text
+            .as_deref()
+            .map(|text| cut(text, MAX_TURN_TEXT))
+            .unwrap_or_default();
+        self.run.emit(RunEvent::Paused {
+            reason: PauseReason::Person { question },
+        });
+        run_log!(info, self.run, "copilot.run.paused", reason_kind = "person");
     }
 
     /// Hook Relay session events.

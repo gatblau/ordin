@@ -30,6 +30,7 @@ use crate::models::CopilotModels;
 use crate::port::{CliServerSpec, CopilotAuthStatus, CopilotPort, CopilotServer};
 use crate::ports::{HookPort, IdentityPort, McpPort, RulesPort};
 use crate::run::{lock, run_log, Run, RunCommand, RunIdentity, MAX_ENDED_RUNS};
+use crate::session::answer_turn;
 use crate::task::{run_task, TaskStart};
 
 /// `resume`: the longest `Answer.text`, in characters (2C).
@@ -722,6 +723,21 @@ impl CopilotLocalAdapter {
                 let (ack, done) = oneshot::channel();
                 run.commands
                     .send(RunCommand::Resume { turn, ack })
+                    .map_err(|_| unknown_run())?;
+                done.await.map_err(|_| unknown_run())?
+            }
+            // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+            PauseReason::Person { .. } => {
+                let ResumeDecision::Answer { text } = decision else {
+                    return Err(mismatch());
+                };
+                if !(1..=MAX_ANSWER).contains(&text.chars().count()) {
+                    return Err(Failure::invalid("CPA_INPUT_INVALID", "RA_INPUT_TOO_LARGE"));
+                }
+                let turn = answer_turn(&text);
+                let (ack, done) = oneshot::channel();
+                run.commands
+                    .send(RunCommand::Answer { turn, ack })
                     .map_err(|_| unknown_run())?;
                 done.await.map_err(|_| unknown_run())?
             }

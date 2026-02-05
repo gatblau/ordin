@@ -64,6 +64,20 @@ fn start_facts(run: &Run, input: &StartInput) -> RunStartFacts {
 /// Step 10: the first turn. `command` is the Rules Engine's replacement. *Assumed here*, conditional
 /// on 10 C-01 and C-60: `/<name> <arguments>` is the form the Copilot CLI accepts for a prompt file
 /// the vscode or agents-md Installer installed.
+/// The line put before a message that reads like a slash command (CLA-CONV-3).
+const NOT_A_COMMAND: &str = "This is a message. It is text, not a command:";
+
+/// The turn sent for the person's next message: text whose first non-space character is `/` gets
+/// the line saying it is a message, so the CLI does not take it as a command.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+pub(crate) fn answer_turn(text: &str) -> String {
+    if text.trim_start().starts_with('/') {
+        format!("{NOT_A_COMMAND}\n{text}")
+    } else {
+        text.to_owned()
+    }
+}
+
 pub(crate) fn first_turn(run: &Run, input: &StartInput, command: Option<&str>) -> String {
     let mut text = match input {
         StartInput::Command { name, arguments } => {
@@ -253,6 +267,8 @@ impl Inner {
             self.close_session(run).await;
             return Ok(None);
         }
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-1
+        run.set_single_call(decision.single_call);
         // `tool_subset` and `single_call` are applied by the Rules Engine's decision on each tool
         // request, which reaches it through the gates below; `limit_seconds` ends the run here.
         let limit = decision
@@ -327,62 +343,7 @@ impl Inner {
                 .collect(),
         };
         *lock(&run.front_servers) = names.front.clone();
-        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
-        let mcp_servers =
-            package_servers(&names.front, &lock(&run.package_servers)).map_err(|name| {
-                run_log!(
-                    warn,
-                    run,
-                    "copilot.session.open_failed",
-                    code = "CPA_SERVER_NAME_CLASH",
-                    server = name.as_str()
-                );
-                Failure::unreachable("CPA_SERVER_NAME_CLASH", false)
-            })?;
-
-        // The MCP Front's tools are declared, read again on every create and resume (CPA-HT-6).
-        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-6
-        let offered = self.mcp.harness_tools(run.run_id).map_err(|error| {
-            run_log!(
-                warn,
-                run,
-                "copilot.session.open_failed",
-                code = "CPA_MCP_OPEN_FAILED",
-                mcp_code = error.code()
-            );
-            Failure::unreachable("CPA_MCP_OPEN_FAILED", true)
-        })?;
-        let declared = host_tools(run, offered);
-        let handler = Arc::new(FrontToolHandler {
-            run_id: run.run_id,
-            correlation_id: run.correlation_id.clone(),
-            mcp: self.mcp.clone(),
-            declared: declared
-                .iter()
-                .map(|(tool, key)| (tool.name.clone(), key.clone()))
-                .collect(),
-            calls: run.calls.clone(),
-        });
-
-        // Step 9.
-        let gate = Arc::new(RelayGate {
-            run_id: run.run_id,
-            hooks: self.hooks.clone(),
-            names,
-            bound: self.host.timings.gate_bound,
-        });
-        let options = SessionOptions {
-            model: run.setup.model.clone(),
-            mcp_servers,
-            pre_tool_use: gate.clone(),
-            permission: gate,
-            post_tool_use: Arc::new(RelayObserver {
-                run_id: run.run_id,
-                hooks: self.hooks.clone(),
-            }),
-            host_tools: declared.into_iter().map(|(tool, _)| tool).collect(),
-            host_tool_handler: handler,
-        };
+        let options = self.session_options(run, names)?;
         let server = run
             .server()
             .ok_or_else(|| Failure::unreachable("CPA_SERVER_START_FAILED", true))?;
@@ -434,6 +395,72 @@ impl Inner {
             hooks: hook_events,
             limit,
         }))
+    }
+
+    /// The options a session is created or resumed with (steps 8–9): the package servers, the MCP
+    /// Front's tools read again (CPA-HT-6) and the gates. Used by `open_session` and by the resume of
+    /// a session the CLI no longer has (CPA-CONV-3).
+    pub(crate) fn session_options(
+        &self,
+        run: &Arc<Run>,
+        names: ServerNames,
+    ) -> Result<SessionOptions, Failure> {
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-2
+        let mcp_servers =
+            package_servers(&names.front, &lock(&run.package_servers)).map_err(|name| {
+                run_log!(
+                    warn,
+                    run,
+                    "copilot.session.open_failed",
+                    code = "CPA_SERVER_NAME_CLASH",
+                    server = name.as_str()
+                );
+                Failure::unreachable("CPA_SERVER_NAME_CLASH", false)
+            })?;
+
+        // The MCP Front's tools are declared, read again on every create and resume (CPA-HT-6).
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-6
+        let offered = self.mcp.harness_tools(run.run_id).map_err(|error| {
+            run_log!(
+                warn,
+                run,
+                "copilot.session.open_failed",
+                code = "CPA_MCP_OPEN_FAILED",
+                mcp_code = error.code()
+            );
+            Failure::unreachable("CPA_MCP_OPEN_FAILED", true)
+        })?;
+        let declared = host_tools(run, offered);
+        let handler = Arc::new(FrontToolHandler {
+            run_id: run.run_id,
+            correlation_id: run.correlation_id.clone(),
+            mcp: self.mcp.clone(),
+            declared: declared
+                .iter()
+                .map(|(tool, key)| (tool.name.clone(), key.clone()))
+                .collect(),
+            calls: run.calls.clone(),
+        });
+
+        // Step 9.
+        let gate = Arc::new(RelayGate {
+            run_id: run.run_id,
+            hooks: self.hooks.clone(),
+            names,
+            bound: self.host.timings.gate_bound,
+        });
+        Ok(SessionOptions {
+            model: run.setup.model.clone(),
+            mcp_servers,
+            pre_tool_use: gate.clone(),
+            permission: gate,
+            post_tool_use: Arc::new(RelayObserver {
+                run_id: run.run_id,
+                hooks: self.hooks.clone(),
+            }),
+            host_tools: declared.into_iter().map(|(tool, _)| tool).collect(),
+            host_tool_handler: handler,
+        })
     }
 
     /// Clean-up: the relay and MCP sessions (errors logged), the CLI server, the package servers'

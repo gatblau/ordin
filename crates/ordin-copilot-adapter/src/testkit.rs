@@ -51,6 +51,8 @@ pub struct Script {
     pub resume_fails: AtomicBool,
     /// `send` fails.
     pub send_fails: AtomicBool,
+    /// The next `send` fails as for a session the CLI does not hold.
+    pub send_session_lost: AtomicBool,
     /// `abort` fails.
     pub abort_fails: AtomicBool,
     /// `stop` takes this long before it returns.
@@ -226,6 +228,9 @@ impl CopilotServer for ScriptedServer {
         lock(&self.script.sent).push((session_id.to_owned(), text.to_owned()));
         if self.script.send_fails.load(Ordering::SeqCst) {
             return Err(PortError::new("scripted: not sent"));
+        }
+        if self.script.send_session_lost.swap(false, Ordering::SeqCst) {
+            return Err(PortError::session_not_found("scripted: session not found"));
         }
         Ok(())
     }

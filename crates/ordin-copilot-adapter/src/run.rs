@@ -1,6 +1,7 @@
 //! One run in memory: its identity, state and replayable event buffer (CopilotLocalAdapter.md
 //! `events` and `read`: "As the Claude Local Adapter").
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -25,6 +26,8 @@ pub(crate) const MAX_ENDED_RUNS: usize = 64;
 pub(crate) const MAX_FINAL_MESSAGE: usize = 32_768;
 /// Limit of the service's message on a used-up allowance (Session events table).
 pub(crate) const MAX_SERVICE_MESSAGE: usize = 500;
+/// A `Person` pause's question: the turn's final text, cut to 16,000 characters (WIRE-PQ-1).
+pub(crate) const MAX_TURN_TEXT: usize = 16_000;
 
 /// Writes a log line with the target `ordin_copilot_adapter` and the run's fields (Observability).
 macro_rules! run_log {
@@ -47,6 +50,13 @@ pub(crate) use run_log;
 pub(crate) enum RunCommand {
     /// A tool approval was decided: emit `Resumed` and send this turn.
     Resume {
+        turn: String,
+        ack: oneshot::Sender<Result<(), Failure>>,
+    },
+    /// The person's next message in a conversation run: emit `Resumed` and send this turn; a
+    /// failed send ends the run `Failed`.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+    Answer {
         turn: String,
         ack: oneshot::Sender<Result<(), Failure>>,
     },
@@ -113,6 +123,8 @@ pub(crate) struct Run {
     session_id: Mutex<Option<String>>,
     /// A hook held for a person's approval (`HookSessionEvent::Holding`), cleared by `Decided`.
     pub holding: Mutex<Option<ApprovalId>>,
+    /// The run-start decision's `single_call`, recorded once the decision is taken (step 7).
+    single_call: AtomicBool,
     events: Mutex<Vec<RunEvent>>,
     changed: watch::Sender<u64>,
     phase: Mutex<Phase>,
@@ -156,6 +168,7 @@ impl Run {
             calls: tokio_util::sync::CancellationToken::new(),
             session_id: Mutex::new(None),
             holding: Mutex::new(None),
+            single_call: AtomicBool::new(false),
             events: Mutex::new(Vec::new()),
             changed,
             phase: Mutex::new(Phase::Running),
@@ -172,6 +185,17 @@ impl Run {
 
     pub(crate) fn set_session_id(&self, id: String) {
         *lock(&self.session_id) = Some(id);
+    }
+
+    pub(crate) fn set_single_call(&self, single_call: bool) {
+        self.single_call.store(single_call, Ordering::SeqCst);
+    }
+
+    /// A conversation run: Ordin's, and not narrowed to a single call. Its turns end in a
+    /// `Person` pause instead of ending the run.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-1
+    pub(crate) fn is_conversation(&self) -> bool {
+        matches!(self.caller, ToolCaller::Ordin) && !self.single_call.load(Ordering::SeqCst)
     }
 
     pub(crate) fn server(&self) -> Option<Arc<dyn CopilotServer>> {

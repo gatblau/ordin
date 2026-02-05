@@ -52,5 +52,6 @@ pub use config::{
 pub use error::{CopilotAdapterError, ALL_CODES};
 pub use port::{
     CliServerSpec, CopilotAuthStatus, CopilotEvent, CopilotPort, CopilotServer, GateAnswer,
-    HostTool, HostToolAnswer, HostToolHandler, PortError, SessionOptions, ToolGate, ToolObserver,
+    HostTool, HostToolAnswer, HostToolHandler, PortError, PortErrorKind, SessionOptions, ToolGate,
+    ToolObserver,
 };

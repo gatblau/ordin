@@ -17,12 +17,32 @@ use futures::stream::BoxStream;
 #[error("{reason}")]
 pub struct PortError {
     pub reason: String,
+    /// What kind of failure it was, where the adapter acts on the difference.
+    pub kind: PortErrorKind,
+}
+
+/// The failures the adapter tells apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PortErrorKind {
+    /// Any other failure.
+    Other,
+    /// The CLI server does not hold the session named (CPA-CONV-3: it is resumed, then the turn is
+    /// sent again).
+    SessionNotFound,
 }
 
 impl PortError {
     pub fn new(reason: impl Into<String>) -> PortError {
         PortError {
             reason: reason.into(),
+            kind: PortErrorKind::Other,
+        }
+    }
+
+    pub fn session_not_found(reason: impl Into<String>) -> PortError {
+        PortError {
+            reason: reason.into(),
+            kind: PortErrorKind::SessionNotFound,
         }
     }
 }

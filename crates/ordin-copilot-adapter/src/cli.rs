@@ -117,6 +117,23 @@ fn port_error(error: impl std::fmt::Display) -> PortError {
     PortError::new(error.to_string())
 }
 
+/// How the CLI words its refusal of a request for a session it does not hold. The CLI gives this
+/// refusal no code of its own (its schema names none, and the runtime answers with a plain error),
+/// so the start of the message is the only thing that tells it apart; the message is never logged.
+const SESSION_NOT_FOUND: &str = "Session not found";
+
+/// `session.send`'s failure: a refusal for a session the CLI does not hold is
+/// [`PortErrorKind::SessionNotFound`](crate::port::PortErrorKind::SessionNotFound).
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+fn send_error(error: CallError) -> PortError {
+    match &error {
+        CallError::Refused { message, .. } if message.starts_with(SESSION_NOT_FOUND) => {
+            PortError::session_not_found(error.to_string())
+        }
+        _ => port_error(error),
+    }
+}
+
 #[async_trait::async_trait]
 impl CopilotPort for CliCopilotPort {
     async fn start_server(&self, spec: CliServerSpec) -> Result<Box<dyn CopilotServer>, PortError> {
@@ -800,7 +817,7 @@ impl CopilotServer for CliServer {
             .call("session.send", params)
             .await
             .map(|_| ())
-            .map_err(port_error)
+            .map_err(send_error)
     }
 
     fn events(&self, session_id: &str) -> BoxStream<'static, CopilotEvent> {
@@ -1456,6 +1473,27 @@ mod tests {
             "sessionId"
         );
         assert!(!lines.text().contains("secret"), "{}", lines.text());
+    }
+
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CONV-3
+    #[test]
+    fn a_send_refused_for_an_unknown_session_is_told_apart() {
+        use crate::port::PortErrorKind;
+        let refused = |message: &str| CallError::Refused {
+            method: "session.send".into(),
+            code: -32603,
+            message: message.into(),
+        };
+        assert_eq!(
+            send_error(refused("Session not found for sessionId: s1")).kind,
+            PortErrorKind::SessionNotFound
+        );
+        assert_eq!(
+            send_error(refused("Session not found: s1")).kind,
+            PortErrorKind::SessionNotFound
+        );
+        assert_eq!(send_error(refused("boom")).kind, PortErrorKind::Other);
+        assert_eq!(send_error(CallError::Closed).kind, PortErrorKind::Other);
     }
 
     #[tokio::test]
