@@ -797,6 +797,18 @@ printf '%s' "$OUTPUT" | grep -qF "$PASSWORD" && bad "the Windows build output om
 [ -f "$WR_OUT/ordin-1.2.3-windows-x86_64.setup.exe" ] && [ -f "$WR_OUT/ordin-1.2.3-windows-x86_64.setup.exe.minisig" ] && [ -f "$WR_OUT/platform-windows-x86_64.json" ] \
   && ok "the Windows files come back into the release folder" || bad "the Windows files come back into the release folder"
 
+# The tests run with RELEASE_GATE=local (see the top), so that is the choice the Windows build is given.
+grep -qF -- "export RELEASE_GATE=''local''" "$SHIM_LOG" && ok "the Windows build is given the gate choice made here" || bad "the Windows build is given the gate choice made here"
+run build-windows-remote.sh VERSION=1.2.3 "${KEYENV[@]}" "${WR[@]}" RELEASE_OUT_DIR="$T/out-wr-none" RELEASE_GATE=none
+expect_pass "the Windows build from here passes with RELEASE_GATE=none on the test channel"
+grep -qF -- "export RELEASE_GATE=''none''" "$SHIM_LOG" && grep -qF -- "export RELEASE_CHANNEL=''test''" "$SHIM_LOG" \
+  && ok "RELEASE_GATE=none and the channel go to the Windows build" || bad "RELEASE_GATE=none and the channel go to the Windows build"
+run build-windows-remote.sh VERSION=1.2.3 "${KEYENV[@]}" "${WR[@]}" RELEASE_GATE=none RELEASE_CHANNEL=real
+expect_fail "RELEASE_GATE=none is refused for a real Windows build" "RELEASE_GATE=none is for the test channel only"
+expect_no_calls "a refused Windows build sends nothing" 'BUILD_RAN'
+run build-windows-remote.sh VERSION=1.2.3 "${KEYENV[@]}" "${WR[@]}" "RELEASE_GATE=x;rm"
+expect_fail "another RELEASE_GATE value is refused for the Windows build" "RELEASE_GATE must be evidence, local or none"
+
 WR_OUT2="$T/out-wr2"; rm -rf "$WR_OUT2"
 run build-windows-remote.sh VERSION=1.2.3 "${KEYENV[@]}" "${WR[@]}" RELEASE_OUT_DIR="$WR_OUT2" SHIM_WIN_BUILD_FAIL=1
 expect_fail "a failed Windows build fails the script" "the build on the Windows machine failed"

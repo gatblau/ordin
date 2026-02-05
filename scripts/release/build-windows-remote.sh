@@ -34,6 +34,14 @@ read -r -a WIN <<< "${RELEASE_WINDOWS_SSH:-${JOURNEYS_WINDOWS_SSH:-ssh -p 2222 o
 REPO="${RELEASE_WINDOWS_REPO:-/c/o}"
 REMOTE="${RELEASE_WINDOWS_REMOTE:-server}"
 GATE_REMOTE="${RELEASE_GATE_REMOTE:-server}"
+# PB-REL-32: the gate choice and the channel go with the build, so a test build may skip the gate there too.
+# spec: ordin-desktop/phase-5-playbook#PB-REL-32
+GATE="${RELEASE_GATE:-evidence}"
+case "$GATE" in evidence|local|none) ;; *) die "RELEASE_GATE must be evidence, local or none (it is ${GATE}). Nothing was built." ;; esac
+CHANNEL="${RELEASE_CHANNEL:-test}"
+case "$CHANNEL" in test|real) ;; *) die "RELEASE_CHANNEL must be test or real" ;; esac
+[ "$GATE" != none ] || [ "$CHANNEL" = test ] \
+  || die "RELEASE_GATE=none is for the test channel only; a real release needs the gate and the journeys. Nothing was built."
 OUT="${RELEASE_OUT_DIR:-$ROOT/target/release-out/$VERSION}"
 REMOTE_KEY='~/.ordin-release-key'
 
@@ -86,6 +94,8 @@ read -r TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 export TAURI_SIGNING_PRIVATE_KEY=\$HOME/.ordin-release-key
 export RELEASE_GATE_REMOTE='$GATE_REMOTE'
+export RELEASE_GATE='$GATE'
+export RELEASE_CHANNEL='$CHANNEL'
 cd '$REPO'
 git checkout -q -f '$COMMIT'
 git clean -fdq -e node_modules -e target
