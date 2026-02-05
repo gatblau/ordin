@@ -168,7 +168,7 @@ memory-model-test:
 # computer; no CI job builds, signs or publishes. Each takes VERSION=<version>. release-build and
 # release-publish need TAURI_SIGNING_PRIVATE_KEY (a file path) and TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 # (see release/README.md).
-.PHONY: release publish release-check release-build release-build-windows release-build-windows-remote release-publish release-test memory-models gate-record
+.PHONY: release publish release-check release-build release-build-windows release-build-windows-remote release-publish release-test release-key-keychain memory-models gate-record
 ## Asks once for the update key's password, checks it, then release-build and release-publish. PUBLISH=0 stops after the build.
 release:
 	scripts/release/release.sh
@@ -202,6 +202,11 @@ release-build-windows-remote:
 ## Steps 5 to 7 over the folder both computers filled. The maintainer's action.
 release-publish:
 	scripts/release/publish.sh
+
+## Gives the update key a new password kept in the macOS keychain, so release and publish ask for nothing.
+## Run in a Terminal window: it asks for the current password, then the new one (PB-REL-35).
+release-key-keychain:
+	scripts/release/key-keychain.sh
 
 ## On the computer that runs the tests: run `make check` on the clean commit checked out and, only when it
 ## passes, record that in a git note (refs/notes/ordin-gate) the release build reads (Playbook PB-REL-22).
