@@ -6252,7 +6252,7 @@ dependencies = [
 
 [[package]]
 name = "ordin-desktop"
-version = "0.2.1-test.7"
+version = "0.2.1-test.8"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
