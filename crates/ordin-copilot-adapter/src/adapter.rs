@@ -86,7 +86,22 @@ pub(crate) struct Inner {
     pub starting: Mutex<HashSet<RunId>>,
     /// The CLI server the probe calls use, and the CLI it was started from.
     probe: tokio::sync::Mutex<Option<(CopilotCli, Arc<dyn CopilotServer>)>>,
+    /// While a sign-in started by `probe_start_sign_in` is not seen: when it started and when the probe
+    /// server was last started again for it (CPA-CPX-6).
+    login: Mutex<Option<(tokio::time::Instant, tokio::time::Instant)>>,
 }
+
+/// CPA-CPX-6: how often, at most, the probe server is started again while a sign-in is awaited, and for
+/// how long after the sign-in started.
+#[cfg(not(test))]
+const LOGIN_RECHECK: Duration = Duration::from_secs(15);
+#[cfg(not(test))]
+const LOGIN_RECHECK_FOR: Duration = Duration::from_secs(15 * 60);
+/// The same rule at a test's pace.
+#[cfg(test)]
+const LOGIN_RECHECK: Duration = Duration::from_millis(150);
+#[cfg(test)]
+const LOGIN_RECHECK_FOR: Duration = Duration::from_secs(60);
 
 impl Inner {
     pub(crate) fn run(&self, run_id: RunId) -> Option<Arc<Run>> {
@@ -496,6 +511,7 @@ impl CopilotLocalAdapter {
                 runs: Mutex::new(HashMap::new()),
                 starting: Mutex::new(HashSet::new()),
                 probe: tokio::sync::Mutex::new(None),
+                login: Mutex::new(None),
             }),
         })
     }
@@ -528,21 +544,59 @@ impl CopilotLocalAdapter {
     }
 
     /// `CopilotServer::auth_status`, with the CLI server started if it is not running.
+    ///
+    /// CPA-CPX-6: the CLI server reads the sign-in when it starts, so a `copilot login` finished in its
+    /// own process is not seen by a server already running. While a sign-in started here is awaited and
+    /// the answer is still signed out, the server is started again, at most every [`LOGIN_RECHECK`] and
+    /// for [`LOGIN_RECHECK_FOR`] after the sign-in started, and asked once more.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CPX-6
     pub async fn probe_sign_in(&self) -> Result<CopilotAuthStatus, CopilotAdapterError> {
         let server = self.inner.probe_server().await?;
-        server
+        let mut status = server
             .auth_status()
             .await
-            .map_err(|_| CopilotAdapterError::probe_failed())
+            .map_err(|_| CopilotAdapterError::probe_failed())?;
+        if !status.signed_in && self.recheck_due() {
+            self.probe_repair().await?;
+            let server = self.inner.probe_server().await?;
+            status = server
+                .auth_status()
+                .await
+                .map_err(|_| CopilotAdapterError::probe_failed())?;
+        }
+        if status.signed_in {
+            *lock(&self.inner.login) = None;
+        }
+        Ok(status)
     }
 
-    /// `start_login` on the probe's CLI server.
+    /// True, and the restart time noted, when a started sign-in is due a fresh server (CPA-CPX-6).
+    fn recheck_due(&self) -> bool {
+        let now = tokio::time::Instant::now();
+        let mut login = lock(&self.inner.login);
+        match *login {
+            Some((started, _)) if now.duration_since(started) > LOGIN_RECHECK_FOR => {
+                *login = None;
+                false
+            }
+            Some((started, last)) if now.duration_since(last) >= LOGIN_RECHECK => {
+                *login = Some((started, now));
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// `start_login` on the probe's CLI server; the sign-in is then awaited as CPA-CPX-6 states.
     pub async fn probe_start_sign_in(&self) -> Result<(), CopilotAdapterError> {
         let server = self.inner.probe_server().await?;
         server
             .start_login()
             .await
-            .map_err(|_| CopilotAdapterError::probe_failed())
+            .map_err(|_| CopilotAdapterError::probe_failed())?;
+        let now = tokio::time::Instant::now();
+        *lock(&self.inner.login) = Some((now, now));
+        Ok(())
     }
 
     /// Stops and restarts the probe's CLI server.

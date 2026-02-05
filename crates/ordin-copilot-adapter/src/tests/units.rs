@@ -416,3 +416,39 @@ async fn the_probe_repair_restarts_the_server() {
     assert_eq!(h.script().stopped.load(Ordering::SeqCst), 1);
     assert_eq!(h.script().logins.load(Ordering::SeqCst), 1);
 }
+
+// CPA-CPX-6: a sign-in finished in its own process is seen by starting the probe server again, at most
+// once per interval while the sign-in is awaited (15 s; 150 ms in the test build), and not at all once
+// it is seen or when none was started.
+// spec: ordin-desktop/components/CopilotLocalAdapter#CPA-CPX-6
+#[tokio::test]
+async fn a_sign_in_finished_elsewhere_is_seen_by_a_fresh_probe_server() {
+    let h = Harness::with(ScriptedCopilotPort::default(), |_| {});
+    let started = || h.script().started.lock().unwrap().len();
+    let pause = |ms| tokio::time::sleep(Duration::from_millis(ms));
+    // No sign-in started: a signed-out answer starts nothing again.
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    pause(200).await;
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    assert_eq!(started(), 1);
+
+    h.adapter.probe_start_sign_in().await.expect("login");
+    // Within the interval, the running server is asked.
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    assert_eq!(started(), 1);
+    // After it, the old server is stopped, a new one started and asked, once per interval.
+    pause(200).await;
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    assert_eq!(started(), 2);
+    assert_eq!(h.script().stopped.load(Ordering::SeqCst), 1);
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    assert_eq!(started(), 2);
+    // A signed-in answer ends the wait.
+    h.script().signed_in.store(true, Ordering::SeqCst);
+    assert!(h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    // Once seen, nothing is started again.
+    h.script().signed_in.store(false, Ordering::SeqCst);
+    pause(200).await;
+    assert!(!h.adapter.probe_sign_in().await.expect("probe").signed_in);
+    assert_eq!(started(), 2);
+}

@@ -981,3 +981,8 @@ None.
 
 None.
 
+## Amendment 2026-02-05 — A sign-in finished in its own process is seen (CPA-CPX-6)
+
+> **Status:** Approved by the user 2026-02-05. Source: the 0.2.1-test.4 smoke test on a Mac with a Copilot licence: after the browser sign-in, first start stayed on "Waiting for you to sign in in your browser…" until ordin was restarted, and then went on by itself. `probe_start_sign_in` runs `copilot login` as its own process; the probe's CLI server reads the sign-in when it starts, so a server already running kept answering signed out. **derivedFromHld:** 0.75.0. Every section above stays in force except where this amendment changes it.
+
+- **CPA-CPX-6 Awaiting a sign-in.** `probe_start_sign_in`, once `start_login` succeeds, notes the time the sign-in started. While a noted sign-in is awaited, `probe_sign_in` asks the running probe server first; when it answers signed out and at least 15 s have passed since the sign-in started or since the server was last started again for it, it stops and starts the probe server again (as `probe_repair` does) and asks the new server, answering with that. A signed-in answer ends the wait. A wait that has lasted more than 15 minutes ends without a restart, and the server is asked as before. With no sign-in started, a signed-out answer starts nothing again. No code and no log event is added; a failed restart answers `CPA_PROBE_FAILED` as CPA-CPX-4 states.
