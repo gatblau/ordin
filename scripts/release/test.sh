@@ -260,6 +260,14 @@ printf '%s\n' "$OUTPUT" | sed -n '/^leak-check:/,$p' | grep -q 'DONOTLEAK' && ba
 PASSWORD_LOG="$T/pw.log"; echo "the password is $PASSWORD" > "$PASSWORD_LOG"
 OUTPUT="$(env TAURI_SIGNING_PRIVATE_KEY="$KEY" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$PASSWORD" "$REPO/scripts/release/leak-check.sh" "$PASSWORD_LOG" 2>&1)"; STATUS=$?
 expect_fail "the password found in a file fails the check" "appears in"
+SIGDIR="$T/sigs"; mkdir -p "$SIGDIR"
+printf 'xx%sxx\n' "$PASSWORD" > "$SIGDIR/a.tar.gz.sig"; printf 'xx%sxx\n' "$PASSWORD" > "$SIGDIR/a.dmg.minisig"
+printf '{"version":"1.2.3","platforms":{"p":{"signature":"AB%sCD","url":"https://x"}}}\n' "$PASSWORD" > "$SIGDIR/latest.json"
+OUTPUT="$(env TAURI_SIGNING_PRIVATE_KEY="$KEY" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$PASSWORD" "$REPO/scripts/release/leak-check.sh" "$SIGDIR" 2>&1)"; STATUS=$?
+expect_pass "a signature that holds the password by chance passes the check"
+printf '{"version":"1.2.3","notes":"%s","platforms":{"p":{"signature":"ABCD"}}}\n' "$PASSWORD" > "$SIGDIR/latest.json"
+OUTPUT="$(env TAURI_SIGNING_PRIVATE_KEY="$KEY" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$PASSWORD" "$REPO/scripts/release/leak-check.sh" "$SIGDIR" 2>&1)"; STATUS=$?
+expect_fail "the password in the feed outside a signature fails the check" "latest.json"
 
 # --- make release: asks once for the password
 printf '%s\n' "$PASSWORD" > "$T/answer"

@@ -3,6 +3,7 @@
 # file or the key's password (PB-REL-9), or is one of Microsoft's files from the cargo-xwin cache
 # (PB-REL-18). Prints file names only, never the matched text.
 # spec: ordin-desktop/phase-5-playbook#PB-REL-9
+# spec: ordin-desktop/phase-5-playbook#PB-REL-33
 set -euo pipefail
 [ "$#" -ge 1 ] || { echo "usage: leak-check.sh <path>..." >&2; exit 2; }
 key="${TAURI_SIGNING_PRIVATE_KEY:-}"
@@ -13,7 +14,22 @@ trap 'rm -f "$patterns"' EXIT
 grep -v '^untrusted comment:' "$key" | grep -v '^[[:space:]]*$' > "$patterns" || true
 if [ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then printf '%s\n' "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >> "$patterns"; fi
 if [ -s "$patterns" ]; then
-  hits="$(grep -rlaF -f "$patterns" -- "$@" 2>/dev/null || true)"
+  # Signatures are made with the key to be published, and their random text can hold a short password
+  # or key line by chance. Signature files (.sig, .minisig) are not searched, and a JSON file is searched
+  # with its "signature" values taken out; every other byte of every file is.
+  hits=""
+  while IFS= read -r -d '' f; do
+    case "$f" in
+      *.sig|*.minisig) continue ;;
+      *.json) sed -E 's/"signature"[[:space:]]*:[[:space:]]*"[^"]*"/"signature":""/g' "$f" \
+                | grep -qaF -f "$patterns" && hits="$hits$f
+" ;;
+      *) grep -qaF -f "$patterns" -- "$f" && hits="$hits$f
+" ;;
+    esac
+  done < <(find "$@" -type f -print0 2>/dev/null)
+  hits="${hits%
+}"
   if [ -n "$hits" ]; then
     found=1
     printf 'leak-check: the key or its password appears in:\n%s\n' "$hits" >&2
