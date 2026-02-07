@@ -451,6 +451,7 @@ impl Inner {
         });
         Ok(SessionOptions {
             model: run.setup.model.clone(),
+            additional_directories: run.setup.extra_dirs.clone(),
             mcp_servers,
             pre_tool_use: gate.clone(),
             permission: gate,

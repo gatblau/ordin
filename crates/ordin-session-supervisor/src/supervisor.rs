@@ -132,6 +132,8 @@ pub(crate) struct Live {
     pub holds_slot: bool,
     /// A queued run waiting in the FIFO for a local session.
     pub pending: Option<Box<Launch>>,
+    /// Ordin's conversation run (`RunOrigin::Conversation`), not an agent's (SUP-QUIT-1).
+    pub conversation: bool,
 }
 
 #[derive(Default)]
@@ -521,6 +523,7 @@ impl SessionSupervisor {
             done,
             holds_slot: false,
             pending: None,
+            conversation: matches!(launch.row.run.origin, RunOrigin::Conversation { .. }),
         };
         state.live.insert(run_id, live);
         // B.5: a local run waits in the FIFO while every local session is taken.
@@ -920,8 +923,23 @@ impl SessionSupervisor {
     }
 
     /// Local sessions running now (not queued).
+    /// Ordin's conversation waiting for the person between turns is not counted: it is no agent
+    /// at work, and the quit question would name an agent the person cannot see.
+    // spec: ordin-desktop/components/SessionSupervisor#SUP-QUIT-1
     pub fn running_local_sessions(&self) -> u32 {
-        self.lock().running_local
+        let state = self.lock();
+        let between_turns = state
+            .live
+            .values()
+            .filter(|live| {
+                live.holds_slot
+                    && live.conversation
+                    && matches!(live.paused_on, Some(PauseReason::Person { .. }))
+            })
+            .count();
+        state
+            .running_local
+            .saturating_sub(u32::try_from(between_turns).unwrap_or(u32::MAX))
     }
 
     /// Local plus remote runs queued, running or paused.
@@ -1230,6 +1248,7 @@ impl SessionSupervisor {
                 done,
                 holds_slot: false,
                 pending: None,
+                conversation: matches!(launch.row.run.origin, RunOrigin::Conversation { .. }),
             },
         );
         self.spawn_locked(&mut state, launch);
@@ -1258,6 +1277,7 @@ impl SessionSupervisor {
                 done,
                 holds_slot: false,
                 pending: None,
+                conversation: matches!(row.run.origin, RunOrigin::Conversation { .. }),
             },
         );
     }

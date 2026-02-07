@@ -175,6 +175,7 @@ fn options_with(
 ) -> SessionOptions {
     SessionOptions {
         model: None,
+        additional_directories: vec![],
         mcp_servers: json!({}),
         pre_tool_use: pre.clone(),
         permission: permission.clone(),

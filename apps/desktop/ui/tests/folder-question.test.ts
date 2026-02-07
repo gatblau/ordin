@@ -27,12 +27,14 @@ const question = {
   allow_other: false,
 };
 
-async function draw(): Promise<{ target: HTMLElement; transport: Awaited<ReturnType<typeof backendWith>>['transport'] }> {
+async function draw(
+  block: typeof question = question,
+): Promise<{ target: HTMLElement; transport: Awaited<ReturnType<typeof backendWith>>['transport'] }> {
   const { state, transport } = await backendWith({ setup: (t) => t.on('ordin.answer_block', ok({ accepted: true })) });
-  state.conversation.set(WS, [{ block_id: BLOCK, waiting: true, block: question } as never]);
+  state.conversation.set(WS, [{ block_id: BLOCK, waiting: true, block } as never]);
   const target = document.createElement('div');
   document.body.appendChild(target);
-  drawn = mount(Question as never, { target, props: { backend: state, workspaceId: WS, blockId: BLOCK, block: question } as never });
+  drawn = mount(Question as never, { target, props: { backend: state, workspaceId: WS, blockId: BLOCK, block } as never });
   for (let i = 0; i < 4; i++) {
     await settle();
     flushSync();
@@ -71,5 +73,28 @@ describe("Ordin's folder question (SM-FA-4)", () => {
     const { target } = await draw();
     const names = ([...target.querySelectorAll('button')] as HTMLButtonElement[]).map((b) => b.textContent?.trim());
     expect(names).not.toContain('Skip');
+  });
+});
+
+describe('Choice layout and colour (SM-QB-1)', () => {
+  const classes = (target: HTMLElement) =>
+    ([...target.querySelectorAll('.choices button')] as HTMLButtonElement[]).map((b) => b.className.replace(/\s*svelte-\S+/g, '').trim());
+
+  // spec: ordin-desktop/components/ScreensModule#SM-QB-1
+  it('Happy path — Allow and Not now sit on one row, Allow the primary button', async () => {
+    const { target } = await draw();
+    expect(target.querySelector('.choices')?.classList.contains('row')).toBe(true);
+    expect(classes(target)).toEqual(['primary', '']);
+  });
+
+  it('Edge case — options of equal weight have no primary button', async () => {
+    const { target } = await draw({ ...question, choices: ['Monthly', 'Weekly'] });
+    expect(classes(target)).toEqual(['', '']);
+  });
+
+  it('Edge case — a long choice stacks the choices; a reject is a danger button', async () => {
+    const { target } = await draw({ ...question, choices: ['Keep the draft as it is for now', 'Reject it', 'Not now'] });
+    expect(target.querySelector('.choices')?.classList.contains('row')).toBe(false);
+    expect(classes(target)).toEqual(['primary', 'danger', '']);
   });
 });

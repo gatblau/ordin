@@ -7035,3 +7035,38 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — A question's short choices sit side by side, coloured by what they do (SM-QB-1) (amended February 2026; user decision; Approved by the user)
+
+The 0.2.1-test.9 smoke test: the folder question of SM-FA-4 showed **Allow** above **Not now**, both alike, so the main answer did not stand out. This amendment changes the "one button per choice, one under another" layout of a `question` block (scenes `ambiguous`, `agentAsks`; SM-FA-4); every other rule of the block stays.
+
+- **SM-QB-1 Choice layout and colour.** `apps/desktop/ui/src/lib/blocks/kinds/Question.svelte` draws the choices:
+  1. **Row or column.** On one wrapping row when there are at most 3 choices and none is longer than 24 characters (after trimming); otherwise one under another, as before.
+  2. **Way out.** A choice whose trimmed, lower-cased text is `not now`, `skip`, `cancel`, `later` or `no` is a plain button.
+  3. **Danger.** A choice whose trimmed, lower-cased text starts with `reject`, `delete`, `remove`, `discard` or `stop` is a `danger` button (outlined in `--color-danger`).
+  4. **Main action.** When at least one choice is a way out, the first choice that is neither a way out nor danger is the `primary` button (the filled button, UX guideline §4: one main action). With no way-out choice the question offers options of equal weight, and no choice is primary.
+  5. Order, wording, the **Skip** button of SM-DIS-1 and what a press sends are unchanged.
+
+```gherkin
+Feature: A question's short choices sit side by side (SM-QB-1)
+
+  Scenario: Happy path — the folder question
+    Given the question "Document agent needs to read Docs to answer." with choices Allow and Not now
+    When it is drawn
+    Then Allow and Not now are on one row
+    And Allow is the primary button and Not now a plain button
+
+  Scenario: Edge case — options of equal weight
+    Given a question with choices "Monthly" and "Weekly"
+    When it is drawn
+    Then neither choice is the primary button
+
+  Scenario: Edge case — a long choice stacks the choices
+    Given a question with a choice longer than 24 characters
+    When it is drawn
+    Then the choices are one under another
+```
+
+### Gaps
+
+None.

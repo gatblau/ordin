@@ -454,9 +454,9 @@ impl SessionSetupSource for DesktopSessionSetup {
 
 /// `SessionSetupSource` of the Copilot Local Adapter over the same modules as the Claude one: the
 /// `Session` lease held for the run's life, the Installers' `HarnessLaunch::Copilot`, the crew run's
-/// charter and the attachments. `CopilotSessionSetup` carries no granted folders, so no grant is
-/// applied and attachments are checked against the agent folder only (OrdinDesktop.md
-/// `SessionSetupSource` row). `model` is `None` (DSK-REC-7); no package server (DSK-REC-28).
+/// charter, the folder grants (applied at start, read back on resume, as for Claude) and the
+/// attachments, checked against the agent folder and those grants (DSK-REC-49). `model` is `None`
+/// (DSK-REC-7); no package server (DSK-REC-28).
 #[cfg(feature = "copilot")]
 pub struct DesktopCopilotSessionSetup {
     pub inner: Arc<DesktopSessionSetup>,
@@ -504,18 +504,33 @@ impl ordin_copilot_adapter::SessionSetupSource for DesktopCopilotSessionSetup {
             .get(run_id)
             .await
             .map_err(|e| copilot_setup_error(setup_error(e.code())))?;
+        let workspace_id = view.workspace_id;
         let run = view.run;
         let crew_charter_id = this
             .crew_charter(run.origin)
             .await
             .map_err(copilot_setup_error)?;
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-49
+        let access = this
+            .grants(
+                run_id,
+                agent_instance_id,
+                run.runtime_session_id.is_some(),
+                workspace_id,
+                crew_charter_id,
+            )
+            .await
+            .map_err(copilot_setup_error)?;
+        let extra_dirs: Vec<std::path::PathBuf> = access
+            .map(|a| a.grants.into_iter().map(|g| g.path).collect())
+            .unwrap_or_default();
         let attachment_paths = attachment_paths(
             this.as_ref(),
             AttachmentRun {
                 run_id,
                 crew_round: matches!(run.origin, RunOrigin::CrewRound { .. }),
                 agent_folder: &working_dir,
-                extra_dirs: &[],
+                extra_dirs: &extra_dirs,
             },
             attachments,
         )
@@ -524,6 +539,7 @@ impl ordin_copilot_adapter::SessionSetupSource for DesktopCopilotSessionSetup {
         this.late.runs.hold(run_id, agent_instance_id, lease);
         Ok(ordin_copilot_adapter::CopilotSessionSetup {
             agent_folder: working_dir,
+            extra_dirs,
             model: None,
             attachment_paths,
             package_servers: Vec::new(),

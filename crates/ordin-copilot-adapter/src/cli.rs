@@ -708,6 +708,15 @@ impl CliServer {
         if let Some(model) = &opts.model {
             params["model"] = json!(model);
         }
+        // Given again on resume: the CLI keeps no directories of its own across a resume.
+        // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-DIR-1
+        if !opts.additional_directories.is_empty() {
+            params["additionalDirectories"] = json!(opts
+                .additional_directories
+                .iter()
+                .map(|dir| dir.to_string_lossy())
+                .collect::<Vec<_>>());
+        }
         // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-HT-1
         if !opts.host_tools.is_empty() {
             params["tools"] = Value::Array(
@@ -1142,6 +1151,7 @@ mod tests {
         }
         let opts = SessionOptions {
             model: None,
+            additional_directories: vec![],
             mcp_servers: json!({"mcpServers": {
                 "work": {"type": "stdio", "command": "/opt/w"},
                 "quotes": {"type": "stdio", "command": "/opt/q", "tools": ["price"]},
@@ -1159,6 +1169,10 @@ mod tests {
         assert!(
             params.get("tools").is_none(),
             "no declared tool, no `tools`"
+        );
+        assert!(
+            params.get("additionalDirectories").is_none(),
+            "no granted folder, no `additionalDirectories`"
         );
     }
 
@@ -1193,6 +1207,7 @@ mod tests {
         }
         let opts = SessionOptions {
             model: None,
+            additional_directories: vec![std::path::PathBuf::from("/places/docs")],
             mcp_servers: json!({}),
             pre_tool_use: Arc::new(Never),
             permission: Arc::new(Never),
@@ -1209,6 +1224,8 @@ mod tests {
             params["tools"],
             json!([{"name": "mcp__work__report", "description": "Reports.", "parameters": {"type": "object"}}])
         );
+        // CPA-DIR-1: the run's granted folders go with the session.
+        assert_eq!(params["additionalDirectories"], json!(["/places/docs"]));
     }
 
     #[test]

@@ -3462,3 +3462,25 @@ Feature: The agents follow the harness at start (DSK-HAR-1)
 ### Gaps
 
 None.
+
+
+## Amendment February 2026 — Copilot sessions get the folder grants (DSK-REC-49)
+
+> **Status:** Approved by the user, February 2026 ("yes to both, go ahead"). Source: the 0.2.1-test.9 smoke test, where a Document agent on Copilot could not read a PDF the person had attached and allowed. Every section above stays in force except where this amendment changes it.
+
+- **DSK-REC-49 Folder grants for a Copilot session.** `DesktopCopilotSessionSetup::session_setup` applies the folder grants as the Claude setup does (DSK-REC-9): `apply_grants(run_id, agent_instance_id, workspace_id, crew_charter_id)` at session start, and `session_access(run_id)` first when the run resumes a persisted session (falling back to `apply_grants` when that read fails). The grants' paths become `CopilotSessionSetup.extra_dirs` (CopilotLocalAdapter.md CPA-DIR-1), and the attachment check of DSK-REC-26 step 4 accepts a file under one of them, as for `SessionSetup.extra_dirs`. A failed `apply_grants` fails the setup with that owner's code. This replaces, for Copilot, the "Claude Local Adapter only" and "a Copilot session gets none" wording of the `SessionSetupSource` row and of DSK-REC-26 step 4.
+
+```gherkin
+Feature: Copilot sessions get the folder grants (DSK-REC-49)
+
+  Scenario: Happy path — an allowed place reaches the Copilot session
+    Given a Copilot agent granted read access to the place "Docs"
+    And a run of it with a PDF from "Docs" attached
+    When its session is set up
+    Then extra_dirs holds the folder of "Docs"
+    And attachment_paths holds the PDF
+```
+
+### Gaps
+
+None.

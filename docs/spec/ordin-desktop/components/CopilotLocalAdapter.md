@@ -1055,3 +1055,27 @@ Feature: The CLI is stopped with the quit signal (CPA-STOP-1)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — a Copilot session reads the folders the person allowed (CPA-DIR-1) (amended February 2026; user decision; Approved by the user)
+
+The 0.2.1-test.9 smoke test: the person attached a PDF from a place, pressed **Allow** on the folder question (OrdinHost.md OH-ACC-2), and the Document agent answered that it could not find the file. A Copilot session was given no folder outside its agent folder, so the grant the person made had no effect and the attachment was not passed. The Copilot CLI's `session.create` and `session.resume` take `additionalDirectories`, a list of folders the agent may use besides its working directory, which the CLI does not keep across a resume (`@github/copilot-sdk` 1.0.34, for CLI 1.0.112, `SessionConfig.additionalDirectories`). This amendment replaces the "carries no folder grants" sentence of `CopilotSessionSetup` above.
+
+- **CPA-DIR-1 Granted folders.** `CopilotSessionSetup` gains `extra_dirs: Vec<PathBuf>`: the absolute folders of the folder grants applied for the run (OrdinDesktop.md DSK-REC-49), as `SessionSetup.extra_dirs` is for the Claude Local Adapter. `SessionOptions` gains `additional_directories: Vec<PathBuf>`, set from `extra_dirs`. `session.create` and `session.resume` carry `additionalDirectories` with those paths in the order given, sent again on every resume; an empty list sends no `additionalDirectories` key. The adapter does not check the folders itself: the program has resolved them, and every tool use in them still passes the pre-tool-use hook and the permission handler (C-02, C-27).
+
+```gherkin
+Feature: A Copilot session reads the folders the person allowed (CPA-DIR-1)
+
+  Scenario: Happy path — a granted folder goes with the session
+    Given a run whose setup has extra_dirs ["/places/docs"]
+    When the session is created or resumed
+    Then the request carries additionalDirectories ["/places/docs"]
+
+  Scenario: Edge case — no granted folder
+    Given a run whose setup has no extra_dirs
+    When the session is created
+    Then the request carries no additionalDirectories key
+```
+
+### Gaps
+
+None.

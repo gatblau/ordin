@@ -17,6 +17,9 @@
   const offline = $derived(isWaitingForServer(backend));
   const disabled = $derived(busy || offline || !waiting || !backend.groups.has('ordin'));
   const headingId = $derived(`question-${blockId}`);
+  // SM-QB-1: short choices on one row; the main action filled, a way out plain, danger outlined red.
+  const inRow = $derived(block.choices.length <= 3 && block.choices.every((c) => c.trim().length <= 24));
+  const styles = $derived(choiceStyles(block.choices));
 
   async function answer(body: { kind: 'choice'; choice: string } | { kind: 'other'; text: string }): Promise<void> {
     if (disabled) return;
@@ -31,6 +34,15 @@
     }
   }
 
+  // SM-QB-1: the class of each choice, in order.
+  function choiceStyles(choices: string[]): ('primary' | 'danger' | '')[] {
+    const wayOut = (c: string) => ['not now', 'skip', 'cancel', 'later', 'no'].includes(c.trim().toLowerCase());
+    const danger = (c: string) =>
+      ['reject', 'delete', 'remove', 'discard', 'stop'].some((w) => c.trim().toLowerCase().startsWith(w));
+    const main = choices.some(wayOut) ? choices.findIndex((c) => !wayOut(c) && !danger(c)) : -1;
+    return choices.map((c, i) => (danger(c) ? 'danger' : i === main ? 'primary' : ''));
+  }
+
   // SM-DIS-1: Skip sets the question aside; Ordin carries on without the answer.
   async function skip(): Promise<void> {
     if (disabled) return;
@@ -42,9 +54,9 @@
 
 <div class="block-question" role="group" aria-labelledby={headingId}>
   <p id={headingId} class="question">{block.question}</p>
-  <div class="choices">
-    {#each block.choices as choice (choice)}
-      <button type="button" {disabled} onclick={() => void answer({ kind: 'choice', choice })}>{choice}</button>
+  <div class="choices" class:row={inRow}>
+    {#each block.choices as choice, i (choice)}
+      <button type="button" class={styles[i]} {disabled} onclick={() => void answer({ kind: 'choice', choice })}>{choice}</button>
     {/each}
   </div>
   {#if block.allow_other}
@@ -70,7 +82,7 @@
 </div>
 
 <style>
-  /* Scenes `ambiguous`, `agentAsks`: the question, then one button per choice, one under another. */
+  /* Scenes `ambiguous`, `agentAsks`: the question, then one button per choice; short choices on one row (SM-QB-1). */
   .block-question {
     display: flex;
     flex-direction: column;
@@ -81,6 +93,11 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);
+  }
+  .choices.row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
   }
   .question {
     margin: 0;

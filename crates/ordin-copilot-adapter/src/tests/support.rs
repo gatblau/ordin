@@ -518,6 +518,7 @@ pub struct Harness {
 pub fn setup_of(folder: PathBuf) -> CopilotSessionSetup {
     CopilotSessionSetup {
         agent_folder: folder,
+        extra_dirs: vec![],
         model: None,
         attachment_paths: vec![],
         package_servers: vec![],

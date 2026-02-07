@@ -493,6 +493,8 @@ async fn ordins_conversation_run() {
         }
     );
     assert_eq!(h.local.starts.lock().unwrap()[0].caller, ToolCaller::Ordin);
+    // SUP-QUIT-1: Ordin's turn in progress is a running local session.
+    assert_eq!(h.sup.running_local_sessions(), 1);
     h.local.push(
         run,
         RunEvent::Paused {
@@ -510,6 +512,15 @@ async fn ordins_conversation_run() {
         }
     };
     assert_eq!(turn, "Here is the comparison.");
+    // SUP-QUIT-1: between turns, waiting for the person, it is not counted for the quit question.
+    // spec: ordin-desktop/components/SessionSupervisor#SUP-QUIT-1
+    for _ in 0..50 {
+        if h.sup.running_local_sessions() == 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(h.sup.running_local_sessions(), 0);
     h.sup
         .resume_with_decision(
             run,

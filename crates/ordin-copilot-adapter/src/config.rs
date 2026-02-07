@@ -51,10 +51,14 @@ pub struct SessionSetupError {
     pub code: String,
 }
 
-/// Carries no folder grants: a Copilot session works in its agent folder only.
+/// The run's setup. `extra_dirs` are the folder grants applied for this run, as for the Claude
+/// Local Adapter; the CLI may read them besides the agent folder (CPA-DIR-1).
 #[derive(Debug, Clone)]
 pub struct CopilotSessionSetup {
     pub agent_folder: PathBuf,
+    /// Absolute folders outside the agent folder the session may use (the run's folder grants).
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-DIR-1
+    pub extra_dirs: Vec<PathBuf>,
     /// `None` = Copilot's automatic selection (2D-2 `automatic`; 10 C-37).
     pub model: Option<String>,
     pub attachment_paths: Vec<PathBuf>,

@@ -1061,3 +1061,27 @@ None.
 > **Status:** Approved by the user, 2026-11-21 ("approve as written"). Every section above stays in force.
 
 - **SUP-SRV-1** `StartRequest` gains `only_servers: Option<Vec<ServerName>>` (default `None`), set only by the Ordin Host for a minutes run (OrdinHost.md OH-MIN-10). Step B.2 copies it into `StartRun.only_servers` unchanged; nothing else in this component reads it. `None` for every other run.
+
+## Amendment February 2026 — the quit question counts no idle conversation (SUP-QUIT-1) (amended February 2026; user decision; Approved by the user)
+
+The 0.2.1-test.9 smoke test: quitting asked "1 agents are still working" with no agent at work. The one session counted was Ordin's own conversation run, which holds its local session between turns while it waits for the person's next message (`Paused { reason: Person }`).
+
+- **SUP-QUIT-1** `running_local_sessions()` counts the local runs holding a local session, as before, less every run whose origin is `RunOrigin::Conversation` and which is paused for the person (`PauseReason::Person`). Ordin's conversation mid-turn is still counted, and so is every agent run, paused or not. The FIFO's slot accounting (B.5) is unchanged: the conversation keeps its local session between turns.
+
+```gherkin
+Feature: The quit question counts no idle conversation (SUP-QUIT-1)
+
+  Scenario: Happy path — Ordin waiting for the person
+    Given Ordin's conversation run has ended its turn with Paused { reason: Person }
+    And no other local run
+    When the desktop program asks running_local_sessions()
+    Then it is 0, and quitting asks nothing
+
+  Scenario: Edge case — Ordin mid-turn
+    Given Ordin's conversation run is running a turn
+    Then running_local_sessions() is 1
+```
+
+### Gaps
+
+None.

@@ -311,6 +311,7 @@ impl SessionSetupSource for FixedSetup {
     ) -> Result<CopilotSessionSetup, SessionSetupError> {
         Ok(CopilotSessionSetup {
             agent_folder: self.0.clone(),
+            extra_dirs: vec![],
             model: None,
             attachment_paths: vec![],
             package_servers: vec![],

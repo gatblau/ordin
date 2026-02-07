@@ -85,6 +85,9 @@ pub struct CopilotAuthStatus {
 
 pub struct SessionOptions {
     pub model: Option<String>,
+    /// `additionalDirectories` of `session.create` and `session.resume`: the run's folder grants.
+    // spec: ordin-desktop/components/CopilotLocalAdapter#CPA-DIR-1
+    pub additional_directories: Vec<std::path::PathBuf>,
     /// Same JSON as `SessionMcpConfig::to_mcp_servers_json()` plus package servers.
     pub mcp_servers: serde_json::Value,
     /// Called for every tool request before it executes; must return within 55 s.
