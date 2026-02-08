@@ -163,3 +163,24 @@ pub(crate) fn journal_failed(kind: &str) {
         "files.journal_failed"
     );
 }
+
+/// SA-FS-DOC-5: a document read for `read_document`; no path and no text.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-5
+pub(crate) fn document_read(run_id: RunId, elapsed: std::time::Duration) {
+    tracing::info!(
+        component = COMPONENT,
+        run_id = run_id.to_string().as_str(),
+        elapsed_ms = u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX),
+        "document_read"
+    );
+}
+
+/// SA-FS-DOC-5: a `read_document` call that gave no text; `class` is the reason, not the file.
+pub(crate) fn document_refused(run_id: RunId, class: &str) {
+    tracing::warn!(
+        component = COMPONENT,
+        run_id = run_id.to_string().as_str(),
+        class,
+        "document_refused"
+    );
+}

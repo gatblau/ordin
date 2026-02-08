@@ -3484,3 +3484,22 @@ Feature: Copilot sessions get the folder grants (DSK-REC-49)
 ### Gaps
 
 None.
+
+
+## Amendment February 2026 — The File Service's `documents` server is registered (DSK-REC-50)
+
+> **Status:** Approved by the user, February 2026. Source: FileService.md SA-FS-DOC-1. Every section above stays in force.
+
+- **DSK-REC-50** Right after row 3.22 (File Service), and so before `McpFront::start`, the program registers `files.document_tool_provider()` with the MCP Front (`Provider::Files`, step 3 with DSK-UP-6). It is the first provider registered: the providers before the MCP Front starts are, in order, the File Service, the Sandbox (when built), the Memory Service, the Craft Toolkit, Projects, Knowledge and the Ordin Host.
+
+```gherkin
+Feature: The documents server is registered (DSK-REC-50)
+
+  Scenario: Happy path
+    When the desktop core starts
+    Then the File Service's provider is registered with the MCP Front before any other
+```
+
+### Gaps
+
+None.

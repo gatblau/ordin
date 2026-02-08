@@ -9,6 +9,8 @@ publish.workspace = true
 ordin-types = { workspace = true }
 ordin-agent-folders = { workspace = true }
 ordin-rules = { workspace = true }
+# The `documents` server (FileService.md SA-FS-DOC-1).
+ordin-mcp-front = { workspace = true }
 ordin-journal = { workspace = true }
 # `PruneParticipant` is an `#[async_trait]` trait (Public Interface).
 async-trait = { workspace = true }
@@ -36,6 +38,8 @@ zip = { workspace = true }
 # The real Rules Engine and its collaborators for the service tests (lower-phase crates, dev edges only).
 ordin-approval = { workspace = true }
 ordin-organisation-profile = { workspace = true }
+# `ToolCallContext.cancel` in the `read_document` tests.
+tokio-util = { workspace = true }
 tracing-subscriber = { workspace = true }
 # PostgreSQL 18 for the migration and work-folder tests (plan 01, "PostgreSQL 18 in tests").
 testcontainers = { workspace = true }

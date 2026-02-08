@@ -5,6 +5,7 @@
 
 mod acceptance;
 mod behaviour;
+mod documents;
 mod error_table;
 mod moving;
 mod support;

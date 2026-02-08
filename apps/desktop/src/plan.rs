@@ -234,6 +234,8 @@ impl Row {
 /// A provider registered with the MCP Front before `McpFront::start` (DSK-UP-6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
+    /// The File Service's `documents` server (FileService.md SA-FS-DOC-1).
+    Files,
     #[cfg(feature = "sandbox")]
     Sandbox,
     MemoryService,
@@ -332,6 +334,8 @@ fn push_row(steps: &mut Vec<Step>, row: Row) {
     use Step::*;
     steps.push(Construct(row));
     match row {
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-50
+        Row::Files => steps.push(RegisterProvider(Provider::Files)),
         #[cfg(feature = "sandbox")]
         Row::Sandbox => steps.push(RegisterProvider(Provider::Sandbox)),
         Row::MemoryService => steps.push(RegisterProvider(Provider::MemoryService)),
@@ -585,6 +589,7 @@ mod tests {
         assert_eq!(
             providers,
             [
+                Provider::Files,
                 Provider::MemoryService,
                 Provider::CraftToolkit,
                 Provider::Projects,

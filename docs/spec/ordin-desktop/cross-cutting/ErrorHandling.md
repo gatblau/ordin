@@ -976,6 +976,9 @@ Each prefix with the component specs that raise codes under it and the number of
 | `FILE_COPY_NOT_FOUND` | File Service | Service API | 200 (`kind: error`) | no | Published copy id unknown | ET |
 | `FILE_COPY_TRANSITION_INVALID` | File Service | Service API | 200 (`kind: error`) | no | Published copy state change not in the state table | ET |
 | `FILE_DATASTORE_UNAVAILABLE` | File Service | Service API | 200 (`kind: error`) | yes | Datastore unreachable | ET |
+| `FILE_DOC_KIND_UNSUPPORTED` | File Service | MCP tool `read_document` | — | no | The file's kind has no text to read (FileService.md SA-FS-DOC-3) | ET |
+| `FILE_DOC_NO_TEXT` | File Service | MCP tool `read_document` | — | no | The document holds no readable text, for example scanned pages (SA-FS-DOC-3) | ET |
+| `FILE_DOC_UNREADABLE` | File Service | MCP tool `read_document` | — | no | The document could not be parsed, or reading it ran past 30 s (SA-FS-DOC-3) | ET |
 | `FILE_FOLDER_UNREADABLE` | File Service | Service API | 200 (`kind: error`) | no | Folder cannot be read by the person's account | ET |
 | `FILE_GRANT_HANDOFF_FAILED` | File Service | Service API | 200 (`kind: error`) | yes | Agent Folder Manager refused the grants (`AfmError`) | ET |
 | `FILE_INCOMING_REFUSED` | File Service | Service API | 200 (`kind: error`) | no | Incoming file fails the safety check | ET |

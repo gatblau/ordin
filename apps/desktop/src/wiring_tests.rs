@@ -207,6 +207,7 @@ async fn start_wires_every_module_of_the_build_with_no_switch() {
     assert_eq!(
         m.providers,
         [
+            Provider::Files,
             #[cfg(feature = "sandbox")]
             Provider::Sandbox,
             Provider::MemoryService,

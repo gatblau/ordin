@@ -221,9 +221,9 @@ async fn the_sandbox_registers_at_start_answers_an_allowed_call_and_refuses_a_de
     let dir = TempDir::new("sandbox");
     let runner = wire_all(&dir).await;
     assert_eq!(
-        runner.modules.providers.first(),
-        Some(&Provider::Sandbox),
-        "row 3.27 registers before the Memory Service"
+        runner.modules.providers.get(..2),
+        Some(&[Provider::Files, Provider::Sandbox][..]),
+        "row 3.27 registers after the File Service (row 3.22) and before the Memory Service"
     );
     let sandbox = runner.modules.sandbox.clone().expect("row 3.27");
     let status = sandbox.status();

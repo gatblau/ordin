@@ -36,13 +36,59 @@ pub(crate) fn extract_text(kind: &str, bytes: &[u8]) -> Result<Option<String>, E
     } else if is_text_kind(kind) {
         String::from_utf8_lossy(bytes).into_owned()
     } else if is_office_zip_kind(kind) {
-        office_text(kind, bytes)?
+        office_text(kind, bytes, INDEX_TEXT_BYTES)?
     } else if kind == "pdf" {
         pdf_text(bytes)?
     } else {
         return Ok(None);
     };
     Ok(Some(cut(text, INDEX_TEXT_BYTES)))
+}
+
+/// The kinds `read_document` reads (FileService.md SA-FS-DOC-2): PDF, Word, PowerPoint, Excel,
+/// Markdown and the plain-text kinds.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-2
+pub(crate) fn is_document_kind(kind: &str) -> bool {
+    kind == "pdf" || is_office_zip_kind(kind) || is_markdown_kind(kind) || is_text_kind(kind)
+}
+
+/// The whole text of a document for `read_document`, up to `limit` bytes: Markdown keeps its
+/// source (headings and tables mean something to an agent), the other kinds as for the index.
+/// Ligatures a PDF stores as one character (`ﬁ`) become their letters. `Ok(None)`: not a
+/// document kind.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-2
+pub(crate) fn document_text(
+    kind: &str,
+    bytes: &[u8],
+    limit: usize,
+) -> Result<Option<String>, ExtractFailure> {
+    let text = if is_markdown_kind(kind) || is_text_kind(kind) {
+        String::from_utf8_lossy(bytes).into_owned()
+    } else if is_office_zip_kind(kind) {
+        office_text(kind, bytes, limit)?
+    } else if kind == "pdf" {
+        unligature(&pdf_text(bytes)?)
+    } else {
+        return Ok(None);
+    };
+    Ok(Some(cut(text, limit)))
+}
+
+/// U+FB00–U+FB06, the Latin ligatures a PDF font may map one glyph to.
+fn unligature(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\u{FB00}' => out.push_str("ff"),
+            '\u{FB01}' => out.push_str("fi"),
+            '\u{FB02}' => out.push_str("fl"),
+            '\u{FB03}' => out.push_str("ffi"),
+            '\u{FB04}' => out.push_str("ffl"),
+            '\u{FB05}' | '\u{FB06}' => out.push_str("st"),
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// Cuts at a character boundary at or below `limit` bytes.
@@ -101,7 +147,7 @@ fn xml_text(xml: &[u8], out: &mut String) -> Result<(), ExtractFailure> {
 }
 
 /// `word/document.xml`, `ppt/slides/slide*.xml` or `xl/sharedStrings.xml` from the archive.
-fn office_text(kind: &str, bytes: &[u8]) -> Result<String, ExtractFailure> {
+fn office_text(kind: &str, bytes: &[u8], limit: usize) -> Result<String, ExtractFailure> {
     let mut archive =
         zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|_| ExtractFailure::Archive)?;
     let mut wanted: Vec<String> = Vec::new();
@@ -126,7 +172,7 @@ fn office_text(kind: &str, bytes: &[u8]) -> Result<String, ExtractFailure> {
             .read_to_end(&mut part)
             .map_err(|_| ExtractFailure::Archive)?;
         xml_text(&part, &mut out)?;
-        if out.len() > INDEX_TEXT_BYTES {
+        if out.len() > limit {
             break;
         }
     }

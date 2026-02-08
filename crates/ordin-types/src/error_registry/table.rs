@@ -5,7 +5,7 @@
 use super::RegistryEntry;
 
 #[rustfmt::skip]
-pub(super) static REGISTRY: [RegistryEntry; 2149] = [
+pub(super) static REGISTRY: [RegistryEntry; 2152] = [
     RegistryEntry { code: "ADRAFT_BRANCH_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-branch-invalid" },
     RegistryEntry { code: "ADRAFT_LIST_TOO_LONG", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-list-too-long" },
     RegistryEntry { code: "ADRAFT_NAME_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-name-invalid" },
@@ -611,6 +611,9 @@ pub(super) static REGISTRY: [RegistryEntry; 2149] = [
     RegistryEntry { code: "FILE_COPY_NOT_FOUND", owner_crate: "ordin-files", http_status: Some(200), retryable: false, sentence_id: "file-copy-not-found" },
     RegistryEntry { code: "FILE_COPY_TRANSITION_INVALID", owner_crate: "ordin-files", http_status: Some(200), retryable: false, sentence_id: "file-copy-transition-invalid" },
     RegistryEntry { code: "FILE_DATASTORE_UNAVAILABLE", owner_crate: "ordin-files", http_status: Some(200), retryable: true, sentence_id: "file-datastore-unavailable" },
+    RegistryEntry { code: "FILE_DOC_KIND_UNSUPPORTED", owner_crate: "ordin-files", http_status: None, retryable: false, sentence_id: "file-doc-kind-unsupported" },
+    RegistryEntry { code: "FILE_DOC_NO_TEXT", owner_crate: "ordin-files", http_status: None, retryable: false, sentence_id: "file-doc-no-text" },
+    RegistryEntry { code: "FILE_DOC_UNREADABLE", owner_crate: "ordin-files", http_status: None, retryable: false, sentence_id: "file-doc-unreadable" },
     RegistryEntry { code: "FILE_FOLDER_UNREADABLE", owner_crate: "ordin-files", http_status: Some(200), retryable: false, sentence_id: "file-folder-unreadable" },
     RegistryEntry { code: "FILE_GRANT_HANDOFF_FAILED", owner_crate: "ordin-files", http_status: Some(200), retryable: true, sentence_id: "file-grant-handoff-failed" },
     RegistryEntry { code: "FILE_INCOMING_REFUSED", owner_crate: "ordin-files", http_status: Some(200), retryable: false, sentence_id: "file-incoming-refused" },
