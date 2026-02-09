@@ -129,12 +129,116 @@ impl Keychain for KeyringKeychain {
 }
 
 pub(crate) enum Backend {
+    /// The desktop and a server with a Secret Service: one keychain entry, `vault/key`, unlocks
+    /// the encrypted file that holds every secret (SA-CRED-VAULT-1).
     Keychain {
         kind: SecretBackendKind,
         keychain: Arc<dyn Keychain>,
+        vault: Vault,
     },
     File(EncryptedFile),
     None,
+}
+
+/// The keychain entry holding the vault's key (SA-CRED-VAULT-1).
+pub(crate) const VAULT_KEY_NAME: &str = "vault/key";
+
+/// The encrypted file of a keychain back end, opened with the key from the keychain the first
+/// time a secret is needed and kept open for the program's life, so the operating system asks
+/// for the keychain at most once per start (SA-CRED-VAULT-1).
+// spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-1
+pub(crate) struct Vault {
+    data_root: std::path::PathBuf,
+    file: tokio::sync::RwLock<Option<Arc<EncryptedFile>>>,
+    /// Names already looked up in their own keychain entry and not found there (SA-CRED-VAULT-2).
+    not_in_keychain: std::sync::Mutex<std::collections::HashSet<String>>,
+}
+
+impl Vault {
+    pub(crate) fn new(data_root: std::path::PathBuf) -> Self {
+        Vault {
+            data_root,
+            file: tokio::sync::RwLock::new(None),
+            not_in_keychain: std::sync::Mutex::new(std::collections::HashSet::new()),
+        }
+    }
+
+    /// The open file, opening it first: the key read from the keychain, or made and stored there
+    /// when the keychain holds none. One opener at a time.
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-1
+    async fn file(&self, keychain: &Arc<dyn Keychain>) -> Result<Arc<EncryptedFile>, CredError> {
+        if let Some(file) = self.file.read().await.as_ref() {
+            return Ok(Arc::clone(file));
+        }
+        let mut slot = self.file.write().await;
+        if let Some(file) = slot.as_ref() {
+            return Ok(Arc::clone(file));
+        }
+        let reader = Arc::clone(keychain);
+        let key = match blocking(move || reader.get(VAULT_KEY_NAME)).await? {
+            Some(key) => Zeroizing::new(key),
+            None => {
+                let mut key = Zeroizing::new(vec![0u8; 32]);
+                random_fill(&mut key)?;
+                // A file sealed with a key the keychain no longer holds cannot be read: it is set
+                // aside, never overwritten, before the new key is stored (SA-CRED-VAULT-3).
+                EncryptedFile::set_aside(&self.data_root).await;
+                let writer = Arc::clone(keychain);
+                let stored = key.clone();
+                blocking(move || writer.set(VAULT_KEY_NAME, &stored)).await?;
+                tracing::info!(target: "ordin_identity", "cred.vault_key_made");
+                key
+            }
+        };
+        let file = Arc::new(EncryptedFile::open_with_key(&self.data_root, &key).await?);
+        *slot = Some(Arc::clone(&file));
+        Ok(file)
+    }
+
+    /// SA-CRED-VAULT-2: a name absent from the file is looked up once in its own keychain entry,
+    /// left there by a build before the vault; found, it moves into the file and the entry is
+    /// deleted.
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-2
+    async fn moved_in(
+        &self,
+        keychain: &Arc<dyn Keychain>,
+        file: &EncryptedFile,
+        name: &str,
+    ) -> Result<Option<Zeroizing<Vec<u8>>>, CredError> {
+        if self.checked(name) {
+            return Ok(None);
+        }
+        let reader = Arc::clone(keychain);
+        let key = name.to_owned();
+        let Some(value) = blocking(move || reader.get(&key)).await? else {
+            self.mark_checked(name);
+            return Ok(None);
+        };
+        let value = Zeroizing::new(value);
+        file.put(name, &value).await?;
+        self.mark_checked(name);
+        let deleter = Arc::clone(keychain);
+        let key = name.to_owned();
+        if blocking(move || deleter.delete(&key)).await.is_err() {
+            tracing::warn!(target: "ordin_identity", "cred.vault_old_entry_kept");
+        }
+        tracing::info!(target: "ordin_identity", "cred.vault_secret_moved");
+        Ok(Some(value))
+    }
+
+    fn checked(&self, name: &str) -> bool {
+        self.not_in_keychain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(name)
+    }
+
+    fn mark_checked(&self, name: &str) {
+        self.not_in_keychain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(name.to_owned());
+    }
 }
 
 /// The one secret store of a running program.
@@ -157,11 +261,14 @@ impl SecretStore {
             return fail(code::SECRET_TOO_LARGE);
         }
         match &self.backend {
-            Backend::Keychain { keychain, .. } => {
-                let keychain = Arc::clone(keychain);
-                let name = name.as_str().to_owned();
-                let value = Zeroizing::new(value.to_vec());
-                blocking(move || keychain.set(&name, &value)).await
+            Backend::Keychain {
+                keychain, vault, ..
+            } => {
+                let file = vault.file(keychain).await?;
+                file.put(name.as_str(), value).await?;
+                // A later read finds the file's value first; no old entry is consulted for it.
+                vault.mark_checked(name.as_str());
+                Ok(())
             }
             Backend::File(file) => file.put(name.as_str(), value).await,
             Backend::None => fail(code::SECRET_STORE_ABSENT),
@@ -171,11 +278,14 @@ impl SecretStore {
     /// Ok(None) when absent.
     pub async fn get(&self, name: &SecretName) -> Result<Option<Zeroizing<Vec<u8>>>, CredError> {
         match &self.backend {
-            Backend::Keychain { keychain, .. } => {
-                let keychain = Arc::clone(keychain);
-                let name = name.as_str().to_owned();
-                let value = blocking(move || keychain.get(&name)).await?;
-                Ok(value.map(Zeroizing::new))
+            Backend::Keychain {
+                keychain, vault, ..
+            } => {
+                let file = vault.file(keychain).await?;
+                if let Some(value) = file.get(name.as_str()).await {
+                    return Ok(Some(value));
+                }
+                vault.moved_in(keychain, &file, name.as_str()).await
             }
             Backend::File(file) => Ok(file.get(name.as_str()).await),
             Backend::None => fail(code::SECRET_STORE_ABSENT),
@@ -184,13 +294,50 @@ impl SecretStore {
 
     pub async fn delete(&self, name: &SecretName) -> Result<(), CredError> {
         match &self.backend {
-            Backend::Keychain { keychain, .. } => {
-                let keychain = Arc::clone(keychain);
-                let name = name.as_str().to_owned();
-                blocking(move || keychain.delete(&name)).await
+            Backend::Keychain {
+                keychain, vault, ..
+            } => {
+                let file = vault.file(keychain).await?;
+                file.delete(name.as_str()).await?;
+                // An entry an older build left is removed too, so a deleted secret is gone.
+                if !vault.checked(name.as_str()) {
+                    let keychain = Arc::clone(keychain);
+                    let old = name.as_str().to_owned();
+                    blocking(move || keychain.delete(&old)).await?;
+                    vault.mark_checked(name.as_str());
+                }
+                Ok(())
             }
             Backend::File(file) => file.delete(name.as_str()).await,
             Backend::None => fail(code::SECRET_STORE_ABSENT),
+        }
+    }
+
+    /// Tests: the names the store holds.
+    #[cfg(test)]
+    pub(crate) async fn names(&self) -> Vec<String> {
+        match &self.backend {
+            Backend::Keychain {
+                keychain, vault, ..
+            } => match vault.file(keychain).await {
+                Ok(file) => file.names().await,
+                Err(_) => Vec::new(),
+            },
+            Backend::File(file) => file.names().await,
+            Backend::None => Vec::new(),
+        }
+    }
+
+    /// Tests: the program starts again, so the next secret opens the vault from the keychain.
+    #[cfg(test)]
+    pub(crate) async fn restart(&self) {
+        if let Backend::Keychain { vault, .. } = &self.backend {
+            *vault.file.write().await = None;
+            vault
+                .not_in_keychain
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clear();
         }
     }
 

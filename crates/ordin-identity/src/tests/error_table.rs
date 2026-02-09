@@ -280,7 +280,7 @@ async fn secret_too_large() {
 #[tokio::test]
 async fn keychain_unavailable() {
     let h = Harness::new().await;
-    h.keychain.locked.store(true, Ordering::SeqCst);
+    h.lock_keychain().await;
     let name = SecretName::new("telegram/bot-token").unwrap();
     assert_error(
         h.service.secrets().get(&name).await,
@@ -297,7 +297,7 @@ async fn keychain_missing() {
     let id = h
         .seed(CredentialKind::Github, "asharao", Seed::default())
         .await;
-    h.keychain.items.lock().unwrap().clear();
+    h.clear_secrets().await;
     assert_error(
         h.service.access_token(CredentialKind::Github, None).await,
         "CRED_KEYCHAIN_MISSING",
@@ -776,7 +776,7 @@ async fn store_failed() {
         Some(RepairAction::TryAgain),
     );
     // The secret written first was removed again (no orphan).
-    assert!(h.keychain.items.lock().unwrap().is_empty());
+    assert!(h.secret_names().await.is_empty());
 }
 
 // Row: No usable credential / marked needs sign-in / refresh refused.

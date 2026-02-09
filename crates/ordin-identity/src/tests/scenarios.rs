@@ -440,7 +440,7 @@ async fn error_keychain_locked() {
     let h = Harness::new().await;
     h.seed(CredentialKind::Github, "asharao", Seed::default())
         .await;
-    h.keychain.locked.store(true, Ordering::SeqCst);
+    h.lock_keychain().await;
     let Err(error) = h.service.access_token(CredentialKind::Github, None).await else {
         panic!("expected a failure");
     };
@@ -581,7 +581,7 @@ async fn happy_path_an_installation_hmac_key_is_made_once() {
     let (a, b) = (a.unwrap(), b.unwrap());
     assert_eq!(a.len(), 32);
     assert_eq!(a.as_slice(), b.as_slice());
-    assert_eq!(h.keychain.puts.load(Ordering::SeqCst), 1);
+    assert_eq!(h.secret_names().await, ["sandbox/audit-hmac-key"]);
 }
 
 // Scenario: Happy path — the Remote API TLS key round-trips through ServerSecrets
@@ -764,7 +764,7 @@ async fn error_path_a_pasted_gitlab_token_lacks_a_scope() {
         .await;
     assert_eq!(code_of(result), "CRED_SCOPE_MISSING");
     assert_eq!(h.count("SELECT count(*) FROM credentials").await, 0);
-    assert!(h.keychain.items.lock().unwrap().is_empty());
+    assert!(h.secret_names().await.is_empty());
 }
 
 // The GitHub personal access token, when the build carries no GitHub App client id (ID-GH-PAT-1;
@@ -843,7 +843,7 @@ async fn error_rows_a_pasted_github_token() {
             .await;
         assert_eq!(code_of(result), want, "{status}");
         assert_eq!(h.count("SELECT count(*) FROM credentials").await, 0);
-        assert!(h.keychain.items.lock().unwrap().is_empty());
+        assert!(h.secret_names().await.is_empty());
     }
     let h = Harness::with(no_github_app()).await;
     let empty = h
@@ -881,14 +881,7 @@ async fn happy_path_import_a_client_certificate_and_read_it_back() {
         .unwrap();
     assert_eq!(view.subject, "ACME desktop");
     assert_eq!(view.not_after.to_wire(), "2099-06-30T00:00:00.000Z");
-    let items = h
-        .keychain
-        .items
-        .lock()
-        .unwrap()
-        .keys()
-        .cloned()
-        .collect::<Vec<_>>();
+    let items = h.secret_names().await;
     assert_eq!(
         items,
         vec![format!("client-certificate/{}", sha256_hex("ACME desktop"))]
@@ -936,7 +929,7 @@ async fn error_path_a_key_that_does_not_match_the_certificate() {
         )
         .await;
     assert_eq!(code_of(result), "CRED_CERTIFICATE_INVALID");
-    assert!(h.keychain.items.lock().unwrap().is_empty());
+    assert!(h.secret_names().await.is_empty());
 }
 
 // Scenario: Edge case — no certificate imported under the profile's name
@@ -966,7 +959,7 @@ async fn happy_path_sign_out() {
         .await;
     let mut events = h.service.subscribe();
     h.service.sign_out(id).await.unwrap();
-    assert!(h.keychain.items.lock().unwrap().is_empty());
+    assert!(h.secret_names().await.is_empty());
     let state: String = sqlx::query_scalar("SELECT state FROM credentials")
         .fetch_one(&h.pool)
         .await

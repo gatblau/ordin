@@ -4569,3 +4569,25 @@ Feature: The idle event names why the turn gave no answer (OH-WK-2)
 ### Gaps
 
 None.
+
+
+## Amendment February 2026 — The person's attached files reach the agent (OH-ATT-2)
+
+> **Status:** Approved by the user, February 2026 (the request to give agents a document-reading tool, and the 0.2.1-test.11 report that followed). Source: on 0.2.1-test.11 the Document agent answered "The attachment gave me only the place name and the file name, not the full file location". Ordin is told an attached place file as OH-ATT-1's line (`<name> (in <folder>: <path>)`), and a delegation passed on only Ordin's own brief: a plain brief carried no attachment, so the agent's run had no `Attached:` line with the file's location (DSK-REC-26), and FileService.md SA-FS-DOC-3's `read_document` had no path to read. Every section above stays in force.
+
+- **OH-ATT-2 Attached files go with a brief.** The conversation keeps, beside OH-ACC-2's folders, the files the person's latest message attached from linked folders (`ContentRef::PlaceFile { place_id, relative_path }`, in attachment order), replaced by each new message of the person. When step 8.3 starts a task that is not from a form (a brief, or a command with its arguments), after the folder question of OH-ACC-2 has been answered **Allow** where it was asked: for each kept file whose folder the agent holds a grant on (`agent_folders(ws, agent)`, `granted`), the Host reads it (`files.read_file(place_id, relative_path)`, for its hash and media type) and records it (`journal.record_artefact { location: Place { place_id }, path: relative_path, hash, media_type, producing_run_id: None }`), and the artefact is added to `Task.attached_artefacts` after any Ordin named. The run's first turn then names each file's full path (OrdinDesktop.md DSK-REC-26). A file in a folder the agent holds no grant on is left out; a file that cannot be read or recorded is left out and logged as `ordin_host.attachment_not_passed { code }`; neither fails the start. A start from a form is unchanged (OH-TF-1 step 7 records its own documents).
+
+```gherkin
+Feature: The person's attached files reach the agent (OH-ATT-2)
+
+  Scenario: Happy path — an attached PDF in an allowed folder
+    Given the person's latest message attached "Agent-Platform.pdf" from the folder "pdf", granted to the Document agent
+    And "secret.pdf" from a folder the agent holds no grant on
+    When Ordin delegates a brief to the Document agent
+    Then the task carries one attachment, "Agent-Platform.pdf" in "pdf"
+    And its run's first turn names that file's full path
+```
+
+### Gaps
+
+None.

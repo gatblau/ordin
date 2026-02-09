@@ -658,6 +658,75 @@ impl OrdinHost {
         Ok((made, artefacts))
     }
 
+    /// OH-ATT-2: at the start of a task given as a brief or a command, each file the person's
+    /// latest message attached, in a folder the agent holds a grant on, is read and recorded as
+    /// an artefact, so the run's first turn names its full path (DSK-REC-26). A file in a folder the
+    /// agent may not read is left out; a file that cannot be read or recorded is left out and
+    /// logged. Nothing fails the start.
+    // spec: ordin-desktop/components/OrdinHost#OH-ATT-2
+    pub(crate) async fn attached_files_as_artefacts(
+        &self,
+        ws: WorkspaceId,
+        agent: AgentInstanceId,
+    ) -> Vec<ArtefactId> {
+        let files: Vec<(PlaceId, String)> = crate::host::lock(&self.state)
+            .convs
+            .get(&ws)
+            .map(|c| c.attached_files.clone())
+            .unwrap_or_default();
+        if files.is_empty() {
+            return Vec::new();
+        }
+        let folders = match self.ports.workspaces.agent_folders(ws, agent).await {
+            Ok(folders) => folders,
+            Err(e) => {
+                tracing::warn!(
+                    component = COMPONENT,
+                    code = e.code.as_str(),
+                    "ordin_host.attachment_not_passed"
+                );
+                return Vec::new();
+            }
+        };
+        let mut artefacts = Vec::new();
+        for (place_id, relative_path) in files {
+            if !folders.iter().any(|f| f.place_id == place_id && f.granted) {
+                continue;
+            }
+            let file = match self.ports.files.read_file(place_id, &relative_path).await {
+                Ok(file) => file,
+                Err(e) => {
+                    tracing::warn!(
+                        component = COMPONENT,
+                        code = e.code.as_str(),
+                        "ordin_host.attachment_not_passed"
+                    );
+                    continue;
+                }
+            };
+            match self
+                .ports
+                .journal
+                .record_artefact(ordin_journal::NewArtefact {
+                    location: ArtefactLocation::Place { place_id },
+                    path: relative_path,
+                    hash: file.hash,
+                    media_type: file.media_type,
+                    producing_run_id: None,
+                })
+                .await
+            {
+                Ok(id) => artefacts.push(id),
+                Err(e) => tracing::warn!(
+                    component = COMPONENT,
+                    code = e.code.as_str(),
+                    "ordin_host.attachment_not_passed"
+                ),
+            }
+        }
+        artefacts
+    }
+
     /// Removes the grants a failed start made (OH-TF-1 step 7).
     pub(crate) async fn remove_grants(
         &self,

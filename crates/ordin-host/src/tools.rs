@@ -2069,6 +2069,9 @@ impl OrdinHost {
                 }
                 Err(e) => return Delegated8::Failed(dep_fail(&e)),
             }
+        } else {
+            // OH-ATT-2: the files the person attached reach the agent as its run's attachments.
+            attached.extend(self.attached_files_as_artefacts(ws, d.agent).await);
         }
         let kind = if coding_task_id.is_some() {
             WorkKind::Code

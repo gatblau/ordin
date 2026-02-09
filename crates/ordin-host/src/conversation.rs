@@ -227,11 +227,18 @@ impl OrdinHost {
             // spec: ordin-desktop/components/OrdinHost#OH-ACC-2
             conv.persons_text = text.clone();
             conv.attached_places = Vec::new();
+            conv.attached_files = Vec::new();
             for a in &attachments {
-                if let ContentRef::PlaceFile { place_id, .. } = a {
+                if let ContentRef::PlaceFile {
+                    place_id,
+                    relative_path,
+                } = a
+                {
                     if !conv.attached_places.contains(place_id) {
                         conv.attached_places.push(*place_id);
                     }
+                    // spec: ordin-desktop/components/OrdinHost#OH-ATT-2
+                    conv.attached_files.push((*place_id, relative_path.clone()));
                 }
             }
             conv.folder_asked.clear();

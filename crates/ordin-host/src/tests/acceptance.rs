@@ -2981,6 +2981,59 @@ async fn an_agent_with_some_folder_access_is_not_asked() {
     assert_eq!(out.text, "Started: Supplier analyst is working on it.");
 }
 
+// OH-ATT-2: found on 0.2.1-test.11 — the Document agent was told only the place and file name of
+// an attached PDF and could not find it. The files the person attached in a folder the agent may
+// read now reach its run as attachments; a file in a folder it may not read does not.
+// spec: ordin-desktop/components/OrdinHost#OH-ATT-2
+#[tokio::test]
+async fn the_persons_attached_files_reach_the_agent_in_folders_it_may_read() {
+    let (f, a, _) = background().await;
+    f.open().await;
+    let allowed = ordin_types::PlaceId::new();
+    let other = ordin_types::PlaceId::new();
+    // `other` is no folder the agent holds: its file is left out, and nobody is asked about it.
+    *f.workspaces.folders.lock().unwrap() = vec![crate::ports::AgentFolder {
+        place_id: allowed,
+        name: "pdf".to_owned(),
+        read_only: false,
+        granted: true,
+    }];
+    f.host
+        .send_message(
+            f.ws,
+            "List the facts in these".to_owned(),
+            vec![
+                ordin_types::wire::ContentRef::PlaceFile {
+                    place_id: allowed,
+                    relative_path: "Agent-Platform.pdf".to_owned(),
+                },
+                ordin_types::wire::ContentRef::PlaceFile {
+                    place_id: other,
+                    relative_path: "secret.pdf".to_owned(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    let out = f
+        .tool(
+            "delegate",
+            json!({ "agent": key(&a), "brief": "List the facts in the attached PDF" }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(out.text, "Started: Supplier analyst is working on it.");
+    let recorded = f.journal.artefacts.lock().unwrap().clone();
+    assert_eq!(recorded.len(), 1, "{recorded:?}");
+    assert_eq!(recorded[0].path, "Agent-Platform.pdf");
+    assert_eq!(
+        recorded[0].location,
+        ordin_types::domain::places::ArtefactLocation::Place { place_id: allowed }
+    );
+    let tasks = f.supervisor.tasks.lock().unwrap().clone();
+    assert_eq!(tasks.last().unwrap().0.attached_artefacts.len(), 1);
+}
+
 // OH-BRK-1: found on Windows — after a break the summary ran inside `ordin.send_message`, and a slow
 // model made the person's message fail with "That took too long". The message is accepted at once
 // even when the summary turn has not been answered.

@@ -62,6 +62,45 @@ impl EncryptedFile {
         Ok(opened)
     }
 
+    /// SA-CRED-VAULT-1: the file of a keychain back end, sealed with the key from the keychain.
+    pub(crate) async fn open_with_key(data_root: &Path, raw: &[u8]) -> Result<Self, CredError> {
+        let key = parse_key(raw)?;
+        let dir = data_root.join("secrets");
+        tokio::task::spawn_blocking(move || open_blocking(dir, key))
+            .await
+            .unwrap_or_else(|_| fail(code::SECRET_STORE_CORRUPT))
+    }
+
+    /// SA-CRED-VAULT-3: a `secrets.enc` left without its key is renamed
+    /// `secrets.enc.unreadable-<unix ms>`, kept for the person, and never read again.
+    pub(crate) async fn set_aside(data_root: &Path) {
+        let file = data_root.join("secrets").join("secrets.enc");
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or_default();
+        let aside = data_root
+            .join("secrets")
+            .join(format!("secrets.enc.unreadable-{millis}"));
+        let moved = tokio::task::spawn_blocking(move || {
+            if file.exists() {
+                std::fs::rename(&file, &aside).map(|()| true)
+            } else {
+                Ok(false)
+            }
+        })
+        .await;
+        if let Ok(Ok(true)) = moved {
+            tracing::warn!(target: "ordin_identity", "cred.vault_file_set_aside");
+        }
+    }
+
+    /// Tests: the names held.
+    #[cfg(test)]
+    pub(crate) async fn names(&self) -> Vec<String> {
+        self.map.lock().await.keys().cloned().collect()
+    }
+
     pub(crate) async fn get(&self, name: &str) -> Option<Zeroizing<Vec<u8>>> {
         self.map.lock().await.get(name).cloned()
     }

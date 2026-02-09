@@ -314,3 +314,123 @@ async fn the_systemd_creds_runner_passes_input_and_honours_the_timeout() {
         || l.starts_with("SHLVL=")
         || l.starts_with("_=")));
 }
+
+// ---- SA-CRED-VAULT-1 to SA-CRED-VAULT-3: one keychain entry unlocks every secret.
+
+mod vault {
+    use std::sync::atomic::Ordering;
+
+    use ordin_types::CodedError as _;
+
+    use super::super::harness::Harness;
+    use crate::secret::{SecretName, VAULT_KEY_NAME};
+
+    fn name(s: &str) -> SecretName {
+        SecretName::new(s).unwrap()
+    }
+
+    fn keychain_names(h: &Harness) -> Vec<String> {
+        let mut names: Vec<String> = h.keychain.items.lock().unwrap().keys().cloned().collect();
+        names.sort();
+        names
+    }
+
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-1
+    #[tokio::test]
+    async fn happy_path_the_keychain_is_read_once() {
+        let h = Harness::new().await;
+        let store = h.service.secrets();
+        for (n, v) in [("telegram/bot-token", "1"), ("obs/password", "2"), ("credential/x/1", "3")] {
+            store.put(&name(n), v.as_bytes()).await.unwrap();
+        }
+        for (n, v) in [("telegram/bot-token", "1"), ("obs/password", "2"), ("credential/x/1", "3")] {
+            assert_eq!(store.get(&name(n)).await.unwrap().unwrap().as_slice(), v.as_bytes());
+        }
+        assert_eq!(keychain_names(&h), [VAULT_KEY_NAME]);
+        assert_eq!(h.keychain.gets.load(Ordering::SeqCst), 1, "one keychain read");
+        let file = std::fs::read_to_string(h.dir.join("secrets/secrets.enc")).unwrap();
+        assert!(!file.contains("telegram"), "names and values are sealed");
+    }
+
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-2
+    #[tokio::test]
+    async fn edge_a_secret_an_earlier_build_left_moves_into_the_vault() {
+        let h = Harness::new().await;
+        h.keychain
+            .items
+            .lock()
+            .unwrap()
+            .insert("telegram/bot-token".to_owned(), b"123:abc".to_vec());
+        let store = h.service.secrets();
+        let value = store.get(&name("telegram/bot-token")).await.unwrap().unwrap();
+        assert_eq!(value.as_slice(), b"123:abc");
+        assert_eq!(keychain_names(&h), [VAULT_KEY_NAME], "the old entry is gone");
+        assert_eq!(h.secret_names().await, ["telegram/bot-token"]);
+        let gets = h.keychain.gets.load(Ordering::SeqCst);
+        assert!(store.get(&name("telegram/bot-token")).await.unwrap().is_some());
+        assert!(store.get(&name("absent/one")).await.unwrap().is_none());
+        assert!(store.get(&name("absent/one")).await.unwrap().is_none());
+        assert_eq!(
+            h.keychain.gets.load(Ordering::SeqCst),
+            gets + 1,
+            "an absent name is looked up once; a moved one never again"
+        );
+    }
+
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-2
+    #[tokio::test]
+    async fn edge_a_deleted_secret_is_gone_from_its_old_entry_too() {
+        let h = Harness::new().await;
+        h.keychain
+            .items
+            .lock()
+            .unwrap()
+            .insert("telegram/bot-token".to_owned(), b"old".to_vec());
+        h.service.secrets().delete(&name("telegram/bot-token")).await.unwrap();
+        assert_eq!(keychain_names(&h), [VAULT_KEY_NAME]);
+        assert!(h
+            .service
+            .secrets()
+            .get(&name("telegram/bot-token"))
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-1
+    #[tokio::test]
+    async fn error_a_locked_keychain_at_start_is_unavailable_and_tried_again() {
+        let h = Harness::new().await;
+        h.lock_keychain().await;
+        let result = h.service.secrets().get(&name("telegram/bot-token")).await;
+        let error = result.expect_err("locked");
+        assert_eq!(error.code(), "CRED_KEYCHAIN_UNAVAILABLE");
+        assert!(error.retryable());
+        h.keychain.locked.store(false, Ordering::SeqCst);
+        assert!(h
+            .service
+            .secrets()
+            .get(&name("telegram/bot-token"))
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    // spec: ordin-desktop/components/IdentityAndCredentials#SA-CRED-VAULT-3
+    #[tokio::test]
+    async fn edge_a_file_without_its_key_is_set_aside() {
+        let h = Harness::new().await;
+        let store = h.service.secrets();
+        store.put(&name("telegram/bot-token"), b"123").await.unwrap();
+        h.keychain.items.lock().unwrap().remove(VAULT_KEY_NAME);
+        store.restart().await;
+        assert!(store.get(&name("telegram/bot-token")).await.unwrap().is_none());
+        let aside: Vec<String> = std::fs::read_dir(h.dir.join("secrets"))
+            .unwrap()
+            .filter_map(|e| e.ok()?.file_name().into_string().ok())
+            .filter(|n| n.starts_with("secrets.enc.unreadable-"))
+            .collect();
+        assert_eq!(aside.len(), 1, "the old file is kept, renamed");
+        assert_eq!(keychain_names(&h), [VAULT_KEY_NAME], "a new key");
+    }
+}

@@ -1523,3 +1523,44 @@ Feature: The OBS password (ID-OBS-1)
 ### Gaps
 
 None.
+
+
+## Amendment February 2026 — One keychain entry unlocks every secret (SA-CRED-VAULT-1 to SA-CRED-VAULT-3)
+
+> **Status:** Approved by the user, February 2026 ("yes to both, go ahead"). Source: after installing 0.2.1-test.11 the person was asked for their macOS password three times. macOS lets an app read a keychain entry when the entry trusts that app's code signature; ordin is signed with the maintainer's own key (no Apple certificate), so each new build is a stranger to the entries an earlier build made, and macOS asks once per entry read. One entry per secret (Internal Logic D.1) meant one prompt per secret after every update. Every section above stays in force except where this amendment changes D.1 and D.2.
+
+- **SA-CRED-VAULT-1 The vault.** With `SecretBackendConfig::OsKeychain` (desktop) or `SecretService` (a server with a Secret Service), the keychain holds one entry, `vault/key`, under the build's keychain service: 32 random bytes. Every named secret is kept in `<data_root>/secrets/secrets.enc`, the file of Internal Logic D.3 (format 1, XChaCha20-Poly1305, associated data `ordin-secrets-v1`, folder `0700`, file `0600`, whole-file rewrite), sealed with that key. The file is opened the first time a secret is read, written or deleted, and kept open, with the key in memory, until the program ends; so the keychain is read at most once per start, and a start that needs no secret reads it not at all. When the keychain holds no `vault/key`, 32 bytes from the operating system's random source are stored as it (`cred.vault_key_made`) after SA-CRED-VAULT-3. A locked, refused or unreachable keychain is `CRED_KEYCHAIN_UNAVAILABLE` for the call that needed it, as before, and the next call tries again. `backend()` still answers `OsKeychain` or `SecretService`. `SecretBackendConfig::EncryptedFile` (D.3, a key file or systemd credential) is unchanged.
+- **SA-CRED-VAULT-2 Secrets an earlier build left.** A name absent from the file is looked up once per start in its own keychain entry (D.1's layout). Found, the value is written into the file, the entry is deleted (a failed delete is logged `cred.vault_old_entry_kept` and the value is still answered), and `cred.vault_secret_moved` is logged; absent, the name is remembered as absent until the program ends, so no entry is asked for twice. A `put` remembers its name the same way. A `delete` removes the name from the file and, unless it was already looked up, its old entry too, so a deleted secret is gone from both. Each old entry is therefore read at most once, ever: the last prompt for it.
+- **SA-CRED-VAULT-3 A file without its key.** When the keychain holds no `vault/key` but `secrets.enc` exists (the keychain was reset, or the entry deleted), the file cannot be read: it is renamed `secrets.enc.unreadable-<unix ms>` (`cred.vault_file_set_aside`), never overwritten or deleted, and a new key and an empty file are made. The secrets it held are then asked for again where they are needed (`CRED_KEYCHAIN_MISSING` for an active credential, as D.1 states for a missing entry).
+
+No log line carries a secret's name or value.
+
+```gherkin
+Feature: One keychain entry unlocks every secret (SA-CRED-VAULT-1 to SA-CRED-VAULT-3)
+
+  Scenario: Happy path — the keychain is read once
+    Given a desktop with no vault yet
+    When ordin stores three secrets and reads them back
+    Then the keychain holds only vault/key
+    And it was read once
+
+  Scenario: Edge case — a secret an earlier build left in its own entry
+    Given the keychain holds vault/key and an entry telegram/bot-token
+    When ordin reads telegram/bot-token
+    Then the value is answered, kept in the file, and the old entry is gone
+    And a second read does not touch the keychain
+
+  Scenario: Error — the keychain is locked at start
+    Given the keychain refuses access
+    When ordin reads a secret
+    Then the call fails with CRED_KEYCHAIN_UNAVAILABLE, retryable
+
+  Scenario: Edge case — the key is gone but the file remains
+    Given secrets.enc exists and the keychain holds no vault/key
+    When ordin reads a secret
+    Then secrets.enc is renamed secrets.enc.unreadable-<time> and a new empty vault is used
+```
+
+### Gaps
+
+None.

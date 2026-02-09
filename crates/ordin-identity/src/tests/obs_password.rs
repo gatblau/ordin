@@ -44,15 +44,8 @@ async fn happy_path_saved_and_read_back() {
         "no credential row"
     );
     assert!(h.service.list().await.unwrap().is_empty());
-    assert_eq!(
-        h.keychain
-            .items
-            .lock()
-            .unwrap()
-            .get("obs-websocket")
-            .map(Vec::as_slice),
-        Some(PASSWORD.as_bytes())
-    );
+    // SA-CRED-VAULT-1: kept in the vault under its name.
+    assert_eq!(h.secret_names().await, ["obs-websocket"]);
     // A later save replaces the earlier password.
     h.service
         .save_obs_password(secret("second-pass"))
@@ -141,7 +134,7 @@ async fn saving_on_the_server_program_is_not_offered() {
 #[tokio::test]
 async fn a_locked_secret_store_is_keychain_unavailable() {
     let h = Harness::new().await;
-    h.keychain.locked.store(true, Ordering::SeqCst);
+    h.lock_keychain().await;
     assert_eq!(
         code_of(h.service.save_obs_password(secret(PASSWORD)).await),
         "CRED_KEYCHAIN_UNAVAILABLE"

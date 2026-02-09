@@ -17,7 +17,7 @@ use wiremock::MockServer;
 use crate::config::{BrowserOpener, IdentityConfig, KeySource, Program, SecretBackendConfig};
 use crate::error::CredError;
 use crate::oauth::Http;
-use crate::secret::{Backend, Keychain, SecretBackendKind, SecretName, SecretStore};
+use crate::secret::{Backend, Keychain, SecretBackendKind, SecretName, SecretStore, Vault};
 use crate::secret_file::EncryptedFile;
 use crate::service::{new_row, IdentityService, TokenBlob};
 use crate::store::Meta;
@@ -149,6 +149,26 @@ pub(crate) fn key_file(dir: &std::path::Path, key: [u8; 32]) -> PathBuf {
 }
 
 impl Harness {
+    /// The names the secret store holds (in the vault file of a keychain back end).
+    pub async fn secret_names(&self) -> Vec<String> {
+        self.service.secrets().names().await
+    }
+
+    /// Every secret removed, as if its keychain entry had been lost.
+    pub async fn clear_secrets(&self) {
+        for name in self.secret_names().await {
+            let name = SecretName::new(&name).expect("a stored name");
+            self.service.secrets().delete(&name).await.expect("deleted");
+        }
+    }
+
+    /// The keychain refuses access from now on, and the program starts again, so the next secret
+    /// needs the keychain (SA-CRED-VAULT-1).
+    pub async fn lock_keychain(&self) {
+        self.keychain.locked.store(true, Ordering::SeqCst);
+        self.service.secrets().restart().await;
+    }
+
     pub async fn new() -> Self {
         Self::with(Setup::default()).await
     }
@@ -189,6 +209,7 @@ impl Harness {
                 SecretStore::from_backend(Backend::Keychain {
                     kind: SecretBackendKind::OsKeychain,
                     keychain: Arc::clone(keychain) as Arc<dyn Keychain>,
+                    vault: Vault::new(dir.to_path_buf()),
                 }),
             ),
             Store::File => {

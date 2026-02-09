@@ -136,6 +136,8 @@ pub(crate) struct Conv {
     pub persons_text: String,
     /// OH-ACC-2: the folders of the files the person's latest message attached, in attachment order.
     pub attached_places: Vec<ordin_types::PlaceId>,
+    /// OH-ATT-2: the files the person's latest message attached from linked folders, in order.
+    pub attached_files: Vec<(ordin_types::PlaceId, String)>,
     /// OH-ACC-2: the agents and folders already asked about since the person's latest message.
     pub folder_asked:
         std::collections::HashSet<(ordin_types::AgentInstanceId, ordin_types::PlaceId)>,
@@ -918,6 +920,7 @@ impl OrdinHost {
             access_asked: std::collections::HashSet::new(),
             persons_text: String::new(),
             attached_places: Vec::new(),
+            attached_files: Vec::new(),
             folder_asked: std::collections::HashSet::new(),
             breaking: false,
             directory_changed: false,

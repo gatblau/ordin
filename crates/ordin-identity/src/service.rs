@@ -18,7 +18,7 @@ use crate::config::{check_config, BrowserOpener, IdentityConfig, Program, Secret
 use crate::error::{code, fail, CredError};
 use crate::oauth::{self, Http, Outcome, HTTP_TIMEOUT};
 use crate::secret::{
-    Backend, KeyringKeychain, SecretBackendKind, SecretName, SecretStore, SecretString,
+    Backend, KeyringKeychain, SecretBackendKind, SecretName, SecretStore, SecretString, Vault,
 };
 use crate::secret_file::EncryptedFile;
 use crate::sign_in::Pending;
@@ -163,12 +163,14 @@ impl IdentityService {
                 keychain: Arc::new(KeyringKeychain {
                     service: config.keychain_service.clone(),
                 }),
+                vault: Vault::new(config.data_root.clone()),
             },
             SecretBackendConfig::SecretService => Backend::Keychain {
                 kind: SecretBackendKind::SecretService,
                 keychain: Arc::new(KeyringKeychain {
                     service: config.keychain_service.clone(),
                 }),
+                vault: Vault::new(config.data_root.clone()),
             },
             SecretBackendConfig::EncryptedFile { key_source } => {
                 Backend::File(EncryptedFile::open(&config.data_root, key_source).await?)
