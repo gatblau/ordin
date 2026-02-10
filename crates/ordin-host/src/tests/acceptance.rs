@@ -3034,6 +3034,38 @@ async fn the_persons_attached_files_reach_the_agent_in_folders_it_may_read() {
     assert_eq!(tasks.last().unwrap().0.attached_artefacts.len(), 1);
 }
 
+// OH-RST-1: found on the 0.2.1-test.12 Mac build — after an update the person said "try again" and
+// Ordin answered it had nothing to try again: the new run was seeded with the conversation's opening
+// summary only, so the failure before the update was not in front of it.
+// spec: ordin-desktop/components/OrdinHost#OH-RST-1
+#[tokio::test]
+async fn after_a_restart_ordin_sees_the_conversation_so_far() {
+    let (f, _, _) = background().await;
+    let run = f.open().await;
+    f.supervisor
+        .respond(reply_with("I could not add notes.pdf to memory (MEM_NOT_READY)."));
+    f.host
+        .send_message(f.ws, "Add notes.pdf to memory".to_owned(), vec![])
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    f.supervisor.end(run);
+    f.supervisor.forgotten.lock().unwrap().push(run);
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    f.host
+        .send_message(f.ws, "try again".to_owned(), vec![])
+        .await
+        .unwrap();
+    let seed = f.supervisor.seeds().last().cloned().unwrap_or_default();
+    let at = seed
+        .find("## This conversation so far")
+        .unwrap_or_else(|| panic!("no history in the seed: {seed}"));
+    let history = &seed[at..];
+    assert!(history.contains("Person: Add notes.pdf to memory"), "{history}");
+    assert!(history.contains("MEM_NOT_READY"), "{history}");
+    assert!(history.contains("try something again"));
+}
+
 // OH-BRK-1: found on Windows — after a break the summary ran inside `ordin.send_message`, and a slow
 // model made the person's message fail with "That took too long". The message is accepted at once
 // even when the summary turn has not been answered.

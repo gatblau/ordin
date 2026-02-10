@@ -180,11 +180,32 @@ fn office_text(kind: &str, bytes: &[u8], limit: usize) -> Result<String, Extract
 }
 
 fn pdf_text(bytes: &[u8]) -> Result<String, ExtractFailure> {
-    let document = lopdf::Document::load_mem(bytes).map_err(|_| ExtractFailure::Pdf)?;
+    let mut document = lopdf::Document::load_mem(bytes).map_err(|_| ExtractFailure::Pdf)?;
+    prefer_to_unicode(&mut document);
     let pages: Vec<u32> = document.get_pages().keys().copied().collect();
     document
         .extract_text(&pages)
         .map_err(|_| ExtractFailure::Pdf)
+}
+
+/// A simple font (Type 1, TrueType, Type 3) that carries a `/ToUnicode` map loses its
+/// `/Encoding`, so the map is used. The library reads `/Encoding` first, and the fonts Chrome
+/// writes for a system or variable font (a Mac page saved as PDF) name their glyphs `/g1`,
+/// `/g2` in `/Differences`: those names mean nothing, and the text came out scrambled. The
+/// `/ToUnicode` map is the PDF's own statement of which character each code is. Type 0 fonts
+/// keep their `/Encoding` (`/Identity-H`), which the library already pairs with the map.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-2
+fn prefer_to_unicode(document: &mut lopdf::Document) {
+    for object in document.objects.values_mut() {
+        let lopdf::Object::Dictionary(font) = object else {
+            continue;
+        };
+        let is_font = matches!(font.get(b"Type").and_then(lopdf::Object::as_name), Ok(b"Font"));
+        let is_type0 = matches!(font.get(b"Subtype").and_then(lopdf::Object::as_name), Ok(b"Type0"));
+        if is_font && !is_type0 && font.has(b"ToUnicode") {
+            font.remove(b"Encoding");
+        }
+    }
 }
 
 /// True when the archive holds `vbaProject.bin` anywhere (Internal Logic 11.2).
@@ -235,6 +256,75 @@ mod tests {
             writer.finish().unwrap();
         }
         out
+    }
+
+    /// One page whose font names its glyphs `/g1`..`/g3` and maps them with `/ToUnicode`, as
+    /// Chrome writes a Type 3 font for a system font.
+    fn pdf_with_named_glyphs() -> Vec<u8> {
+        use lopdf::{dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.5");
+        let cmap = b"/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+3 beginbfchar
+<01> <005A>
+<02> <00FC>
+<03> <0072>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+"
+        .to_vec();
+        let to_unicode = doc.add_object(Stream::new(dictionary! {}, cmap));
+        let font = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+            "Encoding" => dictionary! {
+                "Type" => "Encoding",
+                "Differences" => vec![1.into(), "g1".into(), "g2".into(), "g3".into()],
+            },
+            "ToUnicode" => to_unicode,
+        });
+        let content = doc.add_object(Stream::new(
+            dictionary! {},
+            b"BT /F1 12 Tf 72 700 Td (\x01\x02\x03) Tj ET".to_vec(),
+        ));
+        let pages = doc.new_object_id();
+        let page = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages,
+            "Contents" => content,
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => font } },
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+        });
+        doc.objects.insert(
+            pages,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1,
+            }),
+        );
+        let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+        doc.trailer.set("Root", catalog);
+        let mut out = Vec::new();
+        doc.save_to(&mut out).unwrap();
+        out
+    }
+
+    // spec: ordin-desktop/components/FileService#SA-FS-DOC-2
+    #[test]
+    fn a_font_with_named_glyphs_is_read_through_its_unicode_map() {
+        let text = document_text("pdf", &pdf_with_named_glyphs(), 10_000)
+            .unwrap()
+            .unwrap();
+        assert!(text.contains("Zür"), "{text:?}");
     }
 
     #[test]

@@ -755,11 +755,14 @@ impl OrdinHost {
             summary: row.seed_summary.clone(),
             ..Carry::default()
         };
-        if row.continues_id.is_some() && row.seed_summary.is_none() {
-            if let Some(target) = row.continues_id {
-                carry.continued = Some(self.continued_history(target).await?.0);
-            }
-        }
+        // OH-RST-1: the conversation's own messages since it began, so a request that failed
+        // before the restart can be tried again. The summary it began with is kept in the
+        // history's opening, and a conversation that continues another quotes that one too.
+        // spec: ordin-desktop/components/OrdinHost#OH-RST-1
+        let (history, _) = self.continued_history(row.id).await?;
+        carry.continued = Some(
+            history.with_opening(seed::RESTART_OPENING, carry.summary.take().as_deref()),
+        );
         let (seed, _) = self.build_seed(workspace_id, &carry).await?;
         let run_id = self.start_ordin_run(workspace_id, seed, None).await?;
         let events =
