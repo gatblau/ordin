@@ -62,7 +62,11 @@ pub(crate) fn document_text(
     bytes: &[u8],
     limit: usize,
 ) -> Result<Option<String>, ExtractFailure> {
-    let text = if is_markdown_kind(kind) || is_text_kind(kind) {
+    let text = if kind == "xhtml" {
+        // SA-FS-DOC-7: a Confluence page's storage format, read as its words.
+        // spec: ordin-desktop/components/FileService#SA-FS-DOC-7
+        markup_text(&String::from_utf8_lossy(bytes))
+    } else if is_markdown_kind(kind) || is_text_kind(kind) {
         String::from_utf8_lossy(bytes).into_owned()
     } else if is_office_zip_kind(kind) {
         office_text(kind, bytes, limit)?
@@ -72,6 +76,131 @@ pub(crate) fn document_text(
         return Ok(None);
     };
     Ok(Some(cut(text, limit)))
+}
+
+/// SA-FS-DOC-7: the text of XHTML markup. Tags are dropped; the end of a block (paragraph, heading,
+/// list item, table row, line break) starts a new line and the end of a table cell adds ` | `; the five
+/// XML entities, `&nbsp;` and numeric references become their characters; runs of blank lines become one.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-7
+pub(crate) fn markup_text(markup: &str) -> String {
+    const BLOCKS: [&str; 13] = [
+        "p",
+        "div",
+        "br",
+        "li",
+        "tr",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "pre",
+        "blockquote",
+    ];
+    let mut out = String::with_capacity(markup.len() / 2);
+    let mut rest = markup;
+    while let Some(open) = rest.find('<') {
+        out.push_str(&entities(&rest[..open]));
+        let Some(close) = rest[open..].find('>') else {
+            rest = "";
+            break;
+        };
+        let tag = &rest[open + 1..open + close];
+        let name: String = tag
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == ':' || *c == '-')
+            .collect::<String>()
+            .to_ascii_lowercase();
+        let ends = tag.starts_with('/') || tag.ends_with('/');
+        if BLOCKS.contains(&name.as_str()) && (ends || name == "br") {
+            out.push('\n');
+        } else if (name == "td" || name == "th") && tag.starts_with('/') {
+            out.push_str(" | ");
+        }
+        rest = &rest[open + close + 1..];
+    }
+    out.push_str(&entities(rest));
+    let mut text = String::with_capacity(out.len());
+    let mut blank = 0;
+    for line in out.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            blank += 1;
+            if blank > 1 {
+                continue;
+            }
+        } else {
+            blank = 0;
+        }
+        text.push_str(line);
+        text.push('\n');
+    }
+    text.trim().to_owned()
+}
+
+fn entities(text: &str) -> String {
+    if !text.contains('&') {
+        return text.to_owned();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find('&') {
+        out.push_str(&rest[..at]);
+        let tail = &rest[at..];
+        let Some(end) = tail.find(';').filter(|e| *e <= 10) else {
+            out.push('&');
+            rest = &tail[1..];
+            continue;
+        };
+        let name = &tail[1..end];
+        let c = match name {
+            "amp" => Some('&'),
+            "lt" => Some('<'),
+            "gt" => Some('>'),
+            "quot" => Some('"'),
+            "apos" => Some('\''),
+            "nbsp" => Some(' '),
+            _ => name
+                .strip_prefix("#x")
+                .and_then(|h| u32::from_str_radix(h, 16).ok())
+                .or_else(|| name.strip_prefix('#').and_then(|d| d.parse().ok()))
+                .and_then(char::from_u32),
+        };
+        match c {
+            Some(c) => {
+                out.push(c);
+                rest = &tail[end + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = &tail[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(test)]
+mod markup_tests {
+    use super::markup_text;
+
+    // spec: ordin-desktop/components/FileService#SA-FS-DOC-7
+    #[test]
+    fn a_confluence_page_reads_as_its_words() {
+        let page = "<h1>Rates</h1><p>Supplier &amp; terms: &euro;1&nbsp;200 &#8804; budget</p>\
+            <table><tbody><tr><th>Name</th><th>Rate</th></tr><tr><td>Kestrel</td><td>4%</td></tr></tbody></table>\
+            <ac:structured-macro ac:name=\"info\"><ac:rich-text-body><p>Planned &mdash; Q2</p></ac:rich-text-body></ac:structured-macro>";
+        let text = markup_text(page);
+        assert!(text.starts_with("Rates\nSupplier & terms:"), "{text}");
+        assert!(text.contains("1 200 \u{2264} budget"), "{text}");
+        assert!(text.contains("Name | Rate |"), "{text}");
+        assert!(text.contains("Kestrel | 4% |"), "{text}");
+        assert!(text.contains("Planned"), "{text}");
+        assert!(!text.contains('<'), "{text}");
+    }
 }
 
 /// U+FB00–U+FB06, the Latin ligatures a PDF font may map one glyph to.
@@ -200,8 +329,14 @@ fn prefer_to_unicode(document: &mut lopdf::Document) {
         let lopdf::Object::Dictionary(font) = object else {
             continue;
         };
-        let is_font = matches!(font.get(b"Type").and_then(lopdf::Object::as_name), Ok(b"Font"));
-        let is_type0 = matches!(font.get(b"Subtype").and_then(lopdf::Object::as_name), Ok(b"Type0"));
+        let is_font = matches!(
+            font.get(b"Type").and_then(lopdf::Object::as_name),
+            Ok(b"Font")
+        );
+        let is_type0 = matches!(
+            font.get(b"Subtype").and_then(lopdf::Object::as_name),
+            Ok(b"Type0")
+        );
         if is_font && !is_type0 && font.has(b"ToUnicode") {
             font.remove(b"Encoding");
         }

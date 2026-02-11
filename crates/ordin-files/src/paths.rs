@@ -162,6 +162,8 @@ pub(crate) fn is_text_kind(kind: &str) -> bool {
             | "sh"
             | "sql"
             | "html"
+            // A Confluence page in a working copy, `<title>.confluence.xhtml` (FileService.md SA-FS-DOC-7).
+            | "xhtml"
             | "css"
             | "svelte"
     )

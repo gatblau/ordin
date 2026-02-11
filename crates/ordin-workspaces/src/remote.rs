@@ -174,6 +174,20 @@ impl WorkspaceService {
             .await
             .map_err(|e| map_adapter(&e))?;
         let mut out: Vec<Listed> = Vec::new();
+        // WS-RD-1: a link to one page reads that page first, then its children and attachments.
+        // spec: ordin-desktop/components/WorkspaceService#WS-RD-1
+        if let Some(page) = confluence
+            .linked_page(&root)
+            .await
+            .map_err(|e| map_adapter(&e))?
+        {
+            out.push(Listed {
+                origin_path: page.path.clone(),
+                size: page.size_bytes.unwrap_or(0),
+                item: ItemRef::Confluence(page.item),
+            });
+            self.set_progress(link.id, |p| p.listed = out.len() as u64);
+        }
         let mut queue: VecDeque<(ConfluenceLocation, usize)> = VecDeque::new();
         queue.push_back((root, 0));
         while let Some((location, depth)) = queue.pop_front() {

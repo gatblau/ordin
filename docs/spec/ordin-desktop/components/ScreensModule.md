@@ -7036,6 +7036,21 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 
 None.
 
+## Amendment 2026-02-11 — A search that finds nothing says so (SM-AW-5) (user decision 2026-02-11)
+
+Plan 09 Phase 2: on **Add to workspace**, a SharePoint or Confluence search that found nothing drew nothing, so the person could not tell "nothing found" from "not working".
+
+- **SM-AW-5 Nothing found.** When `sharepoint.find` or `confluence.find` answers an empty list, the screen draws one line under the field, `add-search-none` ("Nothing found for “<query>”. Try other words.", `role="status"`, muted text), for the query that answer was for. The line is not drawn while the field holds a different query, while an error is shown, or when the field is empty.
+
+```gherkin
+Feature: A search that finds nothing says so (SM-AW-5)
+
+  Scenario: Edge case — an empty answer
+    Given the person searches Confluence for "Supplier policy"
+    When confluence.find answers an empty list
+    Then "Nothing found for “Supplier policy”. Try other words." is drawn under the field
+```
+
 ## Amendment 2026-02-11 — A file's tree row shows its kind's icon (SM-IC-5) (user decision 2026-02-11)
 
 The 0.2.1-test.14 smoke test: a PDF in the Documents tree showed the plain page icon, while its screen tab showed the PDF icon. `apps/desktop/ui/src/lib/shell/TreeFolder.svelte` drew `i-page` for every file.

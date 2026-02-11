@@ -322,6 +322,32 @@ impl ConfluenceAdapter {
         })
     }
 
+    /// The page a link names, as an item of its own working copy: `<title>.confluence.xhtml` at the
+    /// link's root, beside the folder its child pages and attachments sit in. `None` for a link to a
+    /// whole space, which has no page of its own (WorkspaceService.md §4 step 1, amended 2026-02-11).
+    // spec: ordin-desktop/components/WorkspaceService#WS-RD-1
+    pub async fn linked_page(
+        &self,
+        loc: &ConfluenceLocation,
+    ) -> Result<Option<RemoteItem>, ConfluenceError> {
+        let Some(page_id) = &loc.page_id else {
+            return Ok(None);
+        };
+        let page = self.read_page(page_id).await?;
+        let version = self.named(page.version()?).await?;
+        Ok(Some(RemoteItem {
+            item: RemoteItemRef::Page {
+                page_id: page.id.clone(),
+            },
+            title: page.title.clone(),
+            // The folder its children sit in, with the page suffix: the same name either way.
+            path: format!("{}{}", self.prefix_of(loc).await?, crate::wire::PAGE_SUFFIX),
+            has_children: false,
+            size_bytes: None,
+            version,
+        }))
+    }
+
     pub(crate) async fn page_item(
         &self,
         page: &WirePage,

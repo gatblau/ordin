@@ -62,6 +62,9 @@ export class AddToWorkspaceModel {
   /** The workspace's links, for *Linked* (`workspaces.links`). */
   links = $state.raw<SourceLink[]>([]);
   query = $state('');
+  /** SM-AW-5: the query the last answer was for, so an empty answer can say nothing was found. */
+  // spec: ordin-desktop/components/ScreensModule#SM-AW-5
+  searched = $state<string | null>(null);
   results = $state.raw<FoundPlace[]>([]);
   /** An error drawn by step 11: under the field, under **Add** or under **Choose a folder…**. */
   error = $state.raw<ServiceError | null>(null);
@@ -136,6 +139,7 @@ export class AddToWorkspaceModel {
     const text = query.trim();
     if (text === '') {
       this.results = [];
+      this.searched = null;
       return;
     }
     if (text.length < ADD_SEARCH_MIN || text.length > ADD_SEARCH_MAX) return;
@@ -145,11 +149,13 @@ export class AddToWorkspaceModel {
       if (out.kind === 'error') return this.#refuse(out.error, 'field');
       this.error = null;
       this.results = out.result.map((location) => ({ kind: 'sharepoint', location }));
+      this.searched = text;
     } else if (this.entry === 'confluence') {
       const out = await this.#handle.call('confluence.find', { query: text, limit: ADD_SEARCH_LIMIT });
       if (out.kind === 'error') return this.#refuse(out.error, 'field');
       this.error = null;
       this.results = out.result.map((location) => ({ kind: 'confluence', location }));
+      this.searched = text;
     }
   }
 

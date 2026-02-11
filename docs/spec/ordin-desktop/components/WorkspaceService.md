@@ -2019,3 +2019,23 @@ Feature: Workspace Service — a team workspace (ADR-121)
 ### Gaps
 
 None.
+
+
+## Amendment 2026-02-11 — A linked Confluence page is read itself (WS-RD-1)
+
+> **Status:** user decision 2026-02-11 (plan 09 Phase 2). Source: the 0.2.1-test smoke tests — a Confluence page added to a workspace opened on "Nothing here yet". §4 step 1 walked `list_children`, which answers a page's child pages and attachments (ConfluenceAdapter.md, Internal Logic 2), so the page itself was never read; a page with no children and no attachments left an empty working copy (reproduced: `crates/ordin-workspaces/tests/sources_integration.rs` `a_linked_confluence_page_with_no_children_is_read_itself`). Amends §4 step 1.
+
+- **WS-RD-1 The linked page first.** For a `confluence_location` link whose location names a page, the walk starts with that page: `ConfluenceAdapter::linked_page(location)` reads it (`GET /wiki/api/v2/pages/{id}` for its version) and answers it as an item at the link's root, `<title>.confluence.xhtml`, the title with `/` replaced as for every page path, beside the folder `<title>/` its child pages and attachments sit in. It counts towards `LINK_MAX_ITEMS` and `listed` like any file, and is fetched by step 2 like any page. A link to a whole space has no page of its own and is walked as before. A failure reading the linked page fails the walk with the adapter's error, as a failure before the first file does today.
+
+```gherkin
+Feature: A linked Confluence page is read itself (WS-RD-1)
+
+  Scenario: Edge case — a page with no children and no attachments
+    Given a Confluence page "Supplier pages" with no child pages and no attachments
+    When it is added to a workspace and the read finishes
+    Then the working copy holds one item, "Supplier pages.confluence.xhtml"
+```
+
+### Gaps
+
+None.

@@ -208,6 +208,7 @@ add-email = Email…
 add-email-line = Messages from people or companies, or a folder in your mailbox
 add-linked = Linked
 add-search-label = Find a site, library, space or page
+add-search-none = Nothing found for “{ $query }”. Try other words.
 add-add = Add
 add-back = Back
 add-sign-in-microsoft = Sign in with Microsoft

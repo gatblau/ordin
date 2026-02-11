@@ -145,6 +145,10 @@
         {/each}
       </ul>
     {/if}
+    {#if model.results.length === 0 && model.error === null && model.searched !== null && model.searched === model.query.trim()}
+      <!-- SM-AW-5: an answer with nothing in it says so. -->
+      <p class="add-none" role="status">{t('add-search-none', { query: model.searched })}</p>
+    {/if}
     {#if model.errorAt === 'add'}<ErrorLine error={model.error} onsignin={() => openSettings('sign-ins')} />{/if}
     <div class="add-row"><button type="button" class="small" onclick={() => model.back()}>{t('add-back')}</button></div>
   {:else if model.step === 'sign_in'}
@@ -221,6 +225,10 @@
   }
   .add-entry .state-label {
     margin-inline-start: auto;
+  }
+  .add-none {
+    margin: 0;
+    color: var(--color-text-muted);
   }
   .add-search {
     display: flex;

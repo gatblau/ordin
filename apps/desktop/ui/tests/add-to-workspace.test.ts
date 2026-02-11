@@ -69,6 +69,18 @@ describe('Add to this workspace — SharePoint and Confluence (SM-AW-1, SM-AW-2,
     expect(model.results).toEqual([]);
   });
 
+  // spec: ordin-desktop/components/ScreensModule#SM-AW-5
+  it('Edge case — a search that finds nothing says so; a new query hides the line until it is answered', async () => {
+    const { handle, state } = await backendWith({ groups: GROUPS, setup: (tr) => tr.on('confluence.find', ok([])) });
+    const model = new AddToWorkspaceModel(handle, WS);
+    model.choose('confluence');
+    model.query = 'Supplier policy';
+    await model.search('Supplier policy');
+    expect(render(state, model)).toContain(t('add-search-none', { query: 'Supplier policy' }));
+    model.query = 'Supplier policy 2';
+    expect(render(state, model)).not.toContain('Nothing found');
+  });
+
   it('Error path — SharePoint needs a sign-in first: the sign-in step replaces the list, and a successful wait searches again', async () => {
     let signedIn = false;
     const { handle, transport, state } = await backendWith({

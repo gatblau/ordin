@@ -216,9 +216,42 @@ impl SupervisorHost for DesktopSupervisorHost {
                     failed(error.code());
                 }
             }
-            Ok(None) => memory.clear_agent_rules(agent_instance_id),
+            // DSK-MEM-2: an agent whose package declares no memory part still keeps what it reads, under
+            // the default rules; a part narrows them.
+            // spec: ordin-desktop/components/OrdinDesktop#DSK-MEM-2
+            Ok(None) => {
+                if let Err(error) =
+                    memory.set_agent_rules(agent_instance_id, default_memory_rules())
+                {
+                    failed(error.code());
+                }
+            }
             Err(error) => failed(error.code()),
         }
+    }
+}
+
+/// DSK-MEM-2: the rules of an agent with no memory part: any class but `secrets`, for 365 days, here.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MEM-2
+pub(crate) fn default_memory_rules() -> AgentMemoryRules {
+    AgentMemoryRules {
+        retains: Vec::new(),
+        excludes: vec!["secrets".to_owned()],
+        max_age_days: Some(365),
+        store_location: "local".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod default_memory_rules_tests {
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-MEM-2
+    #[test]
+    fn an_agent_with_no_memory_part_keeps_any_class_but_secrets_for_a_year() {
+        let rules = super::default_memory_rules();
+        assert!(rules.retains.is_empty(), "no class is required");
+        assert_eq!(rules.excludes, ["secrets"]);
+        assert_eq!(rules.max_age_days, Some(365));
+        assert_eq!(rules.store_location, "local");
     }
 }
 

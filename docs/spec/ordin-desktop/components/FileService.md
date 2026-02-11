@@ -1488,3 +1488,23 @@ Feature: A document named by its folder and path (SA-FS-DOC-6)
 ### Gaps
 
 None.
+
+
+## Amendment 2026-02-11 — A Confluence page's words (SA-FS-DOC-7)
+
+> **Status:** user decision 2026-02-11 (plan 09 Phase 2). Source: a linked Confluence page is stored as `<title>.confluence.xhtml` (WorkspaceService.md WS-RD-1), a kind `read_document` refused with `FILE_DOC_KIND_UNSUPPORTED`. Amends SA-FS-DOC-2.
+
+- **SA-FS-DOC-7 XHTML.** `xhtml` is a text kind. `read_document` answers its words, not its markup: tags are dropped; the end of `p`, `div`, `li`, `tr`, `h1`–`h6`, `pre`, `blockquote` and every `br` starts a new line; the end of a `td` or `th` adds ` | `; `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`, `&nbsp;` and numeric references become their characters (any other entity stays as written); each line is trimmed and runs of blank lines become one. Macros (`ac:` elements) lose their tags and keep the text inside them.
+
+```gherkin
+Feature: A Confluence page's words (SA-FS-DOC-7)
+
+  Scenario: Happy path — a page with a heading, a table and a macro
+    Given a file "Rates.confluence.xhtml" holding a heading, a two-column table and an info macro
+    When an agent reads it with read_document
+    Then the answer holds the heading, each table row as "cell | cell |" and the macro's text, and no "<"
+```
+
+### Gaps
+
+None.

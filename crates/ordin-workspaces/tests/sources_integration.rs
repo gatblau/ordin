@@ -166,10 +166,21 @@ async fn a_confluence_link_is_read_and_its_folder_link_goes_active_on_an_approva
     assert_eq!(link.kind, SourceLinkKind::ConfluenceLocation);
     assert_eq!(link.state, SourceLinkState::Active);
     let progress = env.wait_read(link.id).await;
-    assert_eq!((progress.read, progress.not_read), (1, 0));
+    // WS-RD-1: the linked page itself (version 3), then its child page Rates (version 7).
+    assert_eq!((progress.read, progress.not_read), (2, 0));
     let items = env.service.working_copy_items(link.id).await.unwrap();
-    assert_eq!(items.len(), 1);
-    assert_eq!(items[0].origin_version_read, "7");
+    let mut read: Vec<(&str, &str)> = items
+        .iter()
+        .map(|i| (i.origin_path.as_str(), i.origin_version_read.as_str()))
+        .collect();
+    read.sort();
+    assert_eq!(
+        read,
+        [
+            ("Supplier pages.confluence.xhtml", "3"),
+            ("Supplier pages/Rates.confluence.xhtml", "7")
+        ]
+    );
 
     // A folder of the workspace linked to a Confluence page: one approval, then active.
     let proposed = env
@@ -377,4 +388,60 @@ async fn the_three_sources_leave_with_the_workspace() {
         0
     );
     assert!(env.documents.join("ordin").join("Everything").is_dir());
+}
+
+// Plan 09 Phase 1: the 0.2.1-test smoke test's "Nothing here yet". A page with no child pages and no
+// attachments, linked on its own, must give the working copy that page.
+#[tokio::test]
+async fn a_linked_confluence_page_with_no_children_is_read_itself() {
+    let env = Env::new().await;
+    mount_where(&env).await;
+    wiki_json(
+        &env,
+        "/rest/api/user",
+        json!({"accountId": "acc-1", "displayName": "Sam Lee"}),
+    )
+    .await;
+    wiki_json(
+        &env,
+        "/rest/api/search",
+        json!({"results": [{
+            "content": {"id": PARENT, "type": "page", "title": "Supplier pages"},
+            "resultGlobalContainer": {"title": "Procurement", "displayUrl": "/spaces/PROC"},
+            "url": format!("/spaces/PROC/pages/{PARENT}"),
+        }], "_links": {}}),
+    )
+    .await;
+    for leaf in ["attachments", "children"] {
+        wiki_json(
+            &env,
+            &format!("/api/v2/pages/{PARENT}/{leaf}"),
+            json!({"results": [], "_links": {}}),
+        )
+        .await;
+    }
+    let workspace = env.create_workspace("Supplier pages").await;
+    let link = env
+        .service
+        .add_link(
+            workspace.id,
+            LinkLocation::Confluence {
+                location: parent_location(),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+    let progress = env.wait_read(link.id).await;
+    let items = env.service.working_copy_items(link.id).await.unwrap();
+    let paths: Vec<&str> = items.iter().map(|i| i.origin_path.as_str()).collect();
+    assert_eq!(
+        (progress.read, paths.len()),
+        (1, 1),
+        "the linked page itself is in the working copy: {paths:?}"
+    );
+    assert!(
+        paths[0].ends_with("Supplier pages.confluence.xhtml"),
+        "{paths:?}"
+    );
 }
