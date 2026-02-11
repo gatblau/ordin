@@ -150,3 +150,15 @@ describe("A folder's ⋯ menu in the tree (SM-RL-4)", () => {
     expect(transport.sentOf('files.list_folder')).toHaveLength(0);
   });
 });
+
+describe("A file's tree icon (SM-IC-5)", () => {
+  // spec: ordin-desktop/components/ScreensModule#SM-IC-5
+  it("Happy path — a PDF's row shows the PDF icon in its tint, as its tab does", async () => {
+    const { target } = await draw();
+    const tile = rowOf(target, 'Quarterly plan.pdf').querySelector('.tree-row .icon-tile') as HTMLElement;
+    expect(tile.querySelector('use')?.getAttribute('href')).toBe('#i-pdf');
+    expect(tile.dataset.tint).toBe('pdf');
+    const folder = rowOf(target, 'Contracts').querySelector('.tree-row .icon-tile use');
+    expect(folder?.getAttribute('href')).toBe('#i-folder');
+  });
+});

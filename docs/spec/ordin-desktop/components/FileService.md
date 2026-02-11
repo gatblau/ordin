@@ -1457,3 +1457,34 @@ Feature: Agents read a document's text (SA-FS-DOC-1 to SA-FS-DOC-5)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-11 — A document named by its folder and path (SA-FS-DOC-6)
+
+> **Status:** user decision 2026-02-11. Source: 0.2.1-test.14 smoke test — Ordin had no full path for an attached PDF. Ordin's Attached line names a file by its folder and the path inside it (OrdinHost.md OH-ATT-1, OH-KP-1: `place:<place id>:<path>`), never its full path, and SA-FS-DOC-1 refused anything but a full path, so Ordin could not read an attached file itself (the 27 November log: `read_document` → `MCP_ARGUMENTS_INVALID` twice). Amends SA-FS-DOC-1 and SA-FS-DOC-3 step 1.
+
+- **SA-FS-DOC-6 A place reference.** `read_document`'s `path` is either an absolute path, as before, or `place:<place id>:<path>`: a `PlaceId` and a path relative to that place's folder, with no `..`, root or prefix component and not empty. A reference that is malformed is `MCP_ARGUMENTS_INVALID` at `/path`, before the call. At the call, the place's folder (`FileService::place`) joined with the path is the file; an unknown place id is `FILE_NOT_FOUND`. From there SA-FS-DOC-3 runs unchanged from step 1: the link-resolved file must lie in the agent's own folder or a folder it holds read access to, so a reference grants nothing a full path would not. The tool's description and argument form name both forms.
+
+| Condition | Outcome |
+|---|---|
+| `place:<id>:<path>` of a file in an allowed folder | the document's text, as for a full path |
+| `place:<id>:<path>` in a folder the agent may not read | `FILE_NOT_GRANTED` |
+| an unknown place id | `FILE_NOT_FOUND` |
+| a path with `..`, a root, or none; an id that is not an id | `MCP_ARGUMENTS_INVALID` at `/path` |
+
+```gherkin
+Feature: A document named by its folder and path (SA-FS-DOC-6)
+
+  Scenario: Happy path — a place reference from the Attached line is read
+    Given a PDF at specs/Agent-Platform.pdf in a folder the agent may read
+    When the agent calls read_document with path "place:<that folder's id>:specs/Agent-Platform.pdf"
+    Then the document's text is returned
+
+  Scenario: Error path — a place reference to a folder not allowed
+    Given a PDF in a folder the agent may not read
+    When the agent calls read_document with that folder's place reference
+    Then the answer is FILE_NOT_GRANTED
+```
+
+### Gaps
+
+None.

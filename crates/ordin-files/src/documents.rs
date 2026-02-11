@@ -67,11 +67,42 @@ fn failure(code: &str, message: &str, retryable: bool) -> ToolFailure {
     }
 }
 
+/// Where the document is: a full path, or a folder of the workspace and the path inside it.
+#[derive(Debug)]
+enum Target {
+    Path(PathBuf),
+    /// SA-FS-DOC-6: `place:<place id>:<path>`, as an Attached line gives it.
+    // spec: ordin-desktop/components/FileService#SA-FS-DOC-6
+    Place(ordin_types::PlaceId, String),
+}
+
 /// The arguments after `check_arguments`.
 #[derive(Debug)]
 struct Args {
-    path: PathBuf,
+    target: Target,
     from: usize,
+}
+
+/// SA-FS-DOC-6: `place:<place id>:<path>`, the path relative and never climbing out of the folder.
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-6
+fn place_target(text: &str) -> Option<Result<Target, &'static str>> {
+    let rest = text.strip_prefix("place:")?;
+    let Some((id, path)) = rest.split_once(':') else {
+        return Some(Err("a place reference is place:<place id>:<path>"));
+    };
+    let Ok(id) = ordin_types::PlaceId::parse(id) else {
+        return Some(Err("the place id is not an id"));
+    };
+    let relative = Path::new(path);
+    let climbs = relative
+        .components()
+        .any(|c| !matches!(c, std::path::Component::Normal(_)));
+    if path.is_empty() || climbs {
+        return Some(Err(
+            "the path after the place id must stay inside the folder",
+        ));
+    }
+    Some(Ok(Target::Place(id, path.to_owned())))
 }
 
 fn parse(arguments: &Value) -> Result<Args, ArgumentProblem> {
@@ -92,9 +123,17 @@ fn parse(arguments: &Value) -> Result<Args, ArgumentProblem> {
     if path.is_empty() || path.len() > MAX_PATH_BYTES || path.contains('\0') {
         return Err(problem("/path", "the path must be 1 to 4096 bytes"));
     }
-    if !Path::new(path).is_absolute() {
-        return Err(problem("/path", "the path must be absolute"));
-    }
+    let target = match place_target(path) {
+        Some(Ok(target)) => target,
+        Some(Err(reason)) => return Err(problem("/path", reason)),
+        None if Path::new(path).is_absolute() => Target::Path(PathBuf::from(path)),
+        None => {
+            return Err(problem(
+                "/path",
+                "the path must be absolute, or place:<place id>:<path> from the Attached line",
+            ))
+        }
+    };
     let from = match object.get("from") {
         None | Some(Value::Null) => 0,
         Some(value) => value
@@ -102,10 +141,7 @@ fn parse(arguments: &Value) -> Result<Args, ArgumentProblem> {
             .and_then(|n| usize::try_from(n).ok())
             .ok_or_else(|| problem("/from", "from must be a whole number of 0 or more"))?,
     };
-    Ok(Args {
-        path: PathBuf::from(path),
-        from,
-    })
+    Ok(Args { target, from })
 }
 
 /// SA-FS-DOC-4: the part of `text` from `from`, with the line saying how to read on.
@@ -148,7 +184,19 @@ impl DocumentTools {
     async fn read(&self, ctx: &ToolCallContext, args: Args) -> Result<ToolOutput, ToolFailure> {
         let files = self.files()?;
         // 1. The real file, symbolic links resolved, so the check below sees where it is.
-        let given = args.path.clone();
+        let given = match &args.target {
+            Target::Path(path) => path.clone(),
+            Target::Place(id, path) => match files.place(*id).await {
+                Ok(place) => Path::new(&place.path).join(path),
+                Err(_) => {
+                    return Err(failure(
+                        "FILE_NOT_FOUND",
+                        "There is no folder with that place id. Copy the place reference from the Attached line.",
+                        false,
+                    ))
+                }
+            },
+        };
         let real = crate::versions::blocking(move || std::fs::canonicalize(&given))
             .await
             .ok()
@@ -184,7 +232,10 @@ impl DocumentTools {
             .and_then(Result::ok)
             .filter(std::fs::Metadata::is_file)
             .ok_or_else(|| failure("FILE_NOT_FOUND", "There is no file at that path.", false))?;
-        let name = real.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        let name = real
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
         let kind = kind_of(name);
         if !is_document_kind(&kind) {
             return Err(failure(
@@ -307,13 +358,13 @@ impl ToolProvider for DocumentTools {
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "path": {"type": "string", "description": "The file's absolute path, as on the Attached line."},
+                        "path": {"type": "string", "description": "The file's absolute path, or place:<place id>:<path> as on the Attached line."},
                         "from": {"type": "integer", "minimum": 0, "description": "The character to start at; 0 for the first part."}
                     },
                     "required": ["path"],
                     "additionalProperties": false
                 }),
-                argument_form: "read_document(path: \"<absolute path>\", from: <0, or the next offset given>)"
+                argument_form: "read_document(path: \"<absolute path> | place:<place id>:<path>\", from: <0, or the next offset given>)"
                     .to_owned(),
                 sandbox_callable: true,
                 plain: "Reads the text of documents in the folders you allow.".to_owned(),
@@ -355,7 +406,8 @@ impl ToolProvider for DocumentTools {
                 false,
             ));
         }
-        let args = parse(&arguments).map_err(|p| failure("MCP_ARGUMENTS_INVALID", &p.reason, false))?;
+        let args =
+            parse(&arguments).map_err(|p| failure("MCP_ARGUMENTS_INVALID", &p.reason, false))?;
         self.read(&ctx, args).await
     }
 
@@ -378,16 +430,46 @@ mod tests {
         let last = part(&text, DOC_PART_CHARS);
         assert_eq!(last.text, "aaaaa");
         assert!(last.structured.as_ref().unwrap()["next"].is_null());
-        assert!(part(&text, DOC_PART_CHARS + 5).text.starts_with("[No more text"));
+        assert!(part(&text, DOC_PART_CHARS + 5)
+            .text
+            .starts_with("[No more text"));
     }
 
     #[test]
     fn the_arguments_are_checked() {
         assert!(parse(&json!({"path": "/a/b.pdf"})).is_ok());
-        assert_eq!(parse(&json!({"path": "/a/b.pdf", "from": 20})).unwrap().from, 20);
+        assert_eq!(
+            parse(&json!({"path": "/a/b.pdf", "from": 20}))
+                .unwrap()
+                .from,
+            20
+        );
         assert_eq!(parse(&json!({"path": "b.pdf"})).unwrap_err().at, "/path");
+        let id = ordin_types::PlaceId::new();
+        assert!(matches!(
+            parse(&json!({"path": format!("place:{id}:docs/b.pdf")})).unwrap().target,
+            Target::Place(p, ref path) if p == id && path == "docs/b.pdf"
+        ));
+        for bad in [
+            format!("place:{id}:../b.pdf"),
+            format!("place:{id}:/etc/b.pdf"),
+            format!("place:{id}:"),
+            "place:not-an-id:b.pdf".to_owned(),
+        ] {
+            assert_eq!(
+                parse(&json!({"path": bad})).unwrap_err().at,
+                "/path",
+                "{bad}"
+            );
+        }
         assert_eq!(parse(&json!({})).unwrap_err().at, "/path");
-        assert_eq!(parse(&json!({"path": "/a", "from": -1})).unwrap_err().at, "/from");
-        assert_eq!(parse(&json!({"path": "/a", "page": 1})).unwrap_err().at, "/page");
+        assert_eq!(
+            parse(&json!({"path": "/a", "from": -1})).unwrap_err().at,
+            "/from"
+        );
+        assert_eq!(
+            parse(&json!({"path": "/a", "page": 1})).unwrap_err().at,
+            "/page"
+        );
     }
 }

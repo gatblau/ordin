@@ -9,8 +9,8 @@
     }
   },
   "logos": {
-    "light": {"url": "file:logo-light.svg", "sha256": "c6125479624530b4e4e3b3d18a5421be326c409cb514adc3c077387489e4b90b", "media_type": "image/svg+xml"},
-    "dark": {"url": "file:logo-dark.svg", "sha256": "08b1bee82e781fcedc3ad9234eb261108553a6b7ae07fa92334a6f2e896f9651", "media_type": "image/svg+xml"}
+    "light": {"url": "file:logo-light.svg", "sha256": "061db0509ddaf5835b210451e2a0394fb90ef4dc9ac93618637dc2640ab8ff48", "media_type": "image/svg+xml"},
+    "dark": {"url": "file:logo-dark.svg", "sha256": "b309ef77e5be58750ab1faaa2a0f062d0ba890a101f6870a3c67bcc9ee5f4155", "media_type": "image/svg+xml"}
   },
   "icon_set": {
     "light": {"url": "file:icons-light.svg", "sha256": "38e0e9da7806ebc26dad09c7df4c3a2b726b05c2131a1e8de0f9e515cd96cbcb", "media_type": "image/svg+xml"},

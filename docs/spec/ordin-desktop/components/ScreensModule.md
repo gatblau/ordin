@@ -7036,6 +7036,20 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 
 None.
 
+## Amendment 2026-02-11 — A file's tree row shows its kind's icon (SM-IC-5) (user decision 2026-02-11)
+
+The 0.2.1-test.14 smoke test: a PDF in the Documents tree showed the plain page icon, while its screen tab showed the PDF icon. `apps/desktop/ui/src/lib/shell/TreeFolder.svelte` drew `i-page` for every file.
+
+- **SM-IC-5 A file's icon in the tree.** A file row of the Documents tree draws `fileKindIcon(name)` (`apps/desktop/ui/src/lib/icons/kinds.ts`) in the tile tint `fileKindTint` gives, the icon and tint its screen tab and chips use; a file of no known kind draws `i-page`, untinted, as before. Folder rows are unchanged (`i-folder`).
+
+```gherkin
+Feature: A file's tree row shows its kind's icon (SM-IC-5)
+
+  Scenario: Happy path — a PDF shows the PDF icon
+    Given the Documents tree lists "Quarterly plan.pdf"
+    Then its row draws i-pdf in the pdf tint
+```
+
 ## Amendment 2026-02-11 — A reply still on its way is not a failed turn (SM-RF-3) (user decision 2026-02-11)
 
 The 0.2.1-test.13 smoke test: "Ordin couldn't get an answer this time." was drawn after turns whose replies the log records (`copilot.event.turn_ended has_final_text: true`), and the reply then appeared under it. `block_available` and the `idle` `ordin_turn_changed` arrive together; the panel draws an available block only after `ordin.block` answers, so SM-RF-1 saw the turn end with no new Ordin item.

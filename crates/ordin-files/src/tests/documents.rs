@@ -107,10 +107,19 @@ impl Rig {
         }
     }
 
-    async fn read_at(&self, run_id: RunId, path: &Path, from: u64) -> Result<ToolOutput, ToolFailure> {
+    async fn read_at(
+        &self,
+        run_id: RunId,
+        path: &Path,
+        from: u64,
+    ) -> Result<ToolOutput, ToolFailure> {
         let arguments = json!({"path": path, "from": from});
-        self.provider.check_arguments(&key(), &arguments).expect("well-formed");
-        self.provider.call(self.context(run_id), &key(), arguments).await
+        self.provider
+            .check_arguments(&key(), &arguments)
+            .expect("well-formed");
+        self.provider
+            .call(self.context(run_id), &key(), arguments)
+            .await
     }
 
     async fn read(&self, path: &Path) -> Result<ToolOutput, ToolFailure> {
@@ -129,7 +138,9 @@ fn compressed_copy() -> Vec<u8> {
     document.version = "1.5".to_owned();
     document.compress();
     let mut out = Vec::new();
-    document.save_modern(&mut out).expect("saved with object streams");
+    document
+        .save_modern(&mut out)
+        .expect("saved with object streams");
     out
 }
 
@@ -147,7 +158,11 @@ async fn happy_path_a_browser_printed_pdf_in_an_allowed_folder_is_read() {
         "≤ 50 MB per file, €1,200 budget",
         "ordin agent start --name \"Document agent\"",
     ] {
-        assert!(out.text.contains(expected), "missing {expected:?} in {}", out.text);
+        assert!(
+            out.text.contains(expected),
+            "missing {expected:?} in {}",
+            out.text
+        );
     }
     assert!(!out.text.contains('\u{FB01}'), "ligatures become letters");
     assert!(out.structured.as_ref().unwrap()["next"].is_null());
@@ -208,10 +223,19 @@ async fn edge_a_long_document_is_read_in_parts() {
     assert_eq!(first.structured.as_ref().unwrap()["next"], DOC_PART_CHARS);
     assert!(first.text.contains(&format!("from: {DOC_PART_CHARS}")));
     let second = r.read_at(run, &file, DOC_PART_CHARS as u64).await.unwrap();
-    assert_eq!(second.structured.as_ref().unwrap()["next"], DOC_PART_CHARS * 2);
-    let third = r.read_at(run, &file, (DOC_PART_CHARS * 2) as u64).await.unwrap();
+    assert_eq!(
+        second.structured.as_ref().unwrap()["next"],
+        DOC_PART_CHARS * 2
+    );
+    let third = r
+        .read_at(run, &file, (DOC_PART_CHARS * 2) as u64)
+        .await
+        .unwrap();
     assert_eq!(third.text, "é".repeat(7));
-    assert_eq!(third.structured.as_ref().unwrap()["characters"], DOC_PART_CHARS * 2 + 7);
+    assert_eq!(
+        third.structured.as_ref().unwrap()["characters"],
+        DOC_PART_CHARS * 2 + 7
+    );
 }
 
 // spec: ordin-desktop/components/FileService#SA-FS-DOC-4
@@ -251,4 +275,41 @@ async fn the_tool_is_offered_and_a_relative_path_is_refused_before_the_call() {
         .check_arguments(&key(), &json!({"path": "Agent-Platform.pdf"}))
         .unwrap_err();
     assert_eq!(problem.at, "/path");
+}
+
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-6
+#[tokio::test]
+async fn happy_path_a_place_reference_from_the_attached_line_is_read() {
+    let r = rig().await;
+    r.fx.put(&r.allowed, "specs/Agent-Platform.pdf", BROWSER_PDF);
+    let reference = format!("place:{}:specs/Agent-Platform.pdf", r.allowed.id);
+    let arguments = json!({"path": reference});
+    r.provider
+        .check_arguments(&key(), &arguments)
+        .expect("well-formed");
+    let out = r
+        .provider
+        .call(r.context(RunId::new()), &key(), arguments)
+        .await
+        .expect("read");
+    assert!(out.text.contains("Session supervisor"), "{}", out.text);
+}
+
+// spec: ordin-desktop/components/FileService#SA-FS-DOC-6
+#[tokio::test]
+async fn error_a_place_reference_to_a_folder_not_allowed_is_refused() {
+    let r = rig().await;
+    r.fx.put(&r.other, "secret.pdf", BROWSER_PDF);
+    let arguments = json!({"path": format!("place:{}:secret.pdf", r.other.id)});
+    let out = r
+        .provider
+        .call(r.context(RunId::new()), &key(), arguments)
+        .await;
+    assert_eq!(code(out), "FILE_NOT_GRANTED");
+    let unknown = json!({"path": format!("place:{}:a.pdf", ordin_types::PlaceId::new())});
+    let out = r
+        .provider
+        .call(r.context(RunId::new()), &key(), unknown)
+        .await;
+    assert_eq!(code(out), "FILE_NOT_FOUND");
 }

@@ -24,6 +24,8 @@
   import { askOrdin, isWaitingForServer } from '../blocks/ask';
   import { t } from '../i18n/fluent';
   import Icon from '../icons/Icon.svelte';
+  import { fileKindIcon, fileKindTint } from '../icons/kinds';
+  import type { IconName } from '../icons/sprite';
   import type { BinTicket, FileEntry, ServiceError } from '../service-api/types.gen';
   import type { BackendState } from '../store/backend-state.svelte';
   import ConfirmDialog from '../views/ConfirmDialog.svelte';
@@ -47,6 +49,10 @@
     /** How deep the rows sit, for their indent. */
     depth?: number;
   }
+  // SM-IC-5: a file's tree row shows its kind's icon and tint, as its screen tab does; a kind with none is `page`.
+  // spec: ordin-desktop/components/ScreensModule#SM-IC-5
+  const fileIcon = (name: string): IconName => fileKindIcon(name) ?? 'page';
+
   let { backend, workspaceId, placeId, folder = '', depth = 1 }: Props = $props();
 
   const app = appOrNull();
@@ -269,7 +275,7 @@
     {:else}
       <div role="treeitem" aria-selected="false" tabindex="-1" class="tree-leaf">
         <div class="tree-line">
-          <button type="button" class="tree-row leaf" style={indent} onclick={() => openFile(entry)} oncontextmenu={(e) => contextMenu(e, entry)}><span class="icon-tile"><Icon name="page" /></span><span class="tree-name">{entry.name}</span></button>
+          <button type="button" class="tree-row leaf" style={indent} onclick={() => openFile(entry)} oncontextmenu={(e) => contextMenu(e, entry)}><span class="icon-tile" data-tint={fileKindTint(fileIcon(entry.name))}><Icon name={fileIcon(entry.name)} /></span><span class="tree-name">{entry.name}</span></button>
           {#if hasMenu}
             <span class="tree-actions" class:shown={menuFor === entry.path}>
               <button type="button" class="tree-action" aria-haspopup="menu" aria-expanded={menuFor === entry.path} aria-label={t('more-actions-for', { name: entry.name })} title={t('more-actions-tip')} onclick={() => (menuFor = menuFor === entry.path ? null : entry.path)}><Icon name="more" /></button>
