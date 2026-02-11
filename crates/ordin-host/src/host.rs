@@ -760,9 +760,8 @@ impl OrdinHost {
         // history's opening, and a conversation that continues another quotes that one too.
         // spec: ordin-desktop/components/OrdinHost#OH-RST-1
         let (history, _) = self.continued_history(row.id).await?;
-        carry.continued = Some(
-            history.with_opening(seed::RESTART_OPENING, carry.summary.take().as_deref()),
-        );
+        carry.continued =
+            Some(history.with_opening(seed::RESTART_OPENING, carry.summary.take().as_deref()));
         let (seed, _) = self.build_seed(workspace_id, &carry).await?;
         let run_id = self.start_ordin_run(workspace_id, seed, None).await?;
         let events =

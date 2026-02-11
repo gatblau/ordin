@@ -235,6 +235,7 @@ conv-deleted = Deleted “{ $name }”.
 tree-bin-done = Moved “{ $name }” to your computer's Bin.
 tree-bin-undo = Undo
 tree-remove-link = Remove from this workspace…
+tree-link-page-not-read = This page has not been read yet. Try again in a moment.
 remove-link-title = Remove “{ $name }” from this workspace?
 remove-link-body = Your documents stay where they are. Agents in this workspace can no longer use them.
 remove-link-verb = Remove

@@ -788,6 +788,8 @@ pub(crate) struct Delegated {
     /// OH-TF-1: a task started from its form (or with its named inputs, OH-TF-3): its arguments,
     /// documents and what its start does; never answered from an earlier run.
     pub form: Option<Box<crate::task_form::FormStart>>,
+    /// OH-ACC-3: the work changes a linked document; its working copy is asked for read and change.
+    pub changes_documents: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -1345,6 +1347,7 @@ impl OrdinHost {
                 code_in: d.code_in,
                 run_again_of: None,
                 form: None,
+                changes_documents: d.changes_documents,
             },
             stage: Stage::Reuse,
         };
@@ -1452,6 +1455,7 @@ impl OrdinHost {
                 code_in: None,
                 run_again_of: Some(task.id),
                 form: None,
+                changes_documents: false,
             },
             stage: Stage::Estimate,
         };
@@ -1601,12 +1605,19 @@ impl OrdinHost {
                 return None;
             }
         };
+        // OH-ACC-3: a change to a linked document also asks when the agent may only read its working copy.
+        // spec: ordin-desktop/components/OrdinHost#OH-ACC-3
+        let changing = if d.args.changes_documents {
+            self.change_needed(ws, d.agent, &needed).await
+        } else {
+            Vec::new()
+        };
         let missing: Vec<(ordin_types::PlaceId, String)> = needed
             .iter()
             .filter_map(|p| {
                 folders
                     .iter()
-                    .find(|f| f.place_id == *p && !f.granted)
+                    .find(|f| f.place_id == *p && (!f.granted || changing.contains(p)))
                     .map(|f| (f.place_id, f.name.clone()))
             })
             .collect();
@@ -1628,7 +1639,13 @@ impl OrdinHost {
             .ask(
                 ws,
                 &cut_chars(
-                    &format!("{name} needs to read {names} to answer."),
+                    &if changing.is_empty() {
+                        format!("{name} needs to read {names} to answer.")
+                    } else {
+                        format!(
+                            "{name} needs to change {names}. Changes go back only after you approve them."
+                        )
+                    },
                     FOLDER_QUESTION_MAX_CHARS,
                 ),
                 vec![FOLDER_ALLOW.to_owned(), FOLDER_NOT_NOW.to_owned()],
@@ -1655,6 +1672,37 @@ impl OrdinHost {
             ),
             None,
         ))
+    }
+
+    /// OH-ACC-3: of `places`, the working copies of linked documents on which `agent` does not hold read
+    /// and change. Any other kind of place is never asked for change here.
+    // spec: ordin-desktop/components/OrdinHost#OH-ACC-3
+    async fn change_needed(
+        &self,
+        ws: WorkspaceId,
+        agent: AgentInstanceId,
+        places: &[ordin_types::PlaceId],
+    ) -> Vec<ordin_types::PlaceId> {
+        use ordin_types::domain::places::{FolderAccess, Grantee, PlaceKind};
+        let grants = self.ports.workspaces.grants(ws).await.unwrap_or_default();
+        let mut out = Vec::new();
+        for place in places {
+            let Ok(found) = self.ports.files.place(*place).await else {
+                continue;
+            };
+            if found.kind != PlaceKind::WorkingCopy {
+                continue;
+            }
+            let held = grants.iter().any(|g| {
+                g.place_id == *place
+                    && g.access == FolderAccess::ReadAndChange
+                    && matches!(g.grantee, Grantee::AgentInstance { agent_instance_id } if agent_instance_id == agent)
+            });
+            if !held {
+                out.push(*place);
+            }
+        }
+        out
     }
 
     /// OH-ACC-2: the person's answer to the folder question. **Allow** grants read access to each
@@ -1686,6 +1734,13 @@ impl OrdinHost {
             .await?;
             return Ok(None);
         }
+        // OH-ACC-3: read and change on a linked document's working copy when the work changes it.
+        let changing = if d.args.changes_documents {
+            let ids: Vec<ordin_types::PlaceId> = places.iter().map(|(p, _)| *p).collect();
+            self.change_needed(ws, d.agent, &ids).await
+        } else {
+            Vec::new()
+        };
         let mut made: Vec<ordin_types::PlaceId> = Vec::new();
         for (place, _) in places {
             if let Err(e) = self
@@ -1695,7 +1750,11 @@ impl OrdinHost {
                     ws,
                     d.agent,
                     *place,
-                    Some(ordin_types::domain::places::FolderAccess::Read),
+                    Some(if changing.contains(place) {
+                        ordin_types::domain::places::FolderAccess::ReadAndChange
+                    } else {
+                        ordin_types::domain::places::FolderAccess::Read
+                    }),
                 )
                 .await
             {

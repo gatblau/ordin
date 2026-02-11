@@ -8,10 +8,11 @@
   // spec: ordin-desktop/components/ScreensModule#SM-RL-1
   // spec: ordin-desktop/components/ScreensModule#SM-RL-2
   // spec: ordin-desktop/components/ScreensModule#SM-RL-3
+  import { askOrdin, isWaitingForServer } from '../blocks/ask';
   import { answers } from '../backend/groups';
   import { t } from '../i18n/fluent';
   import Icon from '../icons/Icon.svelte';
-  import type { SourceLink } from '../service-api/types.gen';
+  import type { ServiceError, SourceLink } from '../service-api/types.gen';
   import type { BackendState } from '../store/backend-state.svelte';
   import { ADD_TO_WORKSPACE_SCREEN } from '../views/add/add-model.svelte';
   import { DocumentLinksModel, LINK_KIND_ICON } from '../views/add/links-model.svelte';
@@ -46,6 +47,43 @@
   const listsLinks = $derived(answers(backend, 'workspaces.links'));
   const canAdd = $derived(answers(backend, 'workspaces.add_link'));
   const canRemove = $derived(answers(backend, 'workspaces.remove_link'));
+  const canAsk = $derived(backend.groups.has('ordin') && answers(backend, 'ordin.send_message'));
+  let actionError = $state<ServiceError | null>(null);
+
+  /** SM-RL-5: a Confluence link with a working copy offers the document menu for its page. */
+  // spec: ordin-desktop/components/ScreensModule#SM-RL-5
+  function offersPageMenu(link: SourceLink): boolean {
+    return canAsk && link.kind === 'confluence_location' && hasPlace(link);
+  }
+  function hasMenu(link: SourceLink): boolean {
+    return canRemove || offersPageMenu(link);
+  }
+
+  /** The linked page's file: the `.confluence.xhtml` at the working copy's root (WorkspaceService.md WS-RD-1). */
+  async function pageFile(link: SourceLink): Promise<string | null> {
+    const out = await backend.handle.call('files.list_folder', { place_id: link.place_id ?? '', folder: '', sort: 'name_asc' });
+    if (out.kind === 'error') {
+      actionError = out.error;
+      return null;
+    }
+    return out.result.items.find((i) => !i.is_folder && i.name.endsWith('.confluence.xhtml'))?.path ?? null;
+  }
+
+  type AskText = 'block-ask-text-this' | 'tree-ask-text-knowledge' | 'tree-ask-text-memory';
+  async function askAboutPage(link: SourceLink, text: AskText): Promise<void> {
+    menuFor = null;
+    const path = await pageFile(link);
+    if (path === null) {
+      if (actionError === null) actionError = { code: 'UI_PAGE_NOT_READ', message: t('tree-link-page-not-read') };
+      return;
+    }
+    if (text !== 'block-ask-text-this' && app !== null) {
+      app.shell.openWorkspaceTab(backend.id, workspaceId);
+      if (app.shell.narrow) app.shell.conversationOverlayOpen = true;
+    }
+    const out = await askOrdin(backend, workspaceId, t(text, { title: link.display_name }), [{ kind: 'place_file', place_id: link.place_id ?? '', relative_path: path }]);
+    actionError = out.kind === 'error' ? out.error : null;
+  }
 
   $effect(() => {
     void revision;
@@ -114,18 +152,24 @@
   </div>
   {#if open && listsLinks}
     <ErrorLine error={model.error} onretry={() => void model.load()} />
+    <ErrorLine error={actionError} />
     <div role="group" class="tree-group">
       {#each model.links as link (link.id)}
         <div role="treeitem" aria-selected="false" tabindex="-1" class="tree-leaf" aria-expanded={itemsOpen.includes(link.id)}>
           <div class="tree-line">
-            <button type="button" class="tree-row leaf tree-link" onclick={() => openLink(link)} oncontextmenu={(e) => { if (!canRemove) return; e.preventDefault(); menuFor = link.id; }}><span class="icon-tile" data-tint={LINK_KIND_ICON[link.kind]?.tint}><Icon name={LINK_KIND_ICON[link.kind]?.icon ?? 'docs'} /></span><span class="tree-link-name">{link.display_name}</span></button>
-            {#if canRemove}
+            <button type="button" class="tree-row leaf tree-link" onclick={() => openLink(link)} oncontextmenu={(e) => { if (!hasMenu(link)) return; e.preventDefault(); menuFor = link.id; }}><span class="icon-tile" data-tint={LINK_KIND_ICON[link.kind]?.tint}><Icon name={LINK_KIND_ICON[link.kind]?.icon ?? 'docs'} /></span><span class="tree-link-name">{link.display_name}</span></button>
+            {#if hasMenu(link)}
               <span class="tree-actions" class:shown={menuFor === link.id}>
                 <button type="button" class="tree-action" aria-haspopup="menu" aria-expanded={menuFor === link.id} aria-label={t('more-actions-for', { name: link.display_name })} title={t('more-actions-tip')} onclick={() => (menuFor = menuFor === link.id ? null : link.id)}><Icon name="more" /></button>
               </span>
               {#if menuFor === link.id}
                 <div role="menu" tabindex="-1" class="tree-menu-list" aria-label={t('tree-node-menu', { name: link.display_name })} onkeydown={menuKey} use:focusFirst>
-                  <button type="button" role="menuitem" class="danger" onclick={() => askRemove(link)}><Icon name="remove" />{t('tree-remove-link')}</button>
+                  {#if offersPageMenu(link)}
+                    <button type="button" role="menuitem" disabled={isWaitingForServer(backend)} onclick={() => void askAboutPage(link, 'block-ask-text-this')}><Icon name="chat" />{t('block-ask-about-this')}</button>
+                    <button type="button" role="menuitem" disabled={isWaitingForServer(backend)} onclick={() => void askAboutPage(link, 'tree-ask-text-knowledge')}><Icon name="know" />{t('tree-add-to-knowledge')}</button>
+                    <button type="button" role="menuitem" disabled={isWaitingForServer(backend)} onclick={() => void askAboutPage(link, 'tree-ask-text-memory')}><Icon name="memory" />{t('tree-add-to-memory')}</button>
+                  {/if}
+                  {#if canRemove}<button type="button" role="menuitem" class="danger" onclick={() => askRemove(link)}><Icon name="remove" />{t('tree-remove-link')}</button>{/if}
                 </div>
               {/if}
             {/if}

@@ -386,6 +386,11 @@ pub struct DelegateArgs {
     // spec: ordin-desktop/components/OrdinHost#OH-TF-5
     #[serde(default)]
     pub inputs: Option<std::collections::BTreeMap<String, TaskInputText>>,
+    /// OH-ACC-3: the work changes a linked document (SharePoint or Confluence); the person is asked for
+    /// read and change on its working copy, and every change goes back only after their approval.
+    // spec: ordin-desktop/components/OrdinHost#OH-ACC-3
+    #[serde(default)]
+    pub changes_documents: bool,
 }
 
 /// One value of `delegate`'s `inputs`: a text, or a list of texts for a documents input (OH-TF-3).

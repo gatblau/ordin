@@ -7036,6 +7036,21 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 
 None.
 
+## Amendment 2026-02-11 — A Confluence link row offers the document menu (SM-RL-5) (user decision 2026-02-11)
+
+Plan 09 Phase 7: a Confluence link's own row in the Documents tree offered only **Remove**, while a PDF's row offers the document menu (SM-RL-4).
+
+- **SM-RL-5 The page's menu on the link row.** For a `confluence_location` link with a place, when `ordin.send_message` is answered, the link row's menu holds, in order: **Ask Ordin about this**, **Add to knowledge**, **Add to memory**, then **Remove from this workspace…** when `workspaces.remove_link` is answered. Each of the first three reads the working copy's root (`files.list_folder { place_id, folder: "" }`), takes the file ending `.confluence.xhtml` there (the linked page, WorkspaceService.md WS-RD-1), and sends the same message SM-RL-4 sends for a file, named by the link's display name, with that file attached as a `place_file`. When no such file is there yet, the row draws `tree-link-page-not-read` and sends nothing. **Open in its app** and **Move to Bin…** stay on the file row only: the page lives in Confluence. Other link kinds are unchanged.
+
+```gherkin
+Feature: A Confluence link row offers the document menu (SM-RL-5)
+
+  Scenario: Happy path — Add to memory from the link row
+    Given the Confluence link "Supplier pages" whose working copy holds "Supplier pages.confluence.xhtml"
+    When the person chooses Add to memory on the link row
+    Then Ordin is sent "Add the facts in “Supplier pages” to memory." with that file attached
+```
+
 ## Amendment 2026-02-11 — Closing says it is closing (SM-QT-1) (user decision 2026-02-11)
 
 - **SM-QT-1 The closing line.** On `ordin://quitting { running_sessions }` (OrdinDesktop.md DSK-QT-1) the quit question, if open, closes and the window is covered by one centred line, `role="status"`, above every dialog, with nothing under it pressable: `quitting-sessions` ("Closing ordin — stopping agent sessions, please wait…") when `running_sessions` is above 0, else `quitting` ("Closing ordin…"). It stays until the window goes.

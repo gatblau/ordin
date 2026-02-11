@@ -4601,3 +4601,25 @@ Feature: The person's attached files reach the agent (OH-ATT-2)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-11 — Changing a linked document asks for read and change (OH-ACC-3)
+
+> **Status:** user decision 2026-02-11 ("yes, ask for read and change"; plan 09 Phase 6). Source: the trace of the way back to Confluence. The Push Service sends a changed working-copy page back after the person's approval (PushService.md; `crates/ordin-push/src/documents.rs`), but OH-ACC-2's card only ever granted read access, so an agent asked to change a linked page could not write its working copy, and nothing reached the Push Service.
+
+- **OH-ACC-3 Read and change for a linked document.** `delegate` takes an optional `changes_documents: bool` (default false), which Ordin sets when the work changes a linked document. When it is true, OH-ACC-2's question also asks for a folder the agent already reads, when that folder is the working copy of a SharePoint or Confluence link (`PlaceKind::WorkingCopy`) and the agent does not hold read and change on it; the question reads "<agent> needs to change <folders>. Changes go back only after you approve them." **Allow** grants `ReadAndChange` on those working copies and `Read` on any other folder asked about. A person's own folder, a workspace folder or any other kind of place is never granted change this way. Nothing goes back to SharePoint or Confluence without the person's approval of the push (OH-WC-1, PushService.md).
+
+| Condition | Outcome |
+|---|---|
+| `changes_documents` and the agent may only read the linked document's working copy | the change question; **Allow** grants read and change on it |
+| `changes_documents` and the folder is not a working copy | the read question, as OH-ACC-2; **Allow** grants read |
+| `changes_documents` false | OH-ACC-2 unchanged |
+
+```gherkin
+Feature: Changing a linked document asks for read and change (OH-ACC-3)
+
+  Scenario: Happy path — a Confluence page to change
+    Given the document agent may not change the working copy of the Confluence link "Docs"
+    When Ordin delegates a change to a document in "Docs" with changes_documents true
+    Then the question reads "Document agent needs to change Docs. Changes go back only after you approve them."
+    And Allow grants read and change on that working copy, and the task starts
+```

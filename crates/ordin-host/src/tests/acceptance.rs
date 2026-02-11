@@ -3042,8 +3042,9 @@ async fn the_persons_attached_files_reach_the_agent_in_folders_it_may_read() {
 async fn after_a_restart_ordin_sees_the_conversation_so_far() {
     let (f, _, _) = background().await;
     let run = f.open().await;
-    f.supervisor
-        .respond(reply_with("I could not add notes.pdf to memory (MEM_NOT_READY)."));
+    f.supervisor.respond(reply_with(
+        "I could not add notes.pdf to memory (MEM_NOT_READY).",
+    ));
     f.host
         .send_message(f.ws, "Add notes.pdf to memory".to_owned(), vec![])
         .await
@@ -3061,7 +3062,10 @@ async fn after_a_restart_ordin_sees_the_conversation_so_far() {
         .find("## This conversation so far")
         .unwrap_or_else(|| panic!("no history in the seed: {seed}"));
     let history = &seed[at..];
-    assert!(history.contains("Person: Add notes.pdf to memory"), "{history}");
+    assert!(
+        history.contains("Person: Add notes.pdf to memory"),
+        "{history}"
+    );
     assert!(history.contains("MEM_NOT_READY"), "{history}");
     assert!(history.contains("try something again"));
 }

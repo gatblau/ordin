@@ -1898,3 +1898,59 @@ async fn edge_skip_on_the_folder_question_grants_nothing() {
         w.f.supervisor.turn_texts()
     );
 }
+
+// ---------------------------------------------------------------- OH-ACC-3
+
+fn change_brief(w: &World) -> serde_json::Value {
+    json!({
+        "agent": w.agent.agent_instance_id.to_string(),
+        "brief": "Update the rates table in CV.pdf (in Docs: CVs/CV.pdf).",
+        "changes_documents": true
+    })
+}
+
+// Scenario: Happy path — changing a linked document asks for read and change, and Allow grants it (OH-ACC-3)
+// spec: ordin-desktop/components/OrdinHost#OH-ACC-3
+#[tokio::test]
+async fn happy_path_changing_a_linked_document_asks_for_read_and_change() {
+    let w = documents_world().await;
+    w.f.files
+        .places
+        .lock()
+        .unwrap()
+        .insert(w.docs, "/wc/docs".to_owned());
+    ask_about_cv(&w).await;
+    w.f.tool("delegate", change_brief(&w)).await.unwrap();
+    let (block_id, q) = question_of(&w).await;
+    assert_eq!(
+        q.question,
+        "Document agent needs to change Docs. Changes go back only after you approve them."
+    );
+    answer(&w, block_id, "Allow").await;
+    assert_eq!(
+        w.grants(),
+        vec![(
+            w.agent.agent_instance_id,
+            w.docs,
+            Some(FolderAccess::ReadAndChange)
+        )],
+        "read and change on the working copy only"
+    );
+    assert_eq!(w.tasks().len(), 1, "the task starts");
+}
+
+// Scenario: Edge — a place that is not a linked document's working copy is only ever asked for reading (OH-ACC-3)
+// spec: ordin-desktop/components/OrdinHost#OH-ACC-3
+#[tokio::test]
+async fn edge_a_persons_folder_is_never_asked_for_change() {
+    let w = documents_world().await;
+    ask_about_cv(&w).await;
+    w.f.tool("delegate", change_brief(&w)).await.unwrap();
+    let (block_id, q) = question_of(&w).await;
+    assert_eq!(q.question, "Document agent needs to read Docs to answer.");
+    answer(&w, block_id, "Allow").await;
+    assert_eq!(
+        w.grants(),
+        vec![(w.agent.agent_instance_id, w.docs, Some(FolderAccess::Read))]
+    );
+}
