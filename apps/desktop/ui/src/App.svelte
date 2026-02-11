@@ -311,8 +311,25 @@
   .shell {
     --pane-strip: 2.5rem;
   }
+  /* SM-QT-1: the closing line covers the window, centred, above every dialog. */
+  .quitting {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
 </style>
 
+{#if shell.quitting !== null}
+  <!-- SM-QT-1: closing; nothing else is pressable until the window goes. -->
+  <div class="quitting" role="status" aria-live="assertive">
+    <p>{shell.quitting.running_sessions > 0 ? t('quitting-sessions') : t('quitting')}</p>
+  </div>
+{/if}
 {#if shell.quitRequest !== null}
   <QuitDialog count={shell.quitRequest.running_sessions} backend={app.local.handle} oncancel={() => (shell.quitRequest = null)} />
 {/if}

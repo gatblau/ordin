@@ -27810,6 +27810,16 @@
     "SupportExport": {
       "additionalProperties": false,
       "properties": {
+        "last_minutes": {
+          "description": "DSK-LOG-6: only the lines of the last this many minutes, 1 to 4,320; absent, the last 3 days.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "run_ids": {
           "items": {
             "format": "uuid",

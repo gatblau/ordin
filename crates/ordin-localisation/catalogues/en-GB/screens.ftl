@@ -157,6 +157,8 @@ confirm-clear-body = Ordin forgets what was said here and starts a new conversat
 quit-title = Quit { $product }?
 quit-body = { $count } agents are still working. They stop now; what they have written so far is kept.
 quit-verb = Quit
+quitting = Closing { $product }…
+quitting-sessions = Closing { $product } — stopping agent sessions, please wait…
 
 error-try-again = Try again
 error-sign-in-again = Sign in again

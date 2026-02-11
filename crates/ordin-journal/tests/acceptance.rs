@@ -1214,6 +1214,23 @@ async fn startup_reports_support_export_compaction_and_shutdown() {
     assert!(!text.contains("#team-updates"), "no destination");
     assert!(!text.contains("Step 1"), "no step line");
     assert!(lines.iter().any(|l| l["record"] == "startup_report"));
+    // DSK-LOG-6: a window starting after everything above keeps only the header.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+    let later = ordin_types::time::Timestamp::from_unix_millis(
+        ordin_types::time::Timestamp::now().unix_millis() + 60_000,
+    )
+    .unwrap();
+    let windowed = j.support_export_since(&[run], Some(later)).await.unwrap();
+    assert_eq!(
+        String::from_utf8(windowed.bytes).unwrap().lines().count(),
+        1
+    );
+    let none = j.support_export_since(&[run], None).await.unwrap();
+    assert_eq!(
+        none.bytes.len(),
+        text.len(),
+        "no window is the whole bundle"
+    );
     j.compact().await.unwrap();
     let sink = RecordingSink::new("command_bridge");
     let id = j.subscribe(sink.clone());

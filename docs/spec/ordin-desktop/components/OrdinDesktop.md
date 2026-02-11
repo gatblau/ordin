@@ -2628,6 +2628,31 @@ Feature: Default memory rules (DSK-MEM-2)
     And the Memory Service offers it recall and remember
 ```
 
+## Amendment 2026-02-11 — Save only the last few minutes for support (DSK-LOG-6)
+
+> **Status:** user decision 2026-02-11 ("export only last 5 mins (configurable)"; plan 11). Amends DSK-LOG-5 and DSK-REC-41: the support file held the last 3 days of logs and the newest 20 runs' journal, tens of megabytes for a test of a few minutes.
+
+- **DSK-LOG-6 A window.** `diagnostics.support_export` takes an optional `last_minutes`, 1 to 4,320; outside that range it is `SVC_INPUT_INVALID` at `/last_minutes`. Given, `since` = now − `last_minutes`: the Journal's bundle keeps only lines whose time is at or after `since` (`Journal::support_export_since`), and the log part keeps only lines whose `time` field is at or after `since` written in the same fixed-width UTC form, plus every line with no `time`; the log part starts with `{"record":"log_window","since":<since>}`. Absent, the file is as DSK-LOG-5 and DSK-REC-41 describe. The 40 MB cap and its `log_lines_cut` record are unchanged. Screens: **Save logs for support…** gains a choice of Last 5 minutes (the default), Last 15 minutes, Last hour and Last 3 days, kept while the window is open (ScreensModule.md SM-NS-3b).
+
+```gherkin
+Feature: Save only the last few minutes for support (DSK-LOG-6)
+
+  Scenario: Happy path — the last 5 minutes
+    Given log lines from 10:00, 10:05 and 10:07:30 and one with no time
+    When the support file is saved at 10:10 for the last 5 minutes
+    Then it holds the log_window record and the lines of 10:05, 10:07:30 and the one with no time
+
+  Scenario: Error path — a window outside 1 to 4,320 minutes
+    When diagnostics.support_export is sent with last_minutes 0
+    Then it is refused with SVC_INPUT_INVALID at /last_minutes
+```
+
+## Amendment 2026-02-11 — Closing says it is closing (DSK-QT-1)
+
+> **Status:** user decision 2026-02-11 (plan 11 Phase 2). After **Close** the window stayed as it was while step 10.3 ran, up to the bounds of its steps (the 27 November log: `copilot.cli.stop_timed_out { deadline_ms: 10000 }`), with nothing to say it was closing.
+
+- **DSK-QT-1 The window is told first.** When step 10's decision is `Proceed`, the shell emits `ordin://quitting { running_sessions }` to the main window — the count of local sessions running at the decision — and only then starts `Core::shutdown`. `Ask` and `AlreadyRunning` emit nothing new. The shutdown's steps and bounds are unchanged; the screens' line is ScreensModule.md SM-QT-1.
+
 ## Amendment 2026-01-29 — The Knowledge Service's background task at start
 
 > **Status:** Approved by the user 2026-01-29 ("proceed with recommendations"). Source: the end-to-end job found that no saved knowledge page reaches memory, because step 4 does not name the Knowledge Service's background task and the program never starts it. Every section above stays in force; DSK-KS-1 adds one item to step 4 and names when it stops in step 10.3. Counterpart: `components/KnowledgeService.md` (`KnowledgeService::run(shutdown)`: the freshness listeners, the memory-index task, housekeeping and the start-up scan; in the agent profile it starts nothing).

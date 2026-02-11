@@ -655,3 +655,19 @@ Feature: Brand — the prototype's icons in the build pack (ADR-117)
 
 Tests (Rust, `crates/ordin-brand/src/tests/`): one per scenario; the first parses the compiled-in icon set and compares its symbol ids with the list in V8.
 
+
+## Amendment 2026-02-11 — The build pack's logos are ordin's own (build pack 1.3.0)
+
+> **Status:** user decision 2026-02-11. Source: the 0.2.1-test.15 and test.16 smoke tests — the start page's watermark kept the placeholder logo (a circle and the word "ordin" in a system font) after `crates/ordin-brand/build-brand/logo-light.svg` and `logo-dark.svg` were replaced by ordin's lockups (`docs/logo/ordin-lockup-on-light.svg`, `docs/logo/ordin-lockup-on-dark.svg`), because the build pack kept version `1.2.0`: Start step A2 found the stored `(ordin, 1.2.0, build)` row and kept its asset paths.
+
+1. **The build pack's version** becomes `1.3.0`, carrying the two lockups as its logos; Start step A2 stores it as a new row on computers that hold `1.2.0` or earlier, and step B1 activates it, as for `1.2.0`.
+2. **Any change to a build pack file moves its version.** A logo, icon set, font or string changed under `crates/ordin-brand/build-brand/` without a new `version` in `brand.json` reaches no computer that already holds that version.
+
+```gherkin
+Feature: The build pack's logos are ordin's own (build pack 1.3.0)
+
+  Scenario: Edge case — a computer holding build pack 1.2.0
+    Given the active brand is the build pack 1.2.0 with the placeholder logos
+    When ordin's build pack 1.3.0 is started
+    Then build pack 1.3.0 is stored and active, and brand.get_asset logo_light answers the ordin lockup
+```

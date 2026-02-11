@@ -35,6 +35,16 @@ impl Journal {
     /// The support bundle for at most 20 runs, as JSON Lines bytes; the program writes it
     /// where the person chose (step 7.4).
     pub async fn support_export(&self, run_ids: &[RunId]) -> Result<SupportBundle, JournalError> {
+        self.support_export_since(run_ids, None).await
+    }
+
+    /// The support bundle, keeping only lines at or after `since` when it is given (DSK-LOG-6).
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+    pub async fn support_export_since(
+        &self,
+        run_ids: &[RunId],
+        since: Option<Timestamp>,
+    ) -> Result<SupportBundle, JournalError> {
         if run_ids.is_empty() || run_ids.len() > MAX_EXPORT_RUNS {
             return Err(JournalError::ExportInvalid);
         }
@@ -143,6 +153,9 @@ impl Journal {
                 map.remove("line");
             }
             lines.push((at, value));
+        }
+        if let Some(since) = since {
+            lines.retain(|line| line.0 >= since);
         }
         lines.sort_by_key(|line| line.0);
 

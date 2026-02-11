@@ -162,7 +162,7 @@ async fn each_event_is_logged_with_its_fields_and_never_with_brand_text_or_paths
     assert!(!activated.is_empty(), "brand.activated was written");
     let last = activated.last().unwrap();
     assert_eq!(last["brand_identifier"], "ordin");
-    assert_eq!(last["version"], "1.2.0");
+    assert_eq!(last["version"], "1.3.0");
     assert_eq!(last["source"], "build");
     let missing_lines = named("brand.asset_missing");
     assert_eq!(missing_lines.len(), 1);

@@ -171,7 +171,8 @@ impl Shell for TauriShell {
         let Some(core) = self.core.get().cloned() else {
             return;
         };
-        match core.quit.decide(trigger, core.running_local_sessions()) {
+        let running = core.running_local_sessions();
+        match core.quit.decide(trigger, running) {
             QuitDecision::AlreadyRunning => {}
             QuitDecision::Ask { running_sessions } => {
                 let _ = self.app.emit_to(
@@ -181,6 +182,13 @@ impl Shell for TauriShell {
                 );
             }
             QuitDecision::Proceed(reason) => {
+                // DSK-QT-1: the window says it is closing before the shutdown steps run.
+                // spec: ordin-desktop/components/OrdinDesktop#DSK-QT-1
+                let _ = self.app.emit_to(
+                    MAIN,
+                    "ordin://quitting",
+                    serde_json::json!({ "running_sessions": running }),
+                );
                 let app = self.app.clone();
                 tauri::async_runtime::spawn(async move {
                     match core.quit(reason).await {

@@ -232,13 +232,20 @@ export async function startApp(transport: Transport, options: StartOptions = {})
       const count = (payload as { running_sessions?: unknown } | null)?.running_sessions;
       shell.quitRequest = { running_sessions: typeof count === 'number' ? count : 0 };
     }
+    // SM-QT-1: the shutdown has started; the quit question, if open, has been answered.
+    // spec: ordin-desktop/components/ScreensModule#SM-QT-1
+    if (name === 'quitting') {
+      const count = (payload as { running_sessions?: unknown } | null)?.running_sessions;
+      shell.quitRequest = null;
+      shell.quitting = { running_sessions: typeof count === 'number' ? count : 0 };
+    }
     // `ordin://appearance` after `settings.change` of `display.appearance` (OrdinDesktop.md): the chosen
     // appearance takes effect at once, as it does at start.
     // spec: ordin-desktop/components/ScreensModule#SM-UP-1
     if (name === 'appearance') setTheme(doc, (payload as { appearance?: unknown } | null)?.appearance);
     for (const l of desktopListeners.get(name) ?? []) l(payload);
   };
-  for (const name of ['quit-requested', 'open-target', 'appearance'] as const) {
+  for (const name of ['quit-requested', 'quitting', 'open-target', 'appearance'] as const) {
     stopFns.push(await transport.listenDesktop(name, dispatch(name)));
   }
 

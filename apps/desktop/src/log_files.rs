@@ -420,6 +420,14 @@ impl LogFiles {
     /// file is flushed and its length taken; the files are read after the lock is released.
     // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-5
     pub fn support_logs(&self, max_bytes: usize) -> SupportLogs {
+        self.support_logs_since(max_bytes, None)
+    }
+
+    /// DSK-LOG-6: as `support_logs`, keeping only lines whose `time` is at or after `since` (the same
+    /// fixed-width UTC form, so text order is time order); a line with no `time` is kept. A
+    /// `log_window` record names the window first.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+    pub fn support_logs_since(&self, max_bytes: usize, since: Option<&str>) -> SupportLogs {
         let (dir, current, length, today) = {
             let mut state = self.lock();
             let _ = state.file.flush();
@@ -446,7 +454,11 @@ impl LogFiles {
             match found {
                 Ok(found) => {
                     read += 1;
-                    lines.extend(found.into_iter().map(|line| {
+                    let recent = |line: &String| match since {
+                        None => true,
+                        Some(since) => line_time(line).is_none_or(|time| time.as_str() >= since),
+                    };
+                    lines.extend(found.into_iter().filter(recent).map(|line| {
                         record(serde_json::json!({
                             "record": "log_line",
                             "file": name,
@@ -484,6 +496,12 @@ impl LogFiles {
             first_kept -= 1;
         }
         let mut bytes = Vec::with_capacity(total);
+        if let Some(since) = since {
+            bytes.extend(record(serde_json::json!({
+                "record": "log_window",
+                "since": since,
+            })));
+        }
         if first_kept > 0 {
             bytes.extend(record(serde_json::json!({
                 "record": "log_lines_cut",
@@ -502,11 +520,21 @@ impl LogFiles {
     }
 }
 
+/// The `time` field of one log line, when it has one.
+fn line_time(line: &str) -> Option<String> {
+    serde_json::from_str::<serde_json::Value>(line)
+        .ok()?
+        .get("time")?
+        .as_str()
+        .map(str::to_owned)
+}
+
 /// DSK-LOG-5 over the installed log files; with no log open, the one record `logs_not_open`.
+/// DSK-LOG-6: `since` keeps only the lines of the window.
 // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-5
-pub fn support_logs(files: Option<&LogFiles>) -> SupportLogs {
+pub fn support_logs(files: Option<&LogFiles>, since: Option<&str>) -> SupportLogs {
     match files {
-        Some(files) => files.support_logs(SUPPORT_LOG_BYTES),
+        Some(files) => files.support_logs_since(SUPPORT_LOG_BYTES, since),
         None => SupportLogs {
             bytes: record(serde_json::json!({ "record": "logs_not_open" })),
             files: 0,
@@ -972,7 +1000,7 @@ mod tests {
             .open(dir.path().join("ordin.2026-11-18.1.log"))
             .expect("open");
         raw.write_all(b"half a li").expect("write");
-        let logs = support_logs(Some(&files));
+        let logs = support_logs(Some(&files), None);
         assert_eq!(logs.files, 4);
         assert!(logs.unreadable.is_empty());
         assert_eq!(
@@ -1045,10 +1073,42 @@ mod tests {
         assert_eq!(log_lines(&logs.bytes).len(), 2);
     }
 
+    // Happy path: a window keeps the lines at or after its start, and lines with no time (DSK-LOG-6).
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+    #[test]
+    fn a_window_keeps_only_its_lines_and_lines_with_no_time() {
+        let dir = TempDir::new("logs-support-window");
+        let (_, clock) = clock("2026-11-18");
+        let (mut files, _) = LogFiles::open_with_clock(dir.path(), SMALL, clock).expect("open");
+        files
+            .write_all(
+                b"{\"time\":\"2026-11-18T10:00:00.000Z\",\"event\":\"old\"}\n\
+                  {\"time\":\"2026-11-18T10:05:00.000Z\",\"event\":\"edge\"}\n\
+                  {\"time\":\"2026-11-18T10:07:30.000Z\",\"event\":\"new\"}\n\
+                  a line with no time\n",
+            )
+            .expect("write");
+        let logs = files.support_logs_since(SUPPORT_LOG_BYTES, Some("2026-11-18T10:05:00.000Z"));
+        let all = records(&logs.bytes);
+        assert_eq!(
+            all[0],
+            serde_json::json!({ "record": "log_window", "since": "2026-11-18T10:05:00.000Z" })
+        );
+        let kept = log_lines(&logs.bytes);
+        assert_eq!(kept.len(), 3, "{kept:?}");
+        assert!(kept.iter().all(|(_, l)| !l.contains("\"old\"")), "{kept:?}");
+        let every = files.support_logs(SUPPORT_LOG_BYTES);
+        assert_eq!(
+            log_lines(&every.bytes).len(),
+            4,
+            "no window keeps every line"
+        );
+    }
+
     // Error path: with no log open the log part says so and holds no line (DSK-LOG-5).
     #[test]
     fn with_no_log_open_the_log_part_says_so() {
-        let logs = support_logs(None);
+        let logs = support_logs(None, None);
         assert_eq!(
             records(&logs.bytes),
             [serde_json::json!({ "record": "logs_not_open" })]

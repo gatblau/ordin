@@ -511,6 +511,10 @@ pub struct DiagnosticLine {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SupportExport {
     pub run_ids: Vec<RunId>,
+    /// DSK-LOG-6: only the lines of the last this many minutes, 1 to 4,320; absent, the last 3 days.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_minutes: Option<u16>,
 }
 
 /// `diagnostics.clear_logs` (SVC-LOG-1): how many past log files were deleted; the current one is
@@ -684,7 +688,13 @@ impl CommandInput for SupportExport {
             0,
             limits::SUPPORT_EXPORT_MAX_RUNS,
             "/run_ids",
-        )
+        )?;
+        // DSK-LOG-6: a window of 1 to 4,320 minutes (3 days).
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+        match self.last_minutes {
+            Some(minutes) if !(1..=4320).contains(&minutes) => Err(rules::reject("/last_minutes")),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -823,8 +833,22 @@ mod tests {
         }
         let mut export_runs = SupportExport {
             run_ids: (0..21).map(|_| RunId::new()).collect(),
+            last_minutes: None,
         };
         assert!(export_runs.check().is_err());
+        for (minutes, ok) in [
+            (Some(0), false),
+            (Some(1), true),
+            (Some(4320), true),
+            (Some(4321), false),
+            (None, true),
+        ] {
+            let mut window = SupportExport {
+                run_ids: vec![RunId::new()],
+                last_minutes: minutes,
+            };
+            assert_eq!(window.check().is_ok(), ok, "{minutes:?}");
+        }
         let mut copy = SaveCopy {
             backend: BackendId::new(),
             workspace_id: WorkspaceId::new(),

@@ -93,7 +93,7 @@ async fn happy_path_profile_brand_becomes_active() {
     let start = h.brand.active();
     assert_eq!(
         (start.brand_identifier.as_str(), start.version.as_str()),
-        ("ordin", "1.2.0")
+        ("ordin", "1.3.0")
     );
     assert_eq!(start.source, BrandPackSource::Build);
     h.assets.serve(&h.server).await;
@@ -428,7 +428,7 @@ async fn happy_path_the_build_pack_passes_every_pair() {
     let h = Harness::new().await;
     let active = h.brand.active();
     assert_eq!(active.source, BrandPackSource::Build);
-    assert_eq!(active.version, "1.2.0");
+    assert_eq!(active.version, "1.3.0");
     assert_eq!(active.design_tokens.len(), 37);
     assert_eq!(active.design_tokens["color.background.light"], "#F2F4F7");
     assert_eq!(active.design_tokens["color.border-control.dark"], "#647384");
@@ -463,8 +463,8 @@ async fn edge_case_a_pack_with_only_the_required_roles_stays_valid() {
 async fn edge_case_a_computer_holding_build_pack_one_zero_zero() {
     let mut h = Harness::new().await;
     let current = h.brand.active();
-    assert_eq!(current.version, "1.2.0");
-    // Replace the 1.2.0 row by an active 1.0.0 build row with the same files, as an older install left it.
+    assert_eq!(current.version, "1.3.0");
+    // Replace the current row by an active 1.0.0 build row with the same files, as an older install left it.
     crate::store::delete(h.pool(), current.id).await.unwrap();
     let mut older = (*current).clone();
     older.id = ordin_types::BrandPackId::new();
@@ -479,7 +479,7 @@ async fn edge_case_a_computer_holding_build_pack_one_zero_zero() {
     let active = h.brand.active();
     assert_eq!(
         (active.source, active.version.as_str()),
-        (BrandPackSource::Build, "1.2.0")
+        (BrandPackSource::Build, "1.3.0")
     );
     let rows = h.rows().await;
     let old = rows
@@ -581,7 +581,7 @@ async fn happy_path_the_build_pack_carries_the_50_icons() {
     let active = h.brand.active();
     assert_eq!(
         (active.source, active.version.as_str()),
-        (BrandPackSource::Build, "1.2.0")
+        (BrandPackSource::Build, "1.3.0")
     );
     let light = icon_set_text(&h, AssetRef::IconSetLight).await;
     let dark = icon_set_text(&h, AssetRef::IconSetDark).await;
@@ -609,13 +609,13 @@ async fn happy_path_the_build_pack_carries_the_50_icons() {
     .expect("C2 passes");
 }
 
-/// A computer that holds build pack 1.1.0 stores 1.2.0 at start (A2) and activates it (B1's rule).
+/// A computer that holds build pack 1.1.0 stores the current build pack at start (A2) and activates it (B1's rule).
 #[tokio::test]
 async fn edge_case_a_computer_holding_build_pack_one_one_zero() {
     let mut h = Harness::new().await;
     let current = h.brand.active();
-    assert_eq!(current.version, "1.2.0");
-    // Replace the 1.2.0 row by an active 1.1.0 build row, as the previous release left it.
+    assert_eq!(current.version, "1.3.0");
+    // Replace the current row by an active 1.1.0 build row, as the previous release left it.
     crate::store::delete(h.pool(), current.id).await.unwrap();
     let mut older = (*current).clone();
     older.id = ordin_types::BrandPackId::new();
@@ -629,8 +629,8 @@ async fn edge_case_a_computer_holding_build_pack_one_one_zero() {
     let rows = h.rows().await;
     let new = rows
         .iter()
-        .find(|row| row.source == BrandPackSource::Build && row.version == "1.2.0")
-        .expect("1.2.0 stored");
+        .find(|row| row.source == BrandPackSource::Build && row.version == "1.3.0")
+        .expect("the current build pack stored");
     assert_eq!(new.state, BrandPackState::Active);
     let old = rows
         .iter()
@@ -639,7 +639,7 @@ async fn edge_case_a_computer_holding_build_pack_one_one_zero() {
     assert_ne!(old.state, BrandPackState::Active);
     assert_eq!(
         (h.brand.active().source, h.brand.active().version.as_str()),
-        (BrandPackSource::Build, "1.2.0")
+        (BrandPackSource::Build, "1.3.0")
     );
 }
 

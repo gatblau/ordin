@@ -7147,6 +7147,8 @@ export interface SuggestionView {
 export type SummariseWhen = "early" | "when_nearly_full" | "only_when_asked";
 
 export interface SupportExport {
+  /** DSK-LOG-6: only the lines of the last this many minutes, 1 to 4,320; absent, the last 3 days. */
+  last_minutes?: number | null;
   run_ids: string[];
 }
 

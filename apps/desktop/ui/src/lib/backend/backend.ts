@@ -48,7 +48,7 @@ export interface StreamMessage {
   kind: 'dictation' | 'terminal' | 'lsp';
   payload: unknown;
 }
-export type DesktopEventName = 'quit-requested' | 'open-target' | 'appearance';
+export type DesktopEventName = 'quit-requested' | 'quitting' | 'open-target' | 'appearance';
 
 /** What the module needs from the Command Bridge. `tauri.ts` implements it; tests fake it. */
 export interface Transport {

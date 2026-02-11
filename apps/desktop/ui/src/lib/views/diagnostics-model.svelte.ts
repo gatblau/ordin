@@ -10,6 +10,17 @@ import type { DiagnosticLine, Run, ServiceError } from '../service-api/types.gen
 /** A support export names at most 20 runs (SM-NS-3). */
 export const MAX_RUNS = 20;
 
+/** SM-NS-3b: the support file's windows in minutes; the last, 3 days, is DSK-LOG-5's whole file. */
+export const LOG_WINDOWS = [5, 15, 60, 4320] as const;
+export type LogWindow = (typeof LOG_WINDOWS)[number];
+/** Each window's words. */
+export const WINDOW_WORDS: Record<LogWindow, string> = {
+  5: 'diagnostics-window-5',
+  15: 'diagnostics-window-15',
+  60: 'diagnostics-window-60',
+  4320: 'diagnostics-window-4320',
+};
+
 export class DiagnosticsModel {
   lines = $state.raw<DiagnosticLine[]>([]);
   next = $state<string | null>(null);
@@ -74,6 +85,10 @@ export class DiagnosticsModel {
    * 20, and the last 3 days of logs go to one file, with nothing to tick first. `DSK_DIALOG_CANCELLED`
    * draws nothing.
    */
+  /** SM-NS-3b: how far back **Save logs for support…** goes, in minutes; kept while the window is open. */
+  // spec: ordin-desktop/components/ScreensModule#SM-NS-3b
+  lastMinutes = $state<LogWindow>(5);
+
   async saveForSupport(): Promise<boolean> {
     if (this.saving) return false;
     this.saving = true;
@@ -93,7 +108,9 @@ export class DiagnosticsModel {
         this.nothingToSave = true;
         return false;
       }
-      const out = await this.#handle.call('diagnostics.support_export', { run_ids: runIds });
+      // SM-NS-3b: the chosen window; Last 3 days sends none, as before (DSK-LOG-6).
+      const window = this.lastMinutes === LOG_WINDOWS[LOG_WINDOWS.length - 1] ? {} : { last_minutes: this.lastMinutes };
+      const out = await this.#handle.call('diagnostics.support_export', { run_ids: runIds, ...window });
       if (out.kind === 'ok') {
         this.savedPath = out.result.saved_path;
         return true;

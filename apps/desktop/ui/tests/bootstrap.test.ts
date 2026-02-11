@@ -147,6 +147,16 @@ describe('startApp', () => {
     expect(app.shell.quitRequest).toEqual({ running_sessions: 2 });
   });
 
+  // spec: ordin-desktop/components/ScreensModule#SM-QT-1
+  it('ordin://quitting closes the quit question and marks the window as closing', async () => {
+    const transport = new FakeTransport();
+    const app = await startApp(transport, noDoc);
+    transport.desktop('quit-requested', { running_sessions: 2 });
+    transport.desktop('quitting', { running_sessions: 2 });
+    expect(app.shell.quitRequest).toBeNull();
+    expect(app.shell.quitting).toEqual({ running_sessions: 2 });
+  });
+
   it('dictation and terminal stream messages are fanned out by stream id', async () => {
     const transport = new FakeTransport();
     const app = await startApp(transport, noDoc);

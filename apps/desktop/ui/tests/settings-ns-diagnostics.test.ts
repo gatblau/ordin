@@ -91,8 +91,24 @@ describe('Save logs for support… (SM-NS-3)', () => {
   it('the save button says what the file holds in its tooltip (SM-NS-3, DSK-LOG-5)', async () => {
     const { t, model } = await open();
     const markup = html(Diagnostics, { backend: t.state, workspaceId: null, instance: null, model }).replace(/&#39;|&apos;|’/g, "'");
-    expect(markup).toContain("the last 3 days of ordin's logs");
+    expect(markup).toContain("ordin's logs for the time you choose");
     expect(markup).toContain('It holds no document or conversation text.');
+  });
+
+  // spec: ordin-desktop/components/ScreensModule#SM-NS-3b
+  it('Happy path — the last 5 minutes by default; another window is sent; Last 3 days sends none (DSK-LOG-6)', async () => {
+    const { t, model } = await open((tr) => tr.on('diagnostics.support_export', ok({ saved_path: '/tmp/s.jsonl' })), 2);
+    const markup = clean(html(Diagnostics, { backend: t.state, workspaceId: null, instance: null, model }));
+    expect(markup).toContain('Last 5 minutes');
+    expect(markup).toContain('Last 3 days');
+    expect(model.lastMinutes).toBe(5);
+    await model.saveForSupport();
+    model.lastMinutes = 60;
+    await model.saveForSupport();
+    model.lastMinutes = 4320;
+    await model.saveForSupport();
+    const inputs = t.transport.sentOf('diagnostics.support_export').map((c) => (c.input as { last_minutes?: number }).last_minutes);
+    expect(inputs).toEqual([5, 60, undefined]);
   });
 
   it('Edge — with no runs nothing is sent and the screen says so', async () => {

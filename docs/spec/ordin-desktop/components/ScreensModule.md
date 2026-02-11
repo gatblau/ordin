@@ -7036,6 +7036,35 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 
 None.
 
+## Amendment 2026-02-11 — Closing says it is closing (SM-QT-1) (user decision 2026-02-11)
+
+- **SM-QT-1 The closing line.** On `ordin://quitting { running_sessions }` (OrdinDesktop.md DSK-QT-1) the quit question, if open, closes and the window is covered by one centred line, `role="status"`, above every dialog, with nothing under it pressable: `quitting-sessions` ("Closing ordin — stopping agent sessions, please wait…") when `running_sessions` is above 0, else `quitting` ("Closing ordin…"). It stays until the window goes.
+
+```gherkin
+Feature: Closing says it is closing (SM-QT-1)
+
+  Scenario: Happy path — agent sessions are running
+    Given two agent sessions are running
+    When the person quits and confirms
+    Then the window shows "Closing ordin — stopping agent sessions, please wait…" until it goes
+```
+
+## Amendment 2026-02-11 — How far back the support file goes (SM-NS-3b) (user decision 2026-02-11)
+
+- **SM-NS-3b The window.** Beside **Save logs for support…** (SM-NS-3a) Diagnostics draws a select named `diagnostics-support-window` with four choices: Last 5 minutes (the default), Last 15 minutes, Last hour, Last 3 days, kept while the window is open. Saving sends `diagnostics.support_export { run_ids, last_minutes }` with 5, 15 or 60, and no `last_minutes` for Last 3 days, so the file is as before (OrdinDesktop.md DSK-LOG-6). The save button's tooltip `diagnostics-support-note` says the file holds the logs "for the time you choose".
+
+```gherkin
+Feature: How far back the support file goes (SM-NS-3b)
+
+  Scenario: Happy path — the default and another window
+    Given Diagnostics is open
+    Then the window choice shows Last 5 minutes
+    When the person saves logs for support
+    Then diagnostics.support_export is sent with last_minutes 5
+    When the person chooses Last 3 days and saves
+    Then diagnostics.support_export is sent with no last_minutes
+```
+
 ## Amendment 2026-02-11 — A search that finds nothing says so (SM-AW-5) (user decision 2026-02-11)
 
 Plan 09 Phase 2: on **Add to workspace**, a SharePoint or Confluence search that found nothing drew nothing, so the person could not tell "nothing found" from "not working".

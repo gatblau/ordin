@@ -22,6 +22,9 @@ export class ShellState {
   conversationOverlayOpen = $state(false);
   conversationMark = $state(false);
   quitRequest = $state<{ running_sessions: number } | null>(null);
+  /** SM-QT-1: ordin is closing; the window shows one line until it goes. */
+  // spec: ordin-desktop/components/ScreensModule#SM-QT-1
+  quitting = $state<{ running_sessions: number } | null>(null);
   announcement = $state('');
   /** Bumped after Continue this conversation: the conversation panel reads the new conversation and moves focus to the message box (SM-CC-4). */
   continuedEpoch = $state(0);

@@ -354,18 +354,32 @@ impl DesktopServiceApi {
         &self,
         input: SupportExport,
     ) -> Result<SavedCopy, ServiceError> {
+        // DSK-LOG-6: a window of 1 to 4,320 minutes keeps only its lines; absent, the last 3 days.
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-6
+        let since = match input.last_minutes {
+            None => None,
+            Some(minutes @ 1..=4320) => Some(
+                ordin_types::time::Timestamp::from_unix_millis(
+                    ordin_types::time::Timestamp::now().unix_millis() - i64::from(minutes) * 60_000,
+                )
+                .map_err(|_| self.refuse(INTERNAL, None))?,
+            ),
+            Some(_) => return Err(self.refuse(INPUT_INVALID, None)),
+        };
         let journal = self.handle(&self.modules.journal)?;
         let mut bundle = journal
-            .support_export(&input.run_ids)
+            .support_export_since(&input.run_ids, since)
             .await
             .map_err(|e| self.module_error(e))?;
         // DSK-LOG-5: the last 3 days of the log files, read through the process-wide handle.
         // spec: ordin-desktop/components/OrdinDesktop#DSK-LOG-5
         let installed = crate::log_files::installed();
-        let logs =
-            tokio::task::spawn_blocking(move || crate::log_files::support_logs(installed.as_ref()))
-                .await
-                .map_err(|_| self.refuse(INTERNAL, None))?;
+        let since_text = since.map(|t| t.to_wire());
+        let logs = tokio::task::spawn_blocking(move || {
+            crate::log_files::support_logs(installed.as_ref(), since_text.as_deref())
+        })
+        .await
+        .map_err(|_| self.refuse(INTERNAL, None))?;
         bundle.bytes.extend_from_slice(&logs.bytes);
         let saved = self
             .save_bytes(&bundle.suggested_file_name, &bundle.bytes)

@@ -6,6 +6,7 @@
   // spec: ordin-desktop/components/ScreensModule#SM-NS-3
   // spec: ordin-desktop/components/ScreensModule#SM-NS-3a
   import { onMount } from 'svelte';
+  import { LOG_WINDOWS, WINDOW_WORDS } from './diagnostics-model.svelte';
 
   import { answers } from '../backend/groups';
   import { formatDate } from '../format/intl';
@@ -52,6 +53,10 @@
     <!-- Amended January 2026 (user decision; Approved by the user January 2026): the screen's buttons are small
          icon buttons in the editor toolbar's style, each named by its words and with them as a tooltip. -->
     <p class="log-actions">
+      <!-- SM-NS-3b: how far back the support file goes; 5 minutes by default (DSK-LOG-6). -->
+      {#if exportOffered}<select class="log-window" aria-label={t('diagnostics-support-window')} title={t('diagnostics-support-window')} bind:value={model.lastMinutes}>
+          {#each LOG_WINDOWS as minutes (minutes)}<option value={minutes}>{t(WINDOW_WORDS[minutes])}</option>{/each}
+        </select>{/if}
       {#if exportOffered}<button type="button" class="icon-btn" disabled={model.saving} aria-label={t('diagnostics-support-export')} title={`${t('diagnostics-support-export')}\n${t('diagnostics-support-note')}`} onclick={() => void model.saveForSupport()}><Icon name="save" size="small" /></button>{/if}
       {#if clearOffered}<button type="button" class="icon-btn" aria-label={t('diagnostics-clear')} title={t('diagnostics-clear')} onclick={() => model.askClear()}><Icon name="bin" size="small" /></button>{/if}
     </p>
