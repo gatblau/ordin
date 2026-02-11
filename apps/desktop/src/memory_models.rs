@@ -310,7 +310,8 @@ enum Ended {
 
 impl MemoryModels {
     /// DSK-MD-4: the state at start, then, in the background, the clean-up of the working folder, and
-    /// the watch of `models_wanted` (DSK-MD-5). Nothing is downloaded at start.
+    /// the watch of `models_wanted` (DSK-MD-5). Missing models are asked about at once (DSK-MD-15);
+    /// nothing is downloaded at start.
     // spec: ordin-desktop/components/OrdinDesktop#DSK-MD-4
     pub fn start(deps: ModelsDeps) -> MemoryModels {
         let view = match &deps.source {
@@ -338,7 +339,9 @@ impl MemoryModels {
                         file_len(&part_path(&deps.work_dir, source))
                     },
                     failure: None,
-                    ask: false,
+                    // DSK-MD-15: missing models are offered at start, not only when memory is first used.
+                    // spec: ordin-desktop/components/OrdinDesktop#DSK-MD-15
+                    ask: !ready,
                 }
             }
         };

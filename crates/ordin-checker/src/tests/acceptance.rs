@@ -1635,3 +1635,71 @@ async fn edge_the_title_is_read_by_the_wording_rule() {
     assert_eq!(verbs.len(), 1, "findings: {:?}", report.findings);
     assert_eq!(verbs[0].args["task"], "Summary of a document");
 }
+
+// Scenario: Happy path — the bundled document agent's memory part passes (OrdinDesktop.md DSK-MD-16)
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MD-16
+#[test]
+fn happy_path_the_bundled_document_agents_memory_part_passes() {
+    let dir = workspace_root().join("apps/desktop/catalogue");
+    if !dir.join("models/@default/memories").is_dir() {
+        eprintln!(
+            "the bundled catalogue is not copied into {}; nothing to check",
+            dir.display()
+        );
+        return;
+    }
+    let mut files = BTreeMap::new();
+    let mut stack = vec![dir.join("models")];
+    while let Some(at) = stack.pop() {
+        for entry in std::fs::read_dir(&at).expect("a folder") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                let relative = path
+                    .strip_prefix(&dir)
+                    .expect("inside the catalogue")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                files.insert(relative, std::fs::read(&path).expect("a file"));
+            }
+        }
+    }
+    let first = ordin_agent_model::read_tree(&files, &ordin_agent_model::VocabularySet::default());
+    let words: Vec<&ModelPart> = first.parts.iter().collect();
+    let vocabulary =
+        ordin_agent_model::VocabularySet::from_parts(&words).expect("one vocabulary per axis");
+    let reading = ordin_agent_model::read_tree(&files, &vocabulary);
+    let memory = reading
+        .parts
+        .iter()
+        .find(|p| p.manifest.metadata.id == "urn:ordin:default:memories:documents:document-agent")
+        .expect("the document agent's memory part");
+    assert_eq!(memory.kind, PartKind::Memory);
+    let found = crate::stage_one::check(&crate::stage_one::PartView::of(memory), &vocabulary);
+    assert!(found.is_empty(), "{found:?}");
+    let contract = memory
+        .manifest
+        .memory_contract()
+        .unwrap()
+        .expect("a contract");
+    assert_eq!(
+        contract.retains,
+        ["document-facts", "decisions", "open-questions"]
+    );
+    assert_eq!(contract.excludes, ["secrets"]);
+    let profile = reading
+        .parts
+        .iter()
+        .find(|p| p.manifest.metadata.id == "urn:ordin:default:workspaces:document-agent")
+        .expect("the document agent");
+    let text = String::from_utf8_lossy(
+        &files["models/@default/workspaces/document-agent/workspace-profile.yaml"],
+    )
+    .into_owned();
+    assert!(
+        text.contains("memory: \"urn:ordin:default:memories:documents:document-agent\""),
+        "{}",
+        profile.manifest.metadata.id
+    );
+}

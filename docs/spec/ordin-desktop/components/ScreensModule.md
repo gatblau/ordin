@@ -7036,6 +7036,27 @@ Feature: The failed turn's cause reaches Diagnostics (SM-RF-2)
 
 None.
 
+## Amendment 2026-02-11 — A reply still on its way is not a failed turn (SM-RF-3) (user decision 2026-02-11)
+
+The 0.2.1-test.13 smoke test: "Ordin couldn't get an answer this time." was drawn after turns whose replies the log records (`copilot.event.turn_ended has_final_text: true`), and the reply then appeared under it. `block_available` and the `idle` `ordin_turn_changed` arrive together; the panel draws an available block only after `ordin.block` answers, so SM-RF-1 saw the turn end with no new Ordin item.
+
+- **SM-RF-3 Judge once shown blocks are drawn.** `BackendState` counts, per workspace, the available blocks whose `ordin.block` has not answered (`pendingBlocks`, never stored); the count falls when the call answers or fails. SM-RF-1 draws `conv-turn-failed` only when that count is 0; while it is above 0 the panel waits, and judges again when it falls. A block whose fetch fails is not drawn, so a turn whose only reply failed to fetch still ends in `conv-turn-failed`.
+
+```gherkin
+Feature: A reply still on its way is not a failed turn (SM-RF-3)
+
+  Scenario: Edge case — the reply is still on its way when the turn ends
+    Given the person sent "read this PDF" and the working line is shown
+    And block_available arrives for Ordin's reply, whose ordin.block has not answered
+    When ordin_turn_changed arrives with state idle
+    Then "Ordin couldn't get an answer this time." is not drawn
+    And when ordin.block answers, the reply is drawn and no failure is drawn
+```
+
+### Gaps
+
+None.
+
 ## Amendment February 2026 — A question's short choices sit side by side, coloured by what they do (SM-QB-1) (amended February 2026; user decision; Approved by the user)
 
 The 0.2.1-test.9 smoke test: the folder question of SM-FA-4 showed **Allow** above **Not now**, both alike, so the main answer did not stand out. This amendment changes the "one button per choice, one under another" layout of a `question` block (scenes `ambiguous`, `agentAsks`; SM-FA-4); every other rule of the block stays.

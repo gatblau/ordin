@@ -711,6 +711,28 @@ async fn edge_case_not_now_then_asked_again_at_the_next_use() {
     rig.shutdown.cancel();
 }
 
+// Scenario: Happy path — missing models are offered at start (DSK-MD-15)
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MD-15
+#[tokio::test]
+async fn happy_path_missing_models_are_offered_at_start() {
+    let zip = test_zip();
+    let server = host(&zip, Mode::Whole).await;
+    let rig = rig(Setup::new(Some(source_at(&server.uri(), &zip)), &zip));
+    let view = rig.models.view();
+    assert_eq!(view.state, MemoryModelsState::Missing);
+    assert!(view.ask, "asked at start, before memory is used");
+    // Not now holds for this run; a refusal within the interval does not ask again.
+    assert!(!rig.models.decline().ask);
+    rig.gate.refuse_once();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!rig.models.view().ask);
+    assert!(
+        server.received_requests().await.expect("recorded").is_empty(),
+        "nothing downloaded until the person agrees"
+    );
+    rig.shutdown.cancel();
+}
+
 // Scenario: Edge case — a build with no models input (DSK-MD-2)
 #[tokio::test]
 async fn edge_case_a_build_with_no_models_input() {

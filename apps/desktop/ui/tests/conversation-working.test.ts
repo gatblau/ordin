@@ -233,6 +233,31 @@ describe('A turn that fails before any reply (SM-RF-1)', () => {
     expect(failed(target)).toBeNull();
   });
 
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-3
+  it('Edge case — the reply is still on its way when the turn ends', async () => {
+    const { target, transport, seq } = await draw();
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reply = uid('reply');
+    transport.on('ordin.block', async () => {
+      await held;
+      return ok({ conversation_id: uid('live'), block: message('I have given the PDF to the document agent.'), block_id: reply, waiting: false, from: 'ordin', at: SINCE });
+    });
+    await sendText(target, 'read this PDF');
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'working', since: SINCE } as never));
+    await flush();
+    transport.emit(event(LOCAL, seq(), { kind: 'block_available', workspace_id: WS, block_id: reply } as never));
+    transport.emit(event(LOCAL, seq(), { kind: 'ordin_turn_changed', workspace_id: WS, state: 'idle', since: SINCE } as never));
+    await flush();
+    expect(failed(target)).toBeNull();
+    release();
+    await flush();
+    expect(text(target)).toContain('I have given the PDF to the document agent.');
+    expect(failed(target)).toBeNull();
+  });
+
   const turnFailures = (app: AppContext) => app.diagnostics.entries.filter((e) => e.code === 'UI_TURN_FAILED');
 
   // spec: ordin-desktop/components/ScreensModule#SM-RF-2

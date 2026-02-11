@@ -422,6 +422,13 @@ impl Connection {
                 let params = message.get("params").cloned().unwrap_or(Value::Null);
                 self.session_event(params);
             }
+            // Status notices the CLI sends on every session carry no reply: logged at debug, so the
+            // warning stays for messages Ordin does not know (0.2.1-test.13: 868 `session.lifecycle`).
+            (Some(method @ ("session.lifecycle" | "host.event")), None) => tracing::debug!(
+                target: "ordin_copilot_adapter",
+                method,
+                "copilot.cli.notice_ignored"
+            ),
             (method, _) => tracing::warn!(
                 target: "ordin_copilot_adapter",
                 method = method.unwrap_or(""),
@@ -1521,6 +1528,14 @@ mod tests {
         assert_eq!(
             lines.line("copilot.cli.message_ignored")["method"],
             "log.note"
+        );
+        connection.dispatch(
+            json!({"jsonrpc": "2.0", "method": "session.lifecycle", "params": {"state": "x"}}),
+        );
+        assert_eq!(
+            lines.text().matches("copilot.cli.message_ignored").count(),
+            1,
+            "a known status notice is not a warning"
         );
         connection.dispatch(json!({"jsonrpc": "2.0", "method": "session.event", "params": {"event": {"type": "x"}}}));
         assert_eq!(

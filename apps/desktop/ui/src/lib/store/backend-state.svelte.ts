@@ -128,6 +128,8 @@ export class BackendState implements HasGroups {
   ordinWorking = new SvelteMap<string, OrdinWorking>();
   /** SM-RF-2: per workspace, the `failure` word of the last `idle` (SVC-WK-2); read when a turn fails. */
   ordinTurnFailure = new Map<string, string>();
+  /** SM-RF-3: per workspace, the shown blocks still being fetched; never stored. */
+  pendingBlocks = new SvelteMap<string, number>();
 
   /** Bumped when the matching event arrives, so a view can `$effect` on it and re-read (sign-ins, setup, one workspace). */
   signInRevision = $state(0);
@@ -406,7 +408,19 @@ export class BackendState implements HasGroups {
     this.conversation.set(workspaceId, items.sort(byPlace));
   }
 
+  // spec: ordin-desktop/components/ScreensModule#SM-RF-3
   async #fetchBlock(workspaceId: string, blockId: string, seq: number, at: string): Promise<void> {
+    this.pendingBlocks.set(workspaceId, (this.pendingBlocks.get(workspaceId) ?? 0) + 1);
+    try {
+      await this.#fetchBlockNow(workspaceId, blockId, seq, at);
+    } finally {
+      const left = (this.pendingBlocks.get(workspaceId) ?? 1) - 1;
+      if (left > 0) this.pendingBlocks.set(workspaceId, left);
+      else this.pendingBlocks.delete(workspaceId);
+    }
+  }
+
+  async #fetchBlockNow(workspaceId: string, blockId: string, seq: number, at: string): Promise<void> {
     const out = await this.handle.call('ordin.block', { block_id: blockId, workspace_id: workspaceId });
     if (out.kind !== 'ok') return;
     this.#addItem({

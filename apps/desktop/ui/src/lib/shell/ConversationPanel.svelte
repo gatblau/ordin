@@ -120,6 +120,9 @@
       if (!watched.working) turn = { ...watched, working: true };
       return;
     }
+    // SM-RF-3: a reply shown just before the turn ended may still be on its way; judge once it is drawn.
+    // spec: ordin-desktop/components/ScreensModule#SM-RF-3
+    if ((activeState?.pendingBlocks.get(active.workspaceId) ?? 0) > 0) return;
     if (watched.working) {
       turn = null;
       failedText = watched.text;
