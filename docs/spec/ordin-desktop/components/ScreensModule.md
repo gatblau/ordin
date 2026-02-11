@@ -7051,6 +7051,26 @@ Feature: A Confluence link row offers the document menu (SM-RL-5)
     Then Ordin is sent "Add the facts in “Supplier pages” to memory." with that file attached
 ```
 
+## Amendment 2026-02-11 — A linked Confluence page is one row (SM-RL-6) (user decision 2026-02-11)
+
+The 0.2.1-test.18 smoke test: a link to a single Confluence page opened to a second row, the page's own `.confluence.xhtml` file, under the link row. The user's decision: one page is one item, working as a PDF's row does.
+
+- **SM-RL-6 The link row is the page.** For a `confluence_location` link with a place whose working copy's root holds a file ending `.confluence.xhtml` (the linked page, WorkspaceService.md WS-RD-1), read with `files.list_folder { place_id, folder: "" }` when the links are listed: pressing the link row opens `document:<place id>:<that file's path>` titled with the link's display name (the page rendered, OrdinDesktop.md DSK-CFP-1), not `documents:<place id>`. The folder the page's child pages and attachments sit in, the file's path without `.confluence.xhtml`, is read once with `files.list_folder`; when it has items the row also opens and closes, under it, that folder's contents as SM-RL-3 draws a folder's (the page's own file is not drawn again); when it has none the row has no `aria-expanded` and shows nothing under it. The row's menu is SM-RL-5's. A link to a whole space, or a page whose file is not there yet, keeps SM-RL-3.
+
+```gherkin
+Feature: A linked Confluence page is one row (SM-RL-6)
+
+  Scenario: Happy path — a page with no children
+    Given the Confluence link "Rates" whose working copy holds only "Rates.confluence.xhtml"
+    When the person presses the link row
+    Then the page "Rates" opens and no row is drawn under the link
+
+  Scenario: A page with a child page
+    Given the Confluence link "Rates" whose working copy holds "Rates.confluence.xhtml" and "Rates/2026.confluence.xhtml"
+    When the person presses the link row
+    Then the page "Rates" opens and "2026.confluence.xhtml" is drawn under the link
+```
+
 ## Amendment 2026-02-11 — Closing says it is closing (SM-QT-1) (user decision 2026-02-11)
 
 - **SM-QT-1 The closing line.** On `ordin://quitting { running_sessions }` (OrdinDesktop.md DSK-QT-1) the quit question, if open, closes and the window is covered by one centred line, `role="status"`, above every dialog, with nothing under it pressable: `quitting-sessions` ("Closing ordin — stopping agent sessions, please wait…") when `running_sessions` is above 0, else `quitting` ("Closing ordin…"). It stays until the window goes.

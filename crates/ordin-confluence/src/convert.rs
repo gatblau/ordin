@@ -71,7 +71,13 @@ struct CodeBlock {
 /// Internal Logic 9.1.
 // spec: ordin-desktop/components/ConfluenceAdapter#ADR-028
 fn to_storage(markdown: &str) -> String {
-    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
+    let options =
+        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
+    let events: Vec<Event<'_>> = Parser::new_ext(markdown, options).collect();
+    // Each open list: whether it is written as a Confluence task list (every item ticked or not).
+    let mut lists: Vec<bool> = Vec::new();
+    // Confluence numbers the tasks of a page; new ones are numbered from 1 in page order.
+    let mut task_id = 0u32;
     let mut out = String::with_capacity(markdown.len() * 2);
     let mut code: Option<CodeBlock> = None;
     // Whether each open link was written as `<a>`: a link to another scheme becomes its text.
@@ -80,7 +86,7 @@ fn to_storage(markdown: &str) -> String {
     let mut image_depth = 0usize;
     let mut in_head = false;
 
-    for event in Parser::new_ext(markdown, options) {
+    for (index, event) in events.iter().cloned().enumerate() {
         if image_depth > 0 {
             match event {
                 Event::Start(Tag::Image { .. }) => image_depth += 1,
@@ -133,8 +139,29 @@ fn to_storage(markdown: &str) -> String {
                 }
                 // ADR-028: no markup passes through; it is shown as text.
                 Tag::HtmlBlock => out.push_str("<p>"),
-                Tag::List(Some(_)) => out.push_str("<ol>"),
-                Tag::List(None) => out.push_str("<ul>"),
+                Tag::List(Some(_)) => {
+                    lists.push(false);
+                    out.push_str("<ol>");
+                }
+                Tag::List(None) if is_task_list(&events, index) => {
+                    lists.push(true);
+                    out.push_str("<ac:task-list>");
+                }
+                Tag::List(None) => {
+                    lists.push(false);
+                    out.push_str("<ul>");
+                }
+                Tag::Item if lists.last() == Some(&true) => {
+                    task_id += 1;
+                    let status = if task_marker(&events, index) == Some(true) {
+                        "complete"
+                    } else {
+                        "incomplete"
+                    };
+                    out.push_str(&format!(
+                        "<ac:task><ac:task-id>{task_id}</ac:task-id><ac:task-status>{status}</ac:task-status><ac:task-body>"
+                    ));
+                }
                 Tag::Item => out.push_str("<li>"),
                 Tag::Table(_) => out.push_str("<table><tbody>"),
                 Tag::TableHead => {
@@ -174,8 +201,12 @@ fn to_storage(markdown: &str) -> String {
                     out.push('>');
                 }
                 TagEnd::BlockQuote(_) => out.push_str("</blockquote>"),
+                TagEnd::List(_) if lists.pop() == Some(true) => out.push_str("</ac:task-list>"),
                 TagEnd::List(true) => out.push_str("</ol>"),
                 TagEnd::List(false) => out.push_str("</ul>"),
+                TagEnd::Item if lists.last() == Some(&true) => {
+                    out.push_str("</ac:task-body></ac:task>");
+                }
                 TagEnd::Item => out.push_str("</li>"),
                 TagEnd::Table => out.push_str("</tbody></table>"),
                 TagEnd::TableHead => {
@@ -201,10 +232,45 @@ fn to_storage(markdown: &str) -> String {
             Event::SoftBreak => out.push('\n'),
             Event::HardBreak => out.push_str("<br/>"),
             Event::Rule => out.push_str("<hr/>"),
+            // A tick box outside a task list stays visible as text.
+            Event::TaskListMarker(done) if lists.last() != Some(&true) => {
+                out.push_str(if done { "[x] " } else { "[ ] " });
+            }
             _ => {}
         }
     }
     out
+}
+
+/// The tick box of the item starting at `item`, if it has one: right after the item, or after the
+/// paragraph that opens a loose item.
+fn task_marker(events: &[Event<'_>], item: usize) -> Option<bool> {
+    match (events.get(item + 1), events.get(item + 2)) {
+        (Some(Event::TaskListMarker(done)), _) => Some(*done),
+        (Some(Event::Start(Tag::Paragraph)), Some(Event::TaskListMarker(done))) => Some(*done),
+        _ => None,
+    }
+}
+
+/// Whether the bulleted list starting at `list` is a task list: every one of its own items has a tick box.
+fn is_task_list(events: &[Event<'_>], list: usize) -> bool {
+    let mut depth = 0usize;
+    let mut items = 0usize;
+    for (index, event) in events.iter().enumerate().skip(list + 1) {
+        match event {
+            Event::Start(Tag::List(_)) => depth += 1,
+            Event::End(TagEnd::List(_)) if depth == 0 => break,
+            Event::End(TagEnd::List(_)) => depth -= 1,
+            Event::Start(Tag::Item) if depth == 0 => {
+                if task_marker(events, index).is_none() {
+                    return false;
+                }
+                items += 1;
+            }
+            _ => {}
+        }
+    }
+    items > 0
 }
 
 /// One element of storage XHTML, or a run of text.
@@ -516,6 +582,33 @@ fn list(children: &[Node], ordered: bool) -> String {
     lines.join("\n")
 }
 
+/// A Confluence task list as Markdown tick boxes: `- [x]` for a complete task, `- [ ]` otherwise.
+fn task_list(children: &[Node]) -> String {
+    let mut lines = Vec::new();
+    for node in children {
+        let Node::Element { name, children, .. } = node else {
+            continue;
+        };
+        if name != "ac:task" {
+            continue;
+        }
+        let mut done = false;
+        let mut body = String::new();
+        for part in children {
+            if let Node::Element { name, children, .. } = part {
+                match name.as_str() {
+                    "ac:task-status" => done = text_of(children).trim() == "complete",
+                    "ac:task-body" => body = blocks(children),
+                    _ => {}
+                }
+            }
+        }
+        let marker = if done { "- [x] " } else { "- [ ] " };
+        lines.push(format!("{marker}{}", indent(&body, "  ")).trim_end().to_owned());
+    }
+    lines.join("\n")
+}
+
 /// One block of Markdown per block element; loose text and inline elements gather into a paragraph.
 fn blocks(nodes: &[Node]) -> String {
     let mut parts: Vec<String> = Vec::new();
@@ -546,6 +639,7 @@ fn blocks(nodes: &[Node]) -> String {
                 }
                 "p" => Some(inline(children)),
                 "ul" => Some(list(children, false)),
+                "ac:task-list" => Some(task_list(children)),
                 "ol" => Some(list(children, true)),
                 "table" => Some(table(children)),
                 "blockquote" => Some(
@@ -680,6 +774,37 @@ mod tests {
         assert_eq!(
             storage("- a\n- b\n\n1. c\n\n> d\n\n---\n"),
             "<ul><li>a</li><li>b</li></ul><ol><li>c</li></ol><blockquote><p>d</p></blockquote><hr/>"
+        );
+    }
+
+    #[test]
+    fn a_task_list_is_read_as_tick_boxes() {
+        let page = "<ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>complete</ac:task-status>\
+                    <ac:task-body>Send the <strong>rates</strong></ac:task-body></ac:task>\
+                    <ac:task><ac:task-id>2</ac:task-id><ac:task-status>incomplete</ac:task-status>\
+                    <ac:task-body><p>Sign</p></ac:task-body></ac:task></ac:task-list><p>after</p>";
+        assert_eq!(markdown(page), "- [x] Send the **rates**\n- [ ] Sign\n\nafter\n");
+    }
+
+    #[test]
+    fn tick_boxes_are_written_as_a_task_list_and_read_back() {
+        let out = storage("- [x] a\n- [ ] b\n");
+        assert_eq!(
+            out,
+            "<ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>complete</ac:task-status>\
+             <ac:task-body>a</ac:task-body></ac:task><ac:task><ac:task-id>2</ac:task-id>\
+             <ac:task-status>incomplete</ac:task-status><ac:task-body>b</ac:task-body></ac:task></ac:task-list>"
+        );
+        assert_eq!(markdown(&out), "- [x] a\n- [ ] b\n");
+    }
+
+    #[test]
+    fn a_list_with_some_tick_boxes_stays_a_list_and_keeps_them_as_text() {
+        let out = storage("- [x] a\n- b\n\n1. c\n\n- [ ] d\n");
+        assert_eq!(
+            out,
+            "<ul><li>[x] a</li><li>b</li></ul><ol><li>c</li></ol><ac:task-list><ac:task><ac:task-id>1</ac:task-id>\
+             <ac:task-status>incomplete</ac:task-status><ac:task-body>d</ac:task-body></ac:task></ac:task-list>"
         );
     }
 

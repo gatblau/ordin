@@ -69,6 +69,37 @@
     return out.result.items.find((i) => !i.is_folder && i.name.endsWith('.confluence.xhtml'))?.path ?? null;
   }
 
+  /**
+   * SM-RL-6: a Confluence link to one page is that page in the tree. Its file and the folder its child pages
+   * and attachments sit in (the file's path without the suffix, WS-RD-1), once read; `null` while not read.
+   */
+  // spec: ordin-desktop/components/ScreensModule#SM-RL-6
+  interface LinkedPage {
+    path: string;
+    folder: string;
+    hasChildren: boolean;
+  }
+  let pages = $state<Record<string, LinkedPage | null>>({});
+
+  async function readPage(link: SourceLink): Promise<void> {
+    const root = await backend.handle.call('files.list_folder', { place_id: link.place_id ?? '', folder: '', sort: 'name_asc' });
+    if (root.kind === 'error') return;
+    const file = root.result.items.find((i) => !i.is_folder && i.name.endsWith('.confluence.xhtml'));
+    if (file === undefined) {
+      pages[link.id] = null;
+      return;
+    }
+    const folder = file.path.slice(0, -'.confluence.xhtml'.length);
+    const under = await backend.handle.call('files.list_folder', { place_id: link.place_id ?? '', folder, sort: 'name_asc' });
+    pages[link.id] = { path: file.path, folder, hasChildren: under.kind === 'ok' && under.result.items.length > 0 };
+  }
+
+  $effect(() => {
+    for (const link of model.links) {
+      if (link.kind === 'confluence_location' && hasPlace(link)) void readPage(link);
+    }
+  });
+
   type AskText = 'block-ask-text-this' | 'tree-ask-text-knowledge' | 'tree-ask-text-memory';
   async function askAboutPage(link: SourceLink, text: AskText): Promise<void> {
     menuFor = null;
@@ -105,6 +136,12 @@
   // A remote link whose working copy does not exist yet shows its items under it (SM-WR-5).
   function openLink(link: SourceLink): void {
     menuFor = null;
+    const page = pages[link.id];
+    if (page != null) {
+      if (app !== null) openScreen(app, backend.id, workspaceId, makeKey(SCREEN_IDS.document, `${link.place_id}:${page.path}`), { title: link.display_name });
+      if (page.hasChildren) itemsOpen = itemsOpen.includes(link.id) ? itemsOpen.filter((id) => id !== link.id) : [...itemsOpen, link.id];
+      return;
+    }
     if (hasPlace(link)) {
       if (app !== null) openScreen(app, backend.id, workspaceId, makeKey(SCREEN_IDS.documents, link.place_id), { title: link.display_name });
     }
@@ -155,7 +192,7 @@
     <ErrorLine error={actionError} />
     <div role="group" class="tree-group">
       {#each model.links as link (link.id)}
-        <div role="treeitem" aria-selected="false" tabindex="-1" class="tree-leaf" aria-expanded={itemsOpen.includes(link.id)}>
+        <div role="treeitem" aria-selected="false" tabindex="-1" class="tree-leaf" aria-expanded={pages[link.id] != null && !pages[link.id]?.hasChildren ? undefined : itemsOpen.includes(link.id)}>
           <div class="tree-line">
             <button type="button" class="tree-row leaf tree-link" onclick={() => openLink(link)} oncontextmenu={(e) => { if (!hasMenu(link)) return; e.preventDefault(); menuFor = link.id; }}><span class="icon-tile" data-tint={LINK_KIND_ICON[link.kind]?.tint}><Icon name={LINK_KIND_ICON[link.kind]?.icon ?? 'docs'} /></span><span class="tree-link-name">{link.display_name}</span></button>
             {#if hasMenu(link)}
@@ -175,7 +212,10 @@
             {/if}
           </div>
           {#if itemsOpen.includes(link.id)}
-            {#if hasPlace(link)}
+            {@const page = pages[link.id]}
+            {#if page != null}
+              <TreeFolder {backend} {workspaceId} placeId={link.place_id ?? ''} folder={page.folder} />
+            {:else if hasPlace(link)}
               <TreeFolder {backend} {workspaceId} placeId={link.place_id ?? ''} />
               {#if link.kind === 'jira_issue'}<LinkItems {backend} {workspaceId} sourceLinkId={link.id} changedOnly />{/if}
             {:else}
