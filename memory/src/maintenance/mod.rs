@@ -336,7 +336,11 @@ impl MaintenanceWorker {
         }
         let quiet_since = Utc::now()
             - chrono::Duration::from_std(self.cfg.idle_quiet).unwrap_or(chrono::Duration::zero());
-        match self.storage.scan_recent_episodes(&ctx, quiet_since, 1).await {
+        match self
+            .storage
+            .scan_recent_episodes(&ctx, quiet_since, 1)
+            .await
+        {
             Ok(recent) => recent.is_empty(),
             Err(_) => false,
         }

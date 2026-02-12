@@ -242,19 +242,6 @@ pub(crate) fn default_memory_rules() -> AgentMemoryRules {
     }
 }
 
-#[cfg(test)]
-mod default_memory_rules_tests {
-    // spec: ordin-desktop/components/OrdinDesktop#DSK-MEM-2
-    #[test]
-    fn an_agent_with_no_memory_part_keeps_any_class_but_secrets_for_a_year() {
-        let rules = super::default_memory_rules();
-        assert!(rules.retains.is_empty(), "no class is required");
-        assert_eq!(rules.excludes, ["secrets"]);
-        assert_eq!(rules.max_age_days, Some(365));
-        assert_eq!(rules.store_location, "local");
-    }
-}
-
 // ---------------------------------------------------------------- RulesHost (row 3.14)
 
 /// `RulesHost`: path facts over the run's agent folder, run facts over the Session Supervisor, no
@@ -712,5 +699,18 @@ mod minutes_port {
             assert_eq!(free_name(&dir, name), None);
             std::fs::remove_dir_all(&dir).unwrap();
         }
+    }
+}
+
+#[cfg(test)]
+mod default_memory_rules_tests {
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-MEM-2
+    #[test]
+    fn an_agent_with_no_memory_part_keeps_any_class_but_secrets_for_a_year() {
+        let rules = super::default_memory_rules();
+        assert!(rules.retains.is_empty(), "no class is required");
+        assert_eq!(rules.excludes, ["secrets"]);
+        assert_eq!(rules.max_age_days, Some(365));
+        assert_eq!(rules.store_location, "local");
     }
 }

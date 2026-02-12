@@ -341,14 +341,29 @@ mod vault {
     async fn happy_path_the_keychain_is_read_once() {
         let h = Harness::new().await;
         let store = h.service.secrets();
-        for (n, v) in [("telegram/bot-token", "1"), ("obs/password", "2"), ("credential/x/1", "3")] {
+        for (n, v) in [
+            ("telegram/bot-token", "1"),
+            ("obs/password", "2"),
+            ("credential/x/1", "3"),
+        ] {
             store.put(&name(n), v.as_bytes()).await.unwrap();
         }
-        for (n, v) in [("telegram/bot-token", "1"), ("obs/password", "2"), ("credential/x/1", "3")] {
-            assert_eq!(store.get(&name(n)).await.unwrap().unwrap().as_slice(), v.as_bytes());
+        for (n, v) in [
+            ("telegram/bot-token", "1"),
+            ("obs/password", "2"),
+            ("credential/x/1", "3"),
+        ] {
+            assert_eq!(
+                store.get(&name(n)).await.unwrap().unwrap().as_slice(),
+                v.as_bytes()
+            );
         }
         assert_eq!(keychain_names(&h), [VAULT_KEY_NAME]);
-        assert_eq!(h.keychain.gets.load(Ordering::SeqCst), 1, "one keychain read");
+        assert_eq!(
+            h.keychain.gets.load(Ordering::SeqCst),
+            1,
+            "one keychain read"
+        );
         let file = std::fs::read_to_string(h.dir.join("secrets/secrets.enc")).unwrap();
         assert!(!file.contains("telegram"), "names and values are sealed");
     }
@@ -363,12 +378,24 @@ mod vault {
             .unwrap()
             .insert("telegram/bot-token".to_owned(), b"123:abc".to_vec());
         let store = h.service.secrets();
-        let value = store.get(&name("telegram/bot-token")).await.unwrap().unwrap();
+        let value = store
+            .get(&name("telegram/bot-token"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(value.as_slice(), b"123:abc");
-        assert_eq!(keychain_names(&h), [VAULT_KEY_NAME], "the old entry is gone");
+        assert_eq!(
+            keychain_names(&h),
+            [VAULT_KEY_NAME],
+            "the old entry is gone"
+        );
         assert_eq!(h.secret_names().await, ["telegram/bot-token"]);
         let gets = h.keychain.gets.load(Ordering::SeqCst);
-        assert!(store.get(&name("telegram/bot-token")).await.unwrap().is_some());
+        assert!(store
+            .get(&name("telegram/bot-token"))
+            .await
+            .unwrap()
+            .is_some());
         assert!(store.get(&name("absent/one")).await.unwrap().is_none());
         assert!(store.get(&name("absent/one")).await.unwrap().is_none());
         assert_eq!(
@@ -387,7 +414,11 @@ mod vault {
             .lock()
             .unwrap()
             .insert("telegram/bot-token".to_owned(), b"old".to_vec());
-        h.service.secrets().delete(&name("telegram/bot-token")).await.unwrap();
+        h.service
+            .secrets()
+            .delete(&name("telegram/bot-token"))
+            .await
+            .unwrap();
         assert_eq!(keychain_names(&h), [VAULT_KEY_NAME]);
         assert!(h
             .service
@@ -422,10 +453,17 @@ mod vault {
     async fn edge_a_file_without_its_key_is_set_aside() {
         let h = Harness::new().await;
         let store = h.service.secrets();
-        store.put(&name("telegram/bot-token"), b"123").await.unwrap();
+        store
+            .put(&name("telegram/bot-token"), b"123")
+            .await
+            .unwrap();
         h.keychain.items.lock().unwrap().remove(VAULT_KEY_NAME);
         store.restart().await;
-        assert!(store.get(&name("telegram/bot-token")).await.unwrap().is_none());
+        assert!(store
+            .get(&name("telegram/bot-token"))
+            .await
+            .unwrap()
+            .is_none());
         let aside: Vec<String> = std::fs::read_dir(h.dir.join("secrets"))
             .unwrap()
             .filter_map(|e| e.ok()?.file_name().into_string().ok())

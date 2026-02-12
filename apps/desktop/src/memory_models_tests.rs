@@ -727,7 +727,11 @@ async fn happy_path_missing_models_are_offered_at_start() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(!rig.models.view().ask);
     assert!(
-        server.received_requests().await.expect("recorded").is_empty(),
+        server
+            .received_requests()
+            .await
+            .expect("recorded")
+            .is_empty(),
         "nothing downloaded until the person agrees"
     );
     rig.shutdown.cancel();

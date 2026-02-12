@@ -888,8 +888,13 @@ impl CopilotServer for CliServer {
         // Each open session's turn is ended first, so none is cut off mid-write by the steps below.
         let sessions: Vec<String> = lock(&self.connection.0.sessions).keys().cloned().collect();
         for session_id in sessions {
-            let abort = self.connection.call("session.abort", json!({"sessionId": session_id}));
-            if !matches!(tokio::time::timeout(STOP_ABORT_LIMIT, abort).await, Ok(Ok(_))) {
+            let abort = self
+                .connection
+                .call("session.abort", json!({"sessionId": session_id}));
+            if !matches!(
+                tokio::time::timeout(STOP_ABORT_LIMIT, abort).await,
+                Ok(Ok(_))
+            ) {
                 tracing::info!(target: "ordin_copilot_adapter", "copilot.cli.stop_abort_failed");
             }
         }
@@ -1860,7 +1865,10 @@ mod tests {
         let started = std::time::Instant::now();
         server.stop(Duration::from_secs(10)).await;
         let took = started.elapsed();
-        assert!(took >= STOP_TERMINATE_AFTER && took < Duration::from_secs(5), "{took:?}");
+        assert!(
+            took >= STOP_TERMINATE_AFTER && took < Duration::from_secs(5),
+            "{took:?}"
+        );
         assert!(!lines.text().contains("copilot.cli.stop_timed_out"));
     }
 }

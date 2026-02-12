@@ -156,8 +156,11 @@ fn version_token(output: &str) -> Option<String> {
         let patch_starts = rest.chars().next().is_some_and(|c| c.is_ascii_digit());
         // The CLI ends its version line with a full stop ("1.0.116."): punctuation after the
         // number is not part of the version.
-        (digits(major) && digits(minor) && patch_starts)
-            .then(|| token.trim_end_matches(|c: char| !c.is_ascii_alphanumeric()).to_owned())
+        (digits(major) && digits(minor) && patch_starts).then(|| {
+            token
+                .trim_end_matches(|c: char| !c.is_ascii_alphanumeric())
+                .to_owned()
+        })
     })
 }
 
