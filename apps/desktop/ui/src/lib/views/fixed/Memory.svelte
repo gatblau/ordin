@@ -57,6 +57,13 @@
   const team = new TeamController(backend.handle, workspaceId ?? '');
   const revision = $derived(backend.workspaceRevision(workspaceId ?? ''));
   let first = true;
+  // SM-SF-29: after Confirm selected, focus the first entry left, or the section heading.
+  $effect(() => {
+    const id = c.citationFocus;
+    if (id === null) return;
+    c.citationFocus = null;
+    queueMicrotask(() => (document.getElementById(id) ?? document.getElementById('memory-citations-title'))?.focus());
+  });
   let correcting = $state<{ id: string; kind: string; from: string; to: string } | null>(null);
   let sameAsPick = $state('');
   let sameAsOpen = $state(false);
@@ -757,6 +764,12 @@
         <section aria-labelledby="memory-citations-title">
           <h3 id="memory-citations-title" tabindex="-1">{t('memory-citations-title')}</h3>
           <p>{t('memory-citations-intro')}</p>
+          {#if c.citations.length > 1}
+            <p class="citation-bulk">
+              <button type="button" disabled={c.confirmingSelected} onclick={() => c.toggleAll()}>{t(c.allTicked ? 'memory-citations-select-none' : 'memory-citations-select-all')}</button>
+              <button type="button" disabled={c.confirmingSelected || c.ticked.size === 0} onclick={() => void c.confirmSelected()}>{t('memory-citations-confirm-selected', { count: c.ticked.size })}</button>
+            </p>
+          {/if}
           {#if c.citations.length === 0}
             <p>{t('memory-citations-empty')}</p>
           {:else}
@@ -765,6 +778,16 @@
                 <FactLine {fact} names={c.names} />
                 <li class="citation-actions">
                   <ErrorLine error={c.errorOn(fact.id)} />
+                  {#if c.citations.length > 1}
+                    <input
+                      type="checkbox"
+                      id={`memory-citation-${fact.id}`}
+                      aria-label={t('memory-citation-select', { statement: fact.statement })}
+                      checked={c.ticked.has(fact.id)}
+                      disabled={c.confirmingSelected}
+                      onchange={() => c.toggleTick(fact.id)}
+                    />
+                  {/if}
                   <button type="button" onclick={() => void c.confirmSource(fact)}>{t('memory-citation-confirm')}</button>
                 </li>
               {/each}

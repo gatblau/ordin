@@ -161,6 +161,11 @@ memory-cited-by-an-agent = An agent says this comes from { $source } (version { 
 memory-citation-confirm = Confirm source
 memory-citation-confirmed = Confirmed. This fact can now be shared with your team.
 memory-citations-empty = No sources are waiting for you to confirm.
+memory-citation-select = Select “{ $statement }”
+memory-citations-select-all = Select all
+memory-citations-select-none = Select none
+memory-citations-confirm-selected = Confirm selected ({ $count })
+memory-citations-confirmed-count = { $count } sources confirmed. These facts can now be shared with your team.
 
 ## Automatic publishing of a linked folder (SM-SF-7)
 

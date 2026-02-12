@@ -114,6 +114,12 @@ export class MemoryController {
   /** `null`: not wired, the section is not drawn (SM-SF-4.1). */
   held = $state.raw<HeldWrite[] | null>(null);
   citations = $state.raw<FactView[] | null>(null);
+  /** SM-SF-29: the ids of the sources ticked to confirm together. */
+  ticked = $state.raw<ReadonlySet<string>>(new Set());
+  /** SM-SF-29: true while Confirm selected is sending. */
+  confirmingSelected = $state(false);
+  /** SM-SF-29: the element id to focus after Confirm selected, read once by the view. */
+  citationFocus = $state<string | null>(null);
   pending = $state.raw<PendingForget | null>(null);
   /** The error of the last action, and the entry it belongs on (`''` for the screen). */
   error = $state.raw<{ error: ServiceError; on: string } | null>(null);
@@ -354,6 +360,61 @@ export class MemoryController {
       }
     }
     this.citations = facts;
+    // SM-SF-29: reading the section again keeps the ticks of the ids it still lists.
+    const listed = new Set(facts.map((f) => f.id));
+    this.ticked = new Set([...this.ticked].filter((id) => listed.has(id)));
+  }
+
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-29
+  toggleTick(id: string): void {
+    const next = new Set(this.ticked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.ticked = next;
+  }
+
+  /** SM-SF-29: true when every listed source is ticked. */
+  get allTicked(): boolean {
+    const list = this.citations ?? [];
+    return list.length > 0 && list.every((f) => this.ticked.has(f.id));
+  }
+
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-29
+  toggleAll(): void {
+    this.ticked = this.allTicked ? new Set() : new Set((this.citations ?? []).map((f) => f.id));
+  }
+
+  /** SM-SF-29: one confirmation per ticked source, in the list's order; the first refusal stops the run. */
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-29
+  async confirmSelected(): Promise<void> {
+    if (this.confirmingSelected) return;
+    const order = (this.citations ?? []).filter((f) => this.ticked.has(f.id)).map((f) => f.id);
+    if (order.length === 0) return;
+    this.confirmingSelected = true;
+    let done = 0;
+    try {
+      for (const id of order) {
+        const out = settle(await confirmCitation(this.#handle, this.workspaceId, id));
+        if (out.ok) {
+          done += 1;
+          this.citations = (this.citations ?? []).filter((f) => f.id !== id);
+          const rest = new Set(this.ticked);
+          rest.delete(id);
+          this.ticked = rest;
+          continue;
+        }
+        if ('error' in out) {
+          this.error = { error: out.error, on: id };
+          if (out.error.code === 'MEM_NOT_HELD') await this.loadToCheck();
+        }
+        break;
+      }
+    } finally {
+      this.confirmingSelected = false;
+    }
+    if (done > 0) this.announcer.say(t('memory-citations-confirmed-count', { count: done }));
+    const first = this.citations?.[0];
+    this.citationFocus = first !== undefined ? `memory-citation-${first.id}` : 'memory-citations-title';
   }
 
   // ---- facts -------------------------------------------------------------------------------
