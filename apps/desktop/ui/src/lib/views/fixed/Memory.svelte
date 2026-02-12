@@ -301,6 +301,7 @@
           <MemoryDiagram
             {view}
             diagnostics={app?.diagnostics}
+            selected={c.diagramFact?.id ?? null}
             onpress={(press) => void (press.kind === 'thing' ? c.centre(press.id) : c.openDiagramFact(press.id))}
           />
           <h4 id="memory-diagram-things">{t('memory-diagram-things-title')}</h4>

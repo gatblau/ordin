@@ -4,6 +4,7 @@
 //
 // spec: ordin-desktop/components/ScreensModule#SM-SF-21
 // spec: ordin-desktop/components/ScreensModule#SM-SF-24
+// spec: ordin-desktop/components/ScreensModule#SM-SF-28
 import type { ChartOption } from '../../blocks/chart-option';
 import { t } from '../../i18n/fluent';
 import type { DiagramView } from '../../service-api/types.gen';
@@ -58,7 +59,7 @@ export interface DiagramEdge {
   /** The fact the edge draws; a press opens that fact's line. */
   factId: string;
   label: { show: true; formatter: string };
-  lineStyle: { type: 'solid' | 'dashed'; color: string };
+  lineStyle: { type: 'solid' | 'dashed'; color: string; width: number };
 }
 
 /** The word on an edge: the word's label, and `memory-diagram-conflicts` for a fact in conflict. */
@@ -67,8 +68,11 @@ function edgeLabel(word: string, conflict: boolean): string {
 }
 
 /** The nodes and edges of a `DiagramView`: one box per thing, one small box per value, one edge per fact. */
-export function diagramGraph(view: DiagramView, colours: DiagramColours): { nodes: DiagramNode[]; edges: DiagramEdge[] } {
+export function diagramGraph(view: DiagramView, colours: DiagramColours, selected: string | null = null): { nodes: DiagramNode[]; edges: DiagramEdge[] } {
   const centre = view.centre?.id ?? null;
+  // SM-SF-28: the fact whose panel is open is drawn in the accent, its line thicker.
+  const line = (factId: string, conflict: boolean): DiagramEdge['lineStyle'] =>
+    factId === selected ? { type: conflict ? 'dashed' : 'solid', color: colours.accent, width: 3 } : { type: conflict ? 'dashed' : 'solid', color: colours.line, width: 1 };
   const nodes: DiagramNode[] = view.things.map(({ thing }) => {
     const isCentre = thing.id === centre;
     return {
@@ -88,7 +92,7 @@ export function diagramGraph(view: DiagramView, colours: DiagramColours): { node
       target: THING + j.to,
       factId: j.fact_id,
       label: { show: true, formatter: edgeLabel(j.word.label, j.conflict) },
-      lineStyle: { type: j.conflict ? 'dashed' : 'solid', color: colours.line },
+      lineStyle: line(j.fact_id, j.conflict),
     }));
   // A value hangs off the centre; without a centre there is nothing to hang it from (MemoryService G1 step 4).
   if (centre !== null && drawn.has(centre)) {
@@ -98,15 +102,15 @@ export function diagramGraph(view: DiagramView, colours: DiagramColours): { node
         name: objectText(v.object),
         symbol: 'roundRect',
         symbolSize: [100, 26],
-        itemStyle: { color: colours.surface, borderColor: colours.line, borderWidth: 1 },
-        label: { show: true, color: colours.muted },
+        itemStyle: v.fact_id === selected ? { color: colours.surface, borderColor: colours.accent, borderWidth: 2 } : { color: colours.surface, borderColor: colours.line, borderWidth: 1 },
+        label: { show: true, color: v.fact_id === selected ? colours.text : colours.muted },
       });
       edges.push({
         source: THING + centre,
         target: VALUE + v.fact_id,
         factId: v.fact_id,
         label: { show: true, formatter: edgeLabel(v.word.label, v.conflict) },
-        lineStyle: { type: v.conflict ? 'dashed' : 'solid', color: colours.line },
+        lineStyle: line(v.fact_id, v.conflict),
       });
     }
   }
@@ -117,8 +121,8 @@ export function diagramGraph(view: DiagramView, colours: DiagramColours): { node
  * The option: a force layout that moves and zooms (`roam`) but cannot be dragged; rounded boxes; an arrow at
  * each edge's end. ECharts' own `aria` is off: the list beside the diagram is its equivalent (SM-SF-22).
  */
-export function diagramOption(view: DiagramView, colours: DiagramColours, options: { animate?: boolean } = {}): ChartOption {
-  const { nodes, edges } = diagramGraph(view, colours);
+export function diagramOption(view: DiagramView, colours: DiagramColours, options: { animate?: boolean; selected?: string | null } = {}): ChartOption {
+  const { nodes, edges } = diagramGraph(view, colours, options.selected ?? null);
   return {
     animation: options.animate ?? true,
     aria: { enabled: false },

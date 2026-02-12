@@ -333,6 +333,19 @@ describe('SM-SF-21 — the drawing', () => {
     expect(pressed).toEqual([{ kind: 'thing', id: TOM.id }, { kind: 'fact', id: uid('a') }]);
   });
 
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-28
+  it('SM-SF-28 — the diagram drawn with a selected fact draws that fact\'s arrow thicker, and no other', async () => {
+    const options: unknown[] = [];
+    const instance: ChartInstance = { setOption: (o) => void options.push(o), resize: () => undefined, dispose: () => undefined, on: () => undefined };
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    const part = mount(MemoryDiagram, { target, props: { view: view(KESTREL), diagnostics: undefined, selected: uid('w'), onpress: () => undefined, load: async () => instance } });
+    drawn = { target, part };
+    await flush();
+    const links = (options.at(-1) as { series: Array<{ links: Array<{ factId: string; lineStyle: { width: number } }> }> }).series[0]!.links;
+    expect(links.filter((l) => l.lineStyle.width === 3).map((l) => l.factId)).toEqual([uid('w')]);
+  });
+
   it('Error path — a drawing failure records UI_CHART_RENDER_FAILED and hides the canvas, so the list stands alone', async () => {
     const record = vi.fn();
     const target = document.createElement('div');

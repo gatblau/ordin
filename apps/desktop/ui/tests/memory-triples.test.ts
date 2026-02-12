@@ -654,3 +654,36 @@ describe('helpers', () => {
     expect(tripleName((money as unknown as { triple: unknown }).triple as never)).toBe('Kestrel account manager £3,000,000.00');
   });
 });
+
+// ---- SM-SF-28: the selected fact stands out ------------------------------------------------------------
+
+describe('SM-SF-28 — the selected fact stands out in the diagram', () => {
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-28
+  it('table: only the selected fact is marked — a join, a value, nothing selected, a fact not drawn', () => {
+    const cases: Array<[string | null, string[], string | null]> = [
+      [uid('j2'), ['L', 'A', 'L'], null],
+      [uid('v1'), ['L', 'L', 'A'], 'A'],
+      [null, ['L', 'L', 'L'], null],
+      [uid('gone'), ['L', 'L', 'L'], null],
+    ];
+    for (const [selected, lineColours, valueBorder] of cases) {
+      const { nodes, edges } = diagramGraph(view() as never, colours, selected);
+      expect(edges.map((e) => e.lineStyle.color), String(selected)).toEqual(lineColours);
+      expect(edges.map((e) => e.lineStyle.width)).toEqual(lineColours.map((c) => (c === 'A' ? 3 : 1)));
+      const value = nodes.find((n) => n.name === '£120.00')!;
+      expect(value.itemStyle.borderColor === 'A' ? 'A' : null).toBe(valueBorder);
+      expect(value.itemStyle.borderWidth).toBe(valueBorder === 'A' ? 2 : 1);
+      expect(value.label.color).toBe(valueBorder === 'A' ? 'T' : 'M');
+    }
+  });
+
+  it('Edge — a selected fact in conflict keeps its dashes', () => {
+    const { edges } = diagramGraph(view({ joins: [join(KESTREL, TOM, 'account manager', 'j1', true)] }) as never, colours, uid('j1'));
+    expect(edges[0]?.lineStyle).toEqual({ type: 'dashed', color: 'A', width: 3 });
+  });
+
+  it('the option carries the mark through to the series', () => {
+    const option = diagramOption(view() as never, colours, { animate: false, selected: uid('j1') }) as { series: Array<{ links: Array<{ lineStyle: { color: string } }> }> };
+    expect(option.series[0]?.links[0]?.lineStyle.color).toBe('A');
+  });
+});

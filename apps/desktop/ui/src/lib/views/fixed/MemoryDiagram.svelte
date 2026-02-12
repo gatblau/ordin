@@ -6,6 +6,7 @@
   //
   // spec: ordin-desktop/components/ScreensModule#SM-SF-21
   // spec: ordin-desktop/components/ScreensModule#SM-SF-22
+  // spec: ordin-desktop/components/ScreensModule#SM-SF-28
   import { onMount } from 'svelte';
 
   import type { DiagnosticSink } from '../../backend/backend';
@@ -18,10 +19,12 @@
     view: DiagramView;
     diagnostics: DiagnosticSink | undefined;
     onpress: (press: Exclude<DiagramPress, null>) => void;
+    /** The fact whose panel is open, drawn marked (SM-SF-28). */
+    selected?: string | null;
     /** The chart library; ECharts unless a test gives its own. */
     load?: ChartLoader;
   }
-  let { view, diagnostics, onpress, load = loadEcharts }: Props = $props();
+  let { view, diagnostics, onpress, selected = null, load = loadEcharts }: Props = $props();
 
   let element = $state<HTMLElement | null>(null);
   let failed = $state(false);
@@ -31,7 +34,7 @@
   // The theme's colours, read when drawn and again on a theme change (ADR-116).
   const option = (v: DiagramView): ReturnType<typeof diagramOption> => {
     const style = getComputedStyle(document.documentElement);
-    return diagramOption(v, diagramColours((name) => style.getPropertyValue(name).trim()), { animate: !reducedMotion() });
+    return diagramOption(v, diagramColours((name) => style.getPropertyValue(name).trim()), { animate: !reducedMotion(), selected });
   };
 
   function redraw(): void {
@@ -84,9 +87,10 @@
     };
   });
 
-  // A new `DiagramView` (a new centre) redraws the same canvas.
+  // A new `DiagramView` (a new centre) or a new selected fact redraws the same canvas.
   $effect(() => {
     void view;
+    void selected;
     redraw();
   });
 </script>
