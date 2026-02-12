@@ -31,7 +31,7 @@ export const ACTION_COMMANDS: Readonly<Record<SearchActionName, readonly string[
   new_workspace: ['workspaces.create'],
   add_documents: ['files.add_place'],
   summarise: ['ordin.summarise'],
-  clear: ['ordin.prepare_start_fresh'],
+  clear: ['ordin.start_fresh'],
   earlier_conversations: ['ordin.list_conversations'],
   settings: ['settings.get'],
 };

@@ -7,7 +7,7 @@ import { loaded, text } from './settings-support';
 import ContinueDialog from '../src/lib/views/ContinueDialog.svelte';
 import EarlierConversation from '../src/lib/views/EarlierConversation.svelte';
 import EarlierConversations from '../src/lib/views/EarlierConversations.svelte';
-import { chains, ContinueFlow, EarlierListModel, EarlierReadModel, prepareKeyPoints } from '../src/lib/views/earlier.svelte';
+import { chains, ContinueFlow, EarlierListModel, EarlierReadModel } from '../src/lib/views/earlier.svelte';
 import type { ConversationSummary } from '../src/lib/service-api/types.gen';
 import { uid } from './support/ids';
 
@@ -132,9 +132,11 @@ describe('Continue this conversation (SM-CC-3 to SM-CC-5)', () => {
     const flow = flowFor(t.handle, 2);
     await flow.request(uid('x'));
     expect(flow.asking).toBe(uid('x'));
-    const dialog = text(html(ContinueDialog, { name: 'Q3 supplier rates', onkeep: () => undefined, oncontinue: () => undefined, oncancel: () => undefined }));
+    const dialog = text(html(ContinueDialog, { name: 'Q3 supplier rates', oncontinue: () => undefined, oncancel: () => undefined }));
     expect(dialog).toContain('Continue this conversation?');
-    expect(dialog).toContain('Keep the key points first');
+    // SM-NKP-1: Continue and Cancel only.
+    expect(dialog).not.toContain('key points');
+    expect(html(ContinueDialog, { name: 'x', oncontinue: () => undefined, oncancel: () => undefined }).match(/<button/g)).toHaveLength(2);
     expect(dialog).toContain('Continue');
     expect(dialog).toContain('Cancel');
     expect(dialog).toContain('Ordin stops working from the current conversation and works from “Q3 supplier rates” instead.');
@@ -143,7 +145,7 @@ describe('Continue this conversation (SM-CC-3 to SM-CC-5)', () => {
   });
 
   it('Continue is not the default button', () => {
-    const markup = html(ContinueDialog, { name: 'x', onkeep: () => undefined, oncontinue: () => undefined, oncancel: () => undefined });
+    const markup = html(ContinueDialog, { name: 'x', oncontinue: () => undefined, oncancel: () => undefined });
     expect(markup).toMatch(/<button[^>]*data-default="true"[^>]*>Cancel/);
     expect(markup).not.toMatch(/data-default="true"[^>]*>Continue/);
   });
@@ -165,35 +167,6 @@ describe('Continue this conversation (SM-CC-3 to SM-CC-5)', () => {
     await flow.request(uid('x'));
     await flow.confirm();
     expect(t.transport.sentOf('ordin.continue_conversation')[0]?.input).toEqual({ workspace_id: WS, conversation_id: uid('x'), kept_points: [] });
-  });
-
-  it('Keeping key points before continuing', async () => {
-    const t = await loaded(R1_GROUPS, (tr) => {
-      tr.on('ordin.prepare_start_fresh', ok({ accepted: true }));
-      tr.on('ordin.continue_conversation', ok({ conversation_id: 'new' }));
-    });
-    const flow = flowFor(t.handle, 2);
-    await flow.request(uid('x'));
-    await flow.keepPointsFirst();
-    // Scenario: Happy path — Keep the key points first while continuing (SM-WR-12)
-    expect(t.transport.commandsSent()).toEqual(['ordin.prepare_start_fresh']);
-    expect(t.transport.sentOf('ordin.prepare_start_fresh')[0]?.input).toEqual({ workspace_id: WS, conversation_id: uid('x') });
-    expect(flow.keeping).toBe(uid('x'));
-  });
-
-  it('Keep the key points first from Clear names no conversation (SM-WR-12)', async () => {
-    const t = await loaded(R1_GROUPS, (tr) => tr.on('ordin.prepare_start_fresh', ok({ accepted: true })));
-    expect(await prepareKeyPoints(t.handle, WS)).toBeNull();
-    expect(t.transport.sentOf('ordin.prepare_start_fresh')[0]?.input).toEqual({ workspace_id: WS });
-  });
-
-  it('a crew running refuses the key points like Continue (SM-WR-12, SM-CC-5)', async () => {
-    const t = await loaded(R1_GROUPS, (tr) => tr.on('ordin.prepare_start_fresh', err('OH_CREW_RUNNING', 'A crew is running.')));
-    const flow = flowFor(t.handle, 2);
-    await flow.request(uid('x'));
-    await flow.keepPointsFirst();
-    expect(flow.waitsForCrew).toBe(true);
-    expect(flow.keeping).toBeNull();
   });
 
   it('A crew is running', async () => {

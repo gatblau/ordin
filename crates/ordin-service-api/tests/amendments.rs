@@ -12,8 +12,8 @@ use serde_json::{json, Value};
 use support::*;
 
 /// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
-/// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 474 } else { 454 };
+/// SVC-MIN-3); one fewer each without ordin.prepare_start_fresh (SVC-NKP-1).
+const ROWS: usize = if cfg!(feature = "minutes") { 473 } else { 453 };
 
 const WS: &str = "0192a0f1-1111-7222-8333-444455556666";
 const OTHER: &str = "0192a0f1-2222-7333-8444-555566667777";
@@ -1761,4 +1761,20 @@ fn svc_cho_error_path_an_unknown_harness_is_refused_at_the_boundary() {
         json!({ "harness": "copilot_cli", "restart": false }),
     );
     assert_eq!(extra.code, "SVC_INPUT_INVALID");
+}
+
+// ---- SVC-NKP-1 (amendment 2026-02-12) ----
+
+// Scenario: Edge case — the removed command is unknown
+// spec: ordin-desktop/components/ServiceApi#SVC-NKP-1
+#[test]
+fn svc_nkp_edge_case_the_removed_command_is_unknown() {
+    assert!(command("ordin.prepare_start_fresh").is_none());
+    let refusal = refused("ordin.prepare_start_fresh", json!({ "workspace_id": WS }));
+    assert_eq!(refusal.code, "SVC_COMMAND_UNKNOWN");
+    assert_eq!(CATALOGUE.len(), ROWS);
+    let mut names: Vec<_> = CATALOGUE.iter().map(|m| m.name).collect();
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), ROWS, "names are unique");
 }

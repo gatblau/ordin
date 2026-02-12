@@ -7,7 +7,7 @@ use ordin_types::error_registry::{lookup, owns_prefix};
 
 /// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
 /// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 474 } else { 454 };
+const ROWS: usize = if cfg!(feature = "minutes") { 473 } else { 453 };
 
 #[test]
 fn every_code_is_registered_under_this_crate() {
@@ -88,8 +88,9 @@ fn budgets_follow_the_notes() {
     // app.agent_settings and app.change_agent_setting (SVC-AGM-1); 433 with the four SSH key commands
     // (SVC-SSH-1); 435 with confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1).
     // 453 with the eighteen interactive minutes rows (SVC-MIN-1). One more with setup.choose_harness
-    // (SVC-CHO-1), and two with app.install_place and app.move_to_applications (SVC-MOVE-1).
-    assert_eq!(others, if cfg!(feature = "minutes") { 456 } else { 438 });
+    // (SVC-CHO-1), and two with app.install_place and app.move_to_applications (SVC-MOVE-1). One fewer
+    // without ordin.prepare_start_fresh (SVC-NKP-1).
+    assert_eq!(others, if cfg!(feature = "minutes") { 455 } else { 437 });
 }
 
 #[test]

@@ -626,19 +626,6 @@ macro_rules! delegate {
         obj.insert("conversation_id".to_owned(), $api.value(out)?);
         $api.restate(::serde_json::Value::Object(obj))
     }};
-    ($api:expr, $ctx:expr, $input:expr, ordin_prepare_start_fresh) => {{
-        // ordin.prepare_start_fresh: ordin-host `prepare_start_fresh`
-        let _ = $ctx;
-        let m = $api.handle(&$api.modules.ordin_host)?;
-        let input = $input;
-        let p0 = $api.restate(input.workspace_id)?;
-        let p1 = $api.restate(input.conversation_id)?;
-        let out = m.prepare_start_fresh(p0, p1).await.map_err(|e| $api.module_error(e))?;
-        let _ = out;
-        let mut obj = ::serde_json::Map::new();
-        obj.insert("accepted".to_owned(), ::serde_json::Value::Bool(true));
-        $api.restate(::serde_json::Value::Object(obj))
-    }};
     ($api:expr, $ctx:expr, $input:expr, ordin_start_fresh) => {{
         // ordin.start_fresh: ordin-host `start_fresh`
         let _ = $ctx;

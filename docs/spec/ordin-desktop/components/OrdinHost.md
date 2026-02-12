@@ -4704,3 +4704,32 @@ Feature: Add to memory on an unchanged document answers at once (OH-MENU-1 to OH
 ### Gaps
 
 - **G-MENU-1** *(not blocking this amendment's build)*: the same answer for **Add to knowledge** needs to know that a finished run wrote a knowledge page from the document, and that the page still exists. No call of X-12 or X-25 answers either today, and no run started from that menu can write a page until plan 10 Phase 6 is built. To be specified with Phase 6; until then **Add to knowledge** is marked (OH-MENU-1) but not checked.
+
+## Amendment 2026-02-12 — No key-points form: Clear and Continue start at once (OH-NKP-1) (plan 10 Phase 8; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 8 as written, build it"). Source: the user's decision of 2026-02-11 on **Keep the key points first** ("remove it"); HLD 11 §5.12, UX-A21 and UX-A76 (revision 0.76.2). Counterparts: ServiceApi.md SVC-NKP-1, ScreensModule.md SM-NKP-1. Evidence read: `crates/ordin-host/src/conversation.rs:48-49` (`KEY_POINTS_TURN`), `:580`, `:621` (`Kept::KeyPoints` answered inside `ordin.answer_block`, which awaits `start_fresh` / `continue_conversation`), `:805-860` (`prepare_start_fresh`, `mark_key_points_form`), `:937`, `:968`; `crates/ordin-host/src/host.rs:175-207` (`Kept::KeyPoints`, `key_points`); `crates/ordin-host/src/tools.rs:2644` (the first form shown takes the pending request). Every section above stays in force except where OH-NKP-1 names what it withdraws.
+
+- **OH-NKP-1 The key-points form is withdrawn.**
+  1. The command row `ordin.prepare_start_fresh` (the table of this file and the amendment January 2026 — *Keep the key points first*) and the whole of OH-WR-1 are withdrawn: the fixed turn "List up to 5 key points worth keeping…", the pending key-points request, the key-points form's mark, and the answer of that form starting fresh or continuing. Step 33's first sentence (`ordin.prepare_start_fresh` → `OH_CREW_RUNNING` / the fixed turn) goes with it; the rest of step 33 (`ordin.start_fresh`) stands.
+  2. The conversation-group note's mappings read: `conversation.clear` → `ordin.start_fresh`; continuing is `ordin.continue_conversation` alone.
+  3. `ordin.start_fresh` and `ordin.continue_conversation` are unchanged, including `kept_points` and OH-TR-1 for a caller that sends points. The screens send `kept_points: []` (ScreensModule.md SM-NKP-1).
+  4. Step 14 (`show`) takes no form for any request; every form Ordin shows is answered as step 38 states. A key-points form left waiting by an earlier build is therefore an ordinary form, as OH-WR-1.5 already said after a restart.
+
+```gherkin
+Feature: No key-points form (OH-NKP-1)
+
+  Scenario: Edge case — a form Ordin shows after Clear is an ordinary form
+    Given the person cleared the conversation of W
+    When Ordin shows a form with fields labelled "Kestrel is cheapest" and "Quote due Friday"
+    And the person answers it with "Keep" for the first field
+    Then the answer is sent to Ordin as the next turn
+    And no new conversation is started by the answer
+```
+
+| Condition | Where | Code | — |
+|---|---|---|---|
+| A caller sends `ordin.prepare_start_fresh` | refused before this crate (SVC-NKP-1) | `SVC_COMMAND_UNKNOWN` | — |
+
+### Gaps
+
+None.

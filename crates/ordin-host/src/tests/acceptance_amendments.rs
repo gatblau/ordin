@@ -3627,42 +3627,7 @@ async fn happy_path_the_agent_makers_folder_is_checked_before_its_session() {
     assert_eq!(f.f.count("supervisor.submit_task"), 1);
 }
 
-// ---- Keep the key points first (OH-WR-1, amendment January 2026) ----
-
-/// The key-points form Ordin shows: one Keep/Drop field per point.
-async fn key_points_form(w: &W, points: &[&str]) -> ordin_types::BlockId {
-    let fields = points
-        .iter()
-        .enumerate()
-        .map(|(i, p)| ordin_service_api::blocks::FormField {
-            name: format!("p{i}"),
-            label: (*p).to_owned(),
-            required: true,
-            input: ordin_service_api::blocks::FormInput::Choice {
-                options: vec!["Keep".into(), "Drop".into()],
-                value: None,
-            },
-            filled_by_ordin: true,
-        })
-        .collect();
-    let block = Block::Form(FormBlock {
-        title: "Key points".into(),
-        verb: "Keep these".into(),
-        target: RunTarget::AgentInstance {
-            agent_instance_id: AgentInstanceId::new(),
-        },
-        command: None,
-        fields,
-        task: None,
-    });
-    let id = w
-        .host
-        .show_block(w.ws, MessageAuthor::Ordin, block, true)
-        .await
-        .expect("the form is shown");
-    w.host.mark_key_points_form(w.ws, id);
-    id
-}
+// ---- No key-points form (OH-NKP-1, amendment 2026-02-12) ----
 
 /// OH-TR-1: the points the keep-points turns asked Ordin to remember, in order. The host itself
 /// remembers none.
@@ -3691,83 +3656,17 @@ fn answers(pairs: &[(&str, &str)]) -> BlockAnswer {
     }
 }
 
-// Scenario: Happy path — the key points kept start the conversation afresh (OH-WR-1)
+// Scenario: Edge case — a form Ordin shows after Clear is an ordinary form (OH-NKP-1)
+// spec: ordin-desktop/components/OrdinHost#OH-NKP-1
 #[tokio::test]
-async fn happy_path_the_key_points_kept_start_the_conversation_afresh() {
+async fn edge_case_a_form_ordin_shows_after_clear_is_an_ordinary_form() {
     let w = world().await;
     w.open().await;
     let before = w.current_id().await.unwrap();
-    w.host
-        .prepare_start_fresh(w.ws, None)
-        .await
-        .expect("prepared");
+    w.host.start_fresh(w.ws, vec![]).await.expect("cleared");
     w.settle().await;
-    let form = key_points_form(&w, &["Kestrel is cheapest", "Quote due Friday"]).await;
-    let turns = w.turns().len();
-    w.host
-        .answer_block(w.ws, form, answers(&[("p0", "Keep"), ("p1", "Drop")]))
-        .await
-        .expect("answered");
-    assert_eq!(remembered(&w), vec!["Kestrel is cheapest".to_owned()]);
-    let row = w.row(before).await;
-    assert_eq!(row.ended_by, Some(ConversationEnd::StartedFresh));
-    assert!(
-        !w.turns()[turns..].iter().any(|t| t.contains("Form sent")),
-        "no turn carrying the answer is sent to Ordin"
-    );
-}
-
-// Scenario: Happy path — the key points kept continue an earlier conversation (OH-WR-1)
-#[tokio::test]
-async fn happy_path_the_key_points_kept_continue_an_earlier_conversation() {
-    let w = world().await;
-    let x = w
-        .earlier(w.ws, "started_fresh", None, &["Hello", "Hi"])
-        .await;
-    w.open().await;
-    w.host
-        .prepare_start_fresh(w.ws, Some(x))
-        .await
-        .expect("prepared");
-    w.settle().await;
-    let form = key_points_form(&w, &["Kestrel is cheapest", "Quote due Friday"]).await;
-    w.host
-        .answer_block(w.ws, form, answers(&[("p0", "Keep"), ("p1", "Keep")]))
-        .await
-        .expect("answered");
-    assert_eq!(
-        remembered(&w),
-        vec![
-            "Kestrel is cheapest".to_owned(),
-            "Quote due Friday".to_owned()
-        ]
-    );
-    let current = w.current_id().await.unwrap();
-    assert_eq!(w.row(current).await.continues_id, Some(x));
-}
-
-// Scenario: Error path — a conversation that cannot be continued (OH-WR-1)
-#[tokio::test]
-async fn error_path_a_conversation_that_cannot_be_continued() {
-    let w = world().await;
-    w.open().await;
-    let current = w.current_id().await.unwrap();
-    let turns = w.turns().len();
-    let e = w
-        .host
-        .prepare_start_fresh(w.ws, Some(current))
-        .await
-        .unwrap_err();
-    assert_eq!(e.code(), "OH_CONVERSATION_NOT_CONTINUABLE");
-    assert_eq!(w.turns().len(), turns, "no turn is sent");
-}
-
-// Scenario: Edge case — after a restart the form is an ordinary form (OH-WR-1)
-#[tokio::test]
-async fn edge_case_after_a_restart_the_form_is_an_ordinary_form() {
-    let w = world().await;
-    w.open().await;
-    // No pending request: the program restarted after the form was shown.
+    let after = w.current_id().await.unwrap();
+    assert_ne!(after, before);
     let block = Block::Form(FormBlock {
         title: "Key points".into(),
         verb: "Keep these".into(),
@@ -3792,13 +3691,17 @@ async fn edge_case_after_a_restart_the_form_is_an_ordinary_form() {
         .show_block(w.ws, MessageAuthor::Ordin, block, true)
         .await
         .unwrap();
-    w.host.mark_key_points_form(w.ws, form);
     w.host
         .answer_block(w.ws, form, answers(&[("p0", "Keep")]))
         .await
         .expect("answered");
     w.settle().await;
     assert!(remembered(&w).is_empty());
+    assert_eq!(
+        w.current_id().await.unwrap(),
+        after,
+        "the answer starts no conversation"
+    );
     assert!(w.last_turn().contains("Form sent"), "{}", w.last_turn());
 }
 

@@ -191,17 +191,13 @@ async fn oh_crew_running_on_start_fresh() {
     let f = fixture().await;
     f.open().await;
     *f.orchestrator.running.lock().unwrap() = Some(ordin_types::CrewRunId::new());
-    for e in [
-        f.host.start_fresh(f.ws, vec![]).await.unwrap_err(),
-        f.host.prepare_start_fresh(f.ws, None).await.unwrap_err(),
-    ] {
-        assert_eq!(e.code(), "OH_CREW_RUNNING");
-        assert!(!e.retryable());
-        assert_eq!(
-            e.message(),
-            "Wait for the crew to finish before starting fresh."
-        );
-    }
+    let e = f.host.start_fresh(f.ws, vec![]).await.unwrap_err();
+    assert_eq!(e.code(), "OH_CREW_RUNNING");
+    assert!(!e.retryable());
+    assert_eq!(
+        e.message(),
+        "Wait for the crew to finish before starting fresh."
+    );
 }
 
 // Summary turn fails.

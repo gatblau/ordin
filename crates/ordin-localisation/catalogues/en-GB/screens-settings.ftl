@@ -243,7 +243,6 @@ conv-continue-waits = Waits until the crew finishes
 confirm-continue-title = Continue this conversation?
 confirm-continue-body = Ordin stops working from the current conversation and works from “{ $name }” instead. Both are kept, and nothing is deleted.
 confirm-continue-verb = Continue
-confirm-clear-keep-points = Keep the key points first
 conv-continued-line = Continued { $time } · earlier messages ({ $count })
 conv-continued-show = Show
 conv-continued-hide = Hide

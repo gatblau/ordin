@@ -354,8 +354,6 @@ import type {
   OrdinEstimateLanguageDraftInput,
   OrdinEstimateLanguageDraftResult,
   OrdinListConversationsInput,
-  OrdinPrepareStartFreshInput,
-  OrdinPrepareStartFreshResult,
   OrdinReadConversationInput,
   OrdinSendMessageInput,
   OrdinSendMessageResult,
@@ -960,7 +958,6 @@ export type Commands = {
   "ordin.draft_language": { input: OrdinDraftLanguageInput; result: OrdinDraftLanguageResult; scope: "any"; effect: "change" };
   "ordin.estimate_language_draft": { input: OrdinEstimateLanguageDraftInput; result: OrdinEstimateLanguageDraftResult; scope: "any"; effect: "read" };
   "ordin.list_conversations": { input: OrdinListConversationsInput; result: Page_ConversationSummary; scope: "any"; effect: "read" };
-  "ordin.prepare_start_fresh": { input: OrdinPrepareStartFreshInput; result: OrdinPrepareStartFreshResult; scope: "any"; effect: "change" };
   "ordin.read_conversation": { input: OrdinReadConversationInput; result: Page_ConversationMessage; scope: "any"; effect: "read" };
   "ordin.send_message": { input: OrdinSendMessageInput; result: OrdinSendMessageResult; scope: "any"; effect: "change" };
   "ordin.start_fresh": { input: OrdinStartFreshInput; result: OrdinStartFreshResult; scope: "any"; effect: "change" };
@@ -1417,7 +1414,6 @@ export const IPC_NAMES: Record<keyof Commands, string> = {
   "ordin.draft_language": "ordin_draft_language",
   "ordin.estimate_language_draft": "ordin_estimate_language_draft",
   "ordin.list_conversations": "ordin_list_conversations",
-  "ordin.prepare_start_fresh": "ordin_prepare_start_fresh",
   "ordin.read_conversation": "ordin_read_conversation",
   "ordin.send_message": "ordin_send_message",
   "ordin.start_fresh": "ordin_start_fresh",

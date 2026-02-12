@@ -115,7 +115,6 @@ service_catalogue! {
     ordin send_message ordin_send_message => ::ordin_service_api::commands::ordin::OrdinSendMessageInput => ::ordin_service_api::commands::ordin::OrdinSendMessageResult, Any, Change, Interactive;
     ordin answer_block ordin_answer_block => ::ordin_service_api::commands::ordin::OrdinAnswerBlockInput => ::ordin_service_api::commands::ordin::OrdinAnswerBlockResult, Any, Change, Interactive;
     ordin summarise ordin_summarise => ::ordin_service_api::commands::ordin::OrdinSummariseInput => ::ordin_service_api::commands::ordin::OrdinSummariseResult, Any, Change, Interactive;
-    ordin prepare_start_fresh ordin_prepare_start_fresh => ::ordin_service_api::commands::ordin::OrdinPrepareStartFreshInput => ::ordin_service_api::commands::ordin::OrdinPrepareStartFreshResult, Any, Change, Interactive;
     ordin start_fresh ordin_start_fresh => ::ordin_service_api::commands::ordin::OrdinStartFreshInput => ::ordin_service_api::commands::ordin::OrdinStartFreshResult, Any, Change, Interactive;
     ordin continue_conversation ordin_continue_conversation => ::ordin_service_api::commands::ordin::OrdinContinueConversationInput => ::ordin_service_api::commands::ordin::OrdinContinueConversationResult, Any, Change, Interactive;
     ordin delete_conversation ordin_delete_conversation => ::ordin_service_api::commands::ordin::OrdinDeleteConversationInput => ::ordin_service_api::Done, Any, Change, Interactive;

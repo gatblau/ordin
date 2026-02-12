@@ -178,9 +178,15 @@ describe('Clear leaves the panel empty (SM-CF-1)', () => {
     };
     press('Clear', target);
     await flush();
-    press('Clear', document.body.querySelector('[role=dialog], dialog') ?? document.body);
+    // SM-NKP-1: the dialog asks with Clear and Cancel only.
+    const dialog = document.body.querySelector('[role=dialog], dialog') ?? document.body;
+    expect([...dialog.querySelectorAll('button')].map((b) => text(b)).sort()).toEqual(['Cancel', 'Clear']);
+    expect(text(dialog)).toContain('Summarise instead keeps this conversation going.');
+    expect(text(dialog)).not.toContain('key points');
+    press('Clear', dialog);
     await flush();
     expect(transport.commandsSent()).toContain('ordin.start_fresh');
+    expect(transport.commandsSent()).not.toContain('ordin.prepare_start_fresh');
     expect(text(target)).not.toContain('An old answer.');
     expect(app.local.conversation.get(WS) ?? []).toHaveLength(0);
   });

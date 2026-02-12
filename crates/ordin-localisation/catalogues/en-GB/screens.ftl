@@ -152,7 +152,7 @@ home-new = new
 
 confirm-cancel = Cancel
 confirm-clear-title = Clear this conversation?
-confirm-clear-body = Ordin forgets what was said here and starts a new conversation. This one stays readable in Earlier conversations. To carry decisions over, choose the key points first: Ordin lists them and you pick which ones go to What Ordin remembers. Summarise instead keeps this conversation going.
+confirm-clear-body = Ordin forgets what was said here and starts a new conversation. This one stays readable in Earlier conversations. Summarise instead keeps this conversation going.
 
 quit-title = Quit { $product }?
 quit-body = { $count } agents are still working. They stop now; what they have written so far is kept.

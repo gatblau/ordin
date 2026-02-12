@@ -131,5 +131,5 @@
 {/if}
 
 {#if flow.asking !== null}
-  <ContinueDialog name={nameOf()} onkeep={() => void flow.keepPointsFirst()} oncontinue={() => void flow.confirm()} oncancel={() => flow.cancel()} />
+  <ContinueDialog name={nameOf()} oncontinue={() => void flow.confirm()} oncancel={() => flow.cancel()} />
 {/if}

@@ -4579,17 +4579,6 @@ export interface OrdinListConversationsInput {
   workspace_id: string;
 }
 
-/** `ordin.prepare_start_fresh`: Ordin shows its key points as a question block. */
-export interface OrdinPrepareStartFreshInput {
-  /** The conversation to continue after the key points (OH-WR-1); omitted for Clear. */
-  conversation_id?: (OrdinConversationId | null);
-  workspace_id: string;
-}
-
-export interface OrdinPrepareStartFreshResult {
-  accepted: boolean;
-}
-
 /** `ordin.read_conversation`. */
 export interface OrdinReadConversationInput {
   conversation_id: OrdinConversationId;

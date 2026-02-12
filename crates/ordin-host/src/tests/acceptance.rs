@@ -1478,7 +1478,7 @@ async fn error_start_fresh_while_a_crew_runs() {
     let (f, _, _) = background().await;
     f.open().await;
     *f.orchestrator.running.lock().unwrap() = Some(ordin_types::CrewRunId::new());
-    let e = f.host.prepare_start_fresh(f.ws, None).await.unwrap_err();
+    let e = f.host.start_fresh(f.ws, vec![]).await.unwrap_err();
     assert_eq!(e.code(), "OH_CREW_RUNNING");
 }
 

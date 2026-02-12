@@ -238,22 +238,6 @@ pub struct OrdinSummariseResult {
     pub conversation_id: OrdinConversationId,
 }
 
-/// `ordin.prepare_start_fresh`: Ordin shows its key points as a question block.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct OrdinPrepareStartFreshInput {
-    pub workspace_id: WorkspaceId,
-    /// The conversation to continue after the key points (OH-WR-1); omitted for Clear.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conversation_id: Option<OrdinConversationId>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct OrdinPrepareStartFreshResult {
-    pub accepted: bool,
-}
-
 /// `ordin.start_fresh`.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -489,7 +473,6 @@ macro_rules! no_rules {
 
 no_rules!(
     OrdinSummariseInput,
-    OrdinPrepareStartFreshInput,
     OrdinBlockInput,
     OrdinBringPageUpToDateInput
 );
@@ -652,12 +635,6 @@ mod tests {
         let ws = WorkspaceId::new();
         let block = BlockId::new();
         assert!(OrdinSummariseInput { workspace_id: ws }.check().is_ok());
-        assert!(OrdinPrepareStartFreshInput {
-            workspace_id: ws,
-            conversation_id: None
-        }
-        .check()
-        .is_ok());
         assert!(OrdinBlockInput {
             workspace_id: ws,
             block_id: block

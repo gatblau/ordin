@@ -1,6 +1,6 @@
 <script lang="ts">
   // SM-CC-3: asking before Continue when the live conversation has messages. The title is the question; the
-  // buttons are Keep the key points first, Continue (never the default) and Cancel; focus to Cancel, Tab
+  // buttons are Continue (never the default) and Cancel (SM-NKP-1: no key points); focus to Cancel, Tab
   // trapped, Escape cancels, focus returns to the opener.
   import { onMount } from 'svelte';
 
@@ -9,11 +9,10 @@
 
   interface Props {
     name: string;
-    onkeep: () => void;
     oncontinue: () => void;
     oncancel: () => void;
   }
-  let { name, onkeep, oncontinue, oncancel }: Props = $props();
+  let { name, oncontinue, oncancel }: Props = $props();
   let root = $state<HTMLElement | null>(null);
   let cancelButton = $state<HTMLElement | null>(null);
   let opener: Element | null = null;
@@ -48,7 +47,6 @@
     <h2 id="continue-heading" tabindex="-1">{t('confirm-continue-title')}</h2>
     <p class="dialog-body">{t('confirm-continue-body', { name })}</p>
     <div class="dialog-buttons">
-      <button type="button" onclick={onkeep}>{t('confirm-clear-keep-points')}</button>
       <button type="button" bind:this={cancelButton} data-default="true" onclick={oncancel}>{t('confirm-cancel')}</button>
       <button type="button" onclick={oncontinue}>{t('confirm-continue-verb')}</button>
     </div>

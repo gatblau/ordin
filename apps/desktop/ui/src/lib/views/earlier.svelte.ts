@@ -194,20 +194,6 @@ export class EarlierReadModel {
   }
 }
 
-/**
- * **Keep the key points first** (SM-WR-12): `ordin.prepare_start_fresh { workspace_id }` from Clear's
- * confirmation, with `conversation_id` from Continue's. Nothing more is sent for the flow: Ordin's form is
- * answered as any form, and the Ordin Host then starts fresh or continues (OrdinHost.md OH-WR-1).
- */
-// spec: ordin-desktop/components/ScreensModule#SM-WR-12
-export async function prepareKeyPoints(handle: BackendHandle, workspaceId: string, conversationId?: string): Promise<ServiceError | null> {
-  const out = await handle.call('ordin.prepare_start_fresh', {
-    workspace_id: workspaceId,
-    ...(conversationId === undefined ? {} : { conversation_id: conversationId }),
-  });
-  return out.kind === 'ok' ? null : out.error;
-}
-
 /** How many messages the live conversation holds, and what to do when Continue succeeds. */
 export interface ContinueContext {
   workspaceId: string;
@@ -224,8 +210,6 @@ export interface ContinueContext {
 export class ContinueFlow {
   /** The earlier conversation the dialog is about. */
   asking = $state<string | null>(null);
-  /** `ordin.prepare_start_fresh` was sent for this conversation; the Ordin Host continues it after the form. */
-  keeping = $state<string | null>(null);
   /** `OH_CREW_RUNNING`: unavailable until the next `run_state_changed`. */
   waitsForCrew = $state(false);
   error = $state<ServiceError | null>(null);
@@ -252,24 +236,11 @@ export class ContinueFlow {
     this.asking = null;
   }
 
-  /** **Continue** in the dialog: no key points. */
+  /** **Continue** in the dialog (SM-NKP-1: no key points). */
   async confirm(): Promise<void> {
     const id = this.asking;
     this.asking = null;
     if (id !== null) await this.send(id, []);
-  }
-
-  /** **Keep the key points first** (SM-WR-12): `ordin.prepare_start_fresh` naming the conversation to continue. */
-  async keepPointsFirst(): Promise<void> {
-    const id = this.asking;
-    this.asking = null;
-    if (id === null) return;
-    const refused = await prepareKeyPoints(this.#handle, this.#ctx.workspaceId, id);
-    if (refused === null) {
-      this.keeping = id;
-      this.error = null;
-    } else if (refused.code === 'OH_CREW_RUNNING') this.waitsForCrew = true;
-    else this.error = refused;
   }
 
   async send(conversationId: string, keptPoints: string[]): Promise<void> {

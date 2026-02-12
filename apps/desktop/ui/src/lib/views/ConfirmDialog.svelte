@@ -18,13 +18,11 @@
     oncancel: () => void;
     /** The words of the button that goes back (default Cancel; **Keep editing** when leaving an editor). */
     cancelLabel?: string;
-    /** A third choice drawn before the verb (Clear's **Keep the key points first**). */
-    extra?: { label: string; onclick: () => void };
     /** Drawn under the body: a further line, or the error of a failed verb (the dialog then stays open). */
     children?: Snippet;
   }
 
-  let { title, body, verb, destructive = true, initialFocus = 'heading', onconfirm, oncancel, cancelLabel, extra, children }: Props = $props();
+  let { title, body, verb, destructive = true, initialFocus = 'heading', onconfirm, oncancel, cancelLabel, children }: Props = $props();
 
   const headingId = `confirm-${Math.random().toString(36).slice(2, 10)}`;
   let root = $state<HTMLElement | null>(null);
@@ -67,7 +65,6 @@
       <button type="button" class:danger={destructive} class:go={!destructive} data-default={destructive ? undefined : 'true'} onclick={onconfirm}>
         {verb}
       </button>
-      {#if extra}<button type="button" onclick={extra.onclick}>{extra.label}</button>{/if}
       <button type="button" bind:this={cancelButton} data-default={destructive ? 'true' : undefined} onclick={oncancel}>
         {cancelLabel ?? t('confirm-cancel')}
       </button>

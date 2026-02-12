@@ -13,7 +13,7 @@
   import type { ServiceError } from '../service-api/types.gen';
   import ConfirmDialog from '../views/ConfirmDialog.svelte';
   import ContinuedFold from '../views/ContinuedFold.svelte';
-  import { EarlierListModel, prepareKeyPoints } from '../views/earlier.svelte';
+  import { EarlierListModel } from '../views/earlier.svelte';
   import ErrorLine from '../views/ErrorLine.svelte';
   import MemoryModelsCard from '../views/memory/MemoryModelsCard.svelte';
   import { getApp } from './context';
@@ -171,12 +171,6 @@
     // the picker's list and the message box follow, as after Continue (SM-CC-4).
     await activeState.reloadConversation(active.workspaceId);
     shell.afterContinue();
-  }
-
-  async function keepPointsOnClear(): Promise<void> {
-    confirmClear = false;
-    if (active === null || activeState === undefined) return;
-    error = await prepareKeyPoints(activeState.handle, active.workspaceId);
   }
 
   // Approval cards of the workspace in front; a decided one stays as `card-decided`.
@@ -360,7 +354,6 @@
     verb={t('conv-clear')}
     onconfirm={() => void clear()}
     oncancel={() => (confirmClear = false)}
-    {...activeState !== undefined && answers(activeState, 'ordin.prepare_start_fresh') ? { extra: { label: t('confirm-clear-keep-points'), onclick: () => void keepPointsOnClear() } } : {}}
   />
 {/if}
 

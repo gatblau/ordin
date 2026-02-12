@@ -3735,3 +3735,22 @@ Feature: A message sent from a menu says which menu (SVC-MENU-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — `ordin.prepare_start_fresh` is withdrawn (SVC-NKP-1) (plan 10 Phase 8; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 8 as written, build it"). Source: the user's decision of 2026-02-11 on **Keep the key points first** ("remove it"): the person found it confusing, and confirming the form answered "That took too long" because `ordin.answer_block` waited for the new session to start; **Summarise** stays the way to keep a conversation's substance. HLD 11 §5.12, UX-A21 and UX-A76 (revision 0.76.2). Counterparts: OrdinHost.md OH-NKP-1, ScreensModule.md SM-NKP-1. Evidence read: `crates/ordin-service-api/src/catalogue/rows.rs:118`, `crates/ordin-service-api/src/commands/ordin.rs:241-250`, `crates/ordin-service-api/tests/minutes.rs:10` (474 rows), SVC-CL-2 (how a removed name is answered).
+
+- **SVC-NKP-1 One command removed.** `ordin.prepare_start_fresh` leaves the catalogue, with `OrdinPrepareStartFreshInput` and `OrdinPrepareStartFreshResult`. The catalogue holds **473 commands** with the `minutes` switch and 453 without, one fewer than the 474 and 454 it held before this amendment (the count lines above are history and are not rewritten). A caller that sends the removed name — an older desktop — is answered `SVC_COMMAND_UNKNOWN`, like any name not in the catalogue; a screen that reads the catalogue before offering the choice (ScreensModule.md SM-WR-12) offers nothing. `ordin.start_fresh` and `ordin.continue_conversation` keep their rows and their `kept_points` input unchanged.
+
+```gherkin
+Feature: ordin.prepare_start_fresh is withdrawn (SVC-NKP-1)
+
+  Scenario: Edge case — the removed command is unknown
+    When a caller sends ordin.prepare_start_fresh
+    Then the reply is an error with the code SVC_COMMAND_UNKNOWN
+    And the catalogue holds 473 commands with unique names
+```
+
+### Gaps
+
+None.

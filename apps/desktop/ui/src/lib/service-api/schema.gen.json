@@ -17678,42 +17678,6 @@
       ],
       "type": "object"
     },
-    "OrdinPrepareStartFreshInput": {
-      "additionalProperties": false,
-      "description": "`ordin.prepare_start_fresh`: Ordin shows its key points as a question block.",
-      "properties": {
-        "conversation_id": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/OrdinConversationId"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The conversation to continue after the key points (OH-WR-1); omitted for Clear."
-        },
-        "workspace_id": {
-          "format": "uuid",
-          "type": "string"
-        }
-      },
-      "required": [
-        "workspace_id"
-      ],
-      "type": "object"
-    },
-    "OrdinPrepareStartFreshResult": {
-      "properties": {
-        "accepted": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "accepted"
-      ],
-      "type": "object"
-    },
     "OrdinReadConversationInput": {
       "additionalProperties": false,
       "description": "`ordin.read_conversation`.",
@@ -35990,19 +35954,6 @@
       "rest_path": "/v1/ordin/summarise",
       "result": {
         "$ref": "#/$defs/OrdinSummariseResult"
-      },
-      "scope": "any"
-    },
-    {
-      "effect": "change",
-      "input": {
-        "$ref": "#/$defs/OrdinPrepareStartFreshInput"
-      },
-      "ipc_name": "ordin_prepare_start_fresh",
-      "name": "ordin.prepare_start_fresh",
-      "rest_path": "/v1/ordin/prepare_start_fresh",
-      "result": {
-        "$ref": "#/$defs/OrdinPrepareStartFreshResult"
       },
       "scope": "any"
     },

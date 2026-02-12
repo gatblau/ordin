@@ -7280,3 +7280,37 @@ Feature: Menu items say they came from a menu (SM-RL-7)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Clear and Continue offer no key points (SM-NKP-1) (plan 10 Phase 8; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 8 as written, build it"). Source: the user's decision of 2026-02-11 on **Keep the key points first** ("remove it"; **Summarise** keeps a conversation's substance); HLD 11 §5.12, UX-A21 and UX-A76 (revision 0.76.2). Counterparts: ServiceApi.md SVC-NKP-1, OrdinHost.md OH-NKP-1. Evidence read: `apps/desktop/ui/src/lib/shell/ConversationPanel.svelte:176-180`, `:363`; `apps/desktop/ui/src/lib/views/ContinueDialog.svelte:51`; `apps/desktop/ui/src/lib/views/earlier.svelte.ts:198-210`, `:262-268`; `crates/ordin-localisation/catalogues/en-GB/screens.ftl:155`, `screens-settings.ftl:246`.
+
+- **SM-NKP-1 No Keep the key points first.** It replaces SM-WR-12 and the parts of SM-CC-3 and SM-CC-14 that name it.
+  1. Clear's confirmation draws `confirm-clear-body`, the verb **Clear** and **Cancel**, and no third choice. **Clear** sends `ordin.start_fresh { workspace_id, kept_points: [] }` as before.
+  2. Continue's confirmation (SM-CC-3) draws `confirm-continue-body`, **Continue** and **Cancel**; focus still goes to **Cancel**. **Continue** sends `ordin.continue_conversation { workspace_id, conversation_id, kept_points: [] }` as before.
+  3. No screen sends `ordin.prepare_start_fresh`. The string `confirm-clear-keep-points` is removed from every catalogue.
+  4. `confirm-clear-body` changes to the text below: it drops the key-points sentence and keeps the pointer to **Summarise**.
+
+| Id | Text |
+|---|---|
+| `confirm-clear-body` | Ordin forgets what was said here and starts a new conversation. This one stays readable in Earlier conversations. Summarise instead keeps this conversation going. |
+
+```gherkin
+Feature: Clear and Continue offer no key points (SM-NKP-1)
+
+  Scenario: Clear asks with two buttons
+    Given the live conversation of W has messages
+    When the person presses Clear
+    Then the dialog "Clear this conversation?" shows Clear and Cancel only
+
+  Scenario: Continue asks with two buttons
+    Given the live conversation of W has 2 messages
+    When the person presses Continue this conversation on X
+    Then the dialog "Continue this conversation?" shows Continue and Cancel only
+    When the person presses Continue
+    Then ordin.continue_conversation is sent with W, X and no kept points
+```
+
+### Gaps
+
+None.

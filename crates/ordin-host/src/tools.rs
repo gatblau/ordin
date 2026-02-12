@@ -2635,14 +2635,10 @@ impl OrdinHost {
                 | Block::Form(_)
                 | Block::Result(ordin_service_api::blocks::ResultBlock::Offer { .. })
         );
-        let is_form = matches!(block, Block::Form(_));
         let id = self
             .show_block(ws, MessageAuthor::Ordin, block, waiting)
             .await
             .map_err(|e| fail(&e.code(), "That did not work; try again.", e.retryable()))?;
-        if is_form {
-            self.mark_key_points_form(ws, id);
-        }
         Ok(out("Shown.", Some(json!({ "block_id": id }))))
     }
 

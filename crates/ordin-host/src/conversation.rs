@@ -45,8 +45,6 @@ const ASK_HISTORY_MAX_CHARS: usize = 32_000;
 const SLACK_BATCH_MAX: usize = 50;
 pub(crate) const SUMMARY_TURN: &str =
     "Write a summary of this conversation for a new session: decisions, open questions, what is waiting.";
-pub(crate) const KEY_POINTS_TURN: &str =
-    "List up to 5 key points worth keeping, with show(form): one choice field per point, options Keep and Drop.";
 
 fn page<T: Clone>(all: Vec<T>, cursor: Option<&Cursor>) -> Result<Page<T>, OhError> {
     let start: usize = match cursor {
@@ -577,7 +575,7 @@ impl OrdinHost {
                 let _ = tx.send(SKIPPED_ANSWER.to_owned());
                 Ok(())
             }
-            // A kept delegation, key-points form or send-back is dropped: nothing starts.
+            // A kept delegation or send-back is dropped: nothing starts.
             _ => self
                 .send_turn(workspace_id, Turn::fixed(note))
                 .await
@@ -617,19 +615,6 @@ impl OrdinHost {
             Some(Kept::Ask(tx)) => {
                 let _ = tx.send(text);
                 Ok(())
-            }
-            Some(Kept::KeyPoints { continues }) => {
-                let points = match &answer {
-                    BlockAnswer::Form { fields } => Self::kept_points_of(&row.block, fields),
-                    _ => vec![],
-                };
-                match continues {
-                    None => self.start_fresh(workspace_id, points).await.map(|_| ()),
-                    Some(id) => self
-                        .continue_conversation(workspace_id, id, points)
-                        .await
-                        .map(|_| ()),
-                }
             }
             // spec: ordin-desktop/components/OrdinHost#OH-MENU-4
             Some(Kept::MenuRepeat {
@@ -802,78 +787,6 @@ impl OrdinHost {
         Ok(id)
     }
 
-    /// `ordin.prepare_start_fresh` (step 33, OH-WR-1): with `conversation_id`, the key points lead
-    /// to continuing that conversation.
-    // spec: ordin-desktop/components/OrdinHost#OH-WR-1
-    pub async fn prepare_start_fresh(
-        &self,
-        workspace_id: WorkspaceId,
-        conversation_id: Option<OrdinConversationId>,
-    ) -> Result<(), OhError> {
-        if let Some(conversation_id) = conversation_id {
-            self.check_continuable(workspace_id, conversation_id)
-                .await?;
-        }
-        self.refuse_while_crew(workspace_id).await?;
-        self.ensure_conversation(workspace_id).await?;
-        self.send_turn(workspace_id, Turn::fixed(KEY_POINTS_TURN.to_owned()))
-            .await?;
-        lock(&self.state)
-            .key_points
-            .insert(workspace_id, conversation_id);
-        Ok(())
-    }
-
-    /// OH-CC-1 (the workspace) and OH-CC-2 (a conversation of this workspace that can be
-    /// continued), with their codes.
-    async fn check_continuable(
-        &self,
-        workspace_id: WorkspaceId,
-        conversation_id: OrdinConversationId,
-    ) -> Result<(), OhError> {
-        self.ports
-            .workspaces
-            .ensure_active(workspace_id)
-            .await
-            .map_err(|_| OhError::WorkspaceUnknown)?;
-        let mut c = self.pool.acquire().await?;
-        let target = store::conversation(&mut c, conversation_id)
-            .await?
-            .filter(|r| r.workspace_id == workspace_id)
-            .ok_or(OhError::ConversationUnknown)?;
-        if target.current || store::is_continued(&mut c, conversation_id).await? {
-            return Err(OhError::NotContinuable);
-        }
-        Ok(())
-    }
-
-    /// OH-WR-1.3: the first form Ordin shows while a key-points request is pending is the
-    /// key-points form.
-    pub(crate) fn mark_key_points_form(&self, workspace_id: WorkspaceId, block_id: BlockId) {
-        let mut state = lock(&self.state);
-        if let Some(continues) = state.key_points.remove(&workspace_id) {
-            state
-                .kept
-                .insert(block_id, (workspace_id, Kept::KeyPoints { continues }));
-        }
-    }
-
-    /// OH-WR-1.4: the label of each field answered "Keep", in the form's order, at most 10.
-    fn kept_points_of(
-        block: &Block,
-        fields: &std::collections::BTreeMap<String, serde_json::Value>,
-    ) -> Vec<String> {
-        let Block::Form(form) = block else {
-            return vec![];
-        };
-        form.fields
-            .iter()
-            .filter(|f| fields.get(&f.name).and_then(|v| v.as_str()) == Some("Keep"))
-            .map(|f| f.label.clone())
-            .take(KEPT_POINTS_MAX)
-            .collect()
-    }
-
     async fn refuse_while_crew(&self, workspace_id: WorkspaceId) -> Result<(), OhError> {
         match self.ports.orchestrator.running_crew(workspace_id).await {
             Ok(Some(_)) => Err(OhError::CrewRunning),
@@ -934,7 +847,6 @@ impl OrdinHost {
     ) -> Result<OrdinConversationId, OhError> {
         let points = Self::check_points(&kept_points)?;
         self.refuse_while_crew(workspace_id).await?;
-        lock(&self.state).key_points.remove(&workspace_id);
         let conv = self.ensure_conversation(workspace_id).await?;
         self.current_run(workspace_id)
             .ok_or(OhError::ConversationUnknown)?;
@@ -965,7 +877,6 @@ impl OrdinHost {
             .await
             .map_err(|_| OhError::WorkspaceUnknown)?;
         let points = Self::check_points(&kept_points)?;
-        lock(&self.state).key_points.remove(&workspace_id);
         // spec: ordin-desktop/components/OrdinHost#OH-CC-2
         let (target, current) = {
             let mut c = self.pool.acquire().await?;

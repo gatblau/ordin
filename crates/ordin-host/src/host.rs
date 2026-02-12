@@ -172,11 +172,6 @@ pub(crate) enum Kept {
         tag: String,
         name: String,
     },
-    /// The key-points form of a start fresh, or of a continue when it names the conversation to
-    /// continue (OH-WR-1).
-    KeyPoints {
-        continues: Option<crate::ids::OrdinConversationId>,
-    },
     /// OH-MENU-3: a menu **Add to memory** on an unchanged document; **Read it again** sends it.
     MenuRepeat {
         text: String,
@@ -203,8 +198,6 @@ pub(crate) struct State {
     pub waiting: HashMap<BlockId, crate::types::WaitingBlock>,
     /// Workflow-run inputs the person filled in a form, by charter (step 18).
     pub filled: HashMap<ordin_types::CrewCharterId, Vec<crate::types::RunInput>>,
-    /// OH-WR-1.2: a pending key-points request by workspace, with the conversation to continue.
-    pub key_points: HashMap<WorkspaceId, Option<crate::ids::OrdinConversationId>>,
     /// OH-CL-1: by workspace, held from `orchestrator.start` until the charter holds the crew run.
     pub crew_starts: HashMap<WorkspaceId, Arc<tokio::sync::Mutex<()>>>,
     /// OH-CLS-1: the workspaces already told what happened while ordin was closed.
