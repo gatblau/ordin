@@ -209,6 +209,7 @@ fn open_origin<'r>(repo: &'r Repository, auth: &NetAuth) -> Result<Remote<'r>, P
             crate::log::unsupported_host();
             return Err(ProjectError::RemoteUnreachable);
         }
+        crate::ssh::refresh_port_if_stale();
         return repo
             .remote_anonymous(&crate::ssh::github_ssh_url(&repository))
             .map_err(|e| {

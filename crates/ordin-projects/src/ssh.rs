@@ -11,16 +11,100 @@
 //! the person's `known_hosts`, so a first connection from a new computer works and a stand-in host is
 //! refused.
 
+use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::RwLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use git2::{CertificateCheckStatus, Cred, CredentialType, ErrorClass, ErrorCode, RemoteCallbacks};
 use sha2::{Digest, Sha256};
 
 /// The one host an SSH remote may name.
 pub const GITHUB_HOST: &str = "github.com";
+
+/// GitHub's SSH service on port 443, for networks that block port 22; it presents the same host keys
+/// (PROJ-SSH-7).
+pub const GITHUB_SSH_443_HOST: &str = "ssh.github.com";
+
+/// How long one port probe of PROJ-SSH-7 waits for the connection.
+pub const PORT_PROBE_LIMIT: Duration = Duration::from_secs(3);
+
+/// How long a probe's answer stands before the next Git operation probes again (a laptop changes networks).
+pub const PORT_PROBE_FRESH: Duration = Duration::from_secs(600);
+
+/// Which of GitHub's SSH addresses git's traffic uses (PROJ-SSH-7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SshPort {
+    /// `github.com` on port 22, the default.
+    Standard,
+    /// `ssh.github.com` on port 443, when port 22 does not answer and 443 does.
+    Https,
+}
+
+/// The last probe's answer and when it was made; none until a probe ran.
+static PORT: RwLock<Option<(SshPort, Instant)>> = RwLock::new(None);
+
+/// The address the last probe chose; [`SshPort::Standard`] before any probe.
+pub fn current_port() -> SshPort {
+    PORT.read()
+        .unwrap_or_else(|p| p.into_inner())
+        .map_or(SshPort::Standard, |(port, _)| port)
+}
+
+/// PROJ-SSH-7: port 22 when it answers, else port 443 when that answers, else port 22 (the failure is then
+/// the connection's own). `open` says whether the host and port send an SSH greeting.
+// spec: ordin-desktop/components/ProjectService#PROJ-SSH-7
+pub fn choose_port_with(open: impl Fn(&str, u16) -> bool) -> SshPort {
+    let port = pick_port(open);
+    if port == SshPort::Https {
+        tracing::info!("ssh.port_443_used");
+    }
+    *PORT.write().unwrap_or_else(|p| p.into_inner()) = Some((port, Instant::now()));
+    port
+}
+
+/// The choice of [`choose_port_with`], without remembering it.
+pub fn pick_port(open: impl Fn(&str, u16) -> bool) -> SshPort {
+    if open(GITHUB_HOST, 22) {
+        SshPort::Standard
+    } else if open(GITHUB_SSH_443_HOST, 443) {
+        SshPort::Https
+    } else {
+        SshPort::Standard
+    }
+}
+
+/// Whether `host:port` sends an SSH greeting (`SSH-`) within [`PORT_PROBE_LIMIT`]. Nothing is sent. A
+/// connection that opens but stays silent counts as closed: some company networks let the TCP connection
+/// to port 22 open and then stop SSH itself (the 0.2.1-test.19 test Mac).
+fn tcp_open(host: &str, port: u16) -> bool {
+    use std::io::Read;
+    let Ok(addrs) = (host, port).to_socket_addrs() else {
+        return false;
+    };
+    addrs.into_iter().any(|addr| {
+        let Ok(mut stream) = TcpStream::connect_timeout(&addr, PORT_PROBE_LIMIT) else {
+            return false;
+        };
+        let mut greeting = [0u8; 4];
+        stream.set_read_timeout(Some(PORT_PROBE_LIMIT)).is_ok()
+            && stream.read_exact(&mut greeting).is_ok()
+            && &greeting == b"SSH-"
+    })
+}
+
+/// Probes again when no probe ran or the last one is older than [`PORT_PROBE_FRESH`].
+// spec: ordin-desktop/components/ProjectService#PROJ-SSH-7
+pub fn refresh_port_if_stale() {
+    let stale = PORT
+        .read()
+        .unwrap_or_else(|p| p.into_inner())
+        .is_none_or(|(_, at)| at.elapsed() >= PORT_PROBE_FRESH);
+    if stale {
+        choose_port_with(tcp_open);
+    }
+}
 
 /// The SHA-256 fingerprints of GitHub's SSH host keys as GitHub publishes them: RSA
 /// `uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s`, Ed25519
@@ -86,13 +170,17 @@ fn without_git(path: &str) -> &str {
 }
 
 /// `owner/name` of a GitHub SSH address: `git@github.com:owner/name[.git]` or
-/// `ssh://git@github.com/owner/name[.git]`, the host compared without regard to case. Any other
-/// user, host, port, or path is `None`.
+/// `ssh://git@github.com/owner/name[.git]`, or GitHub's port-443 form
+/// `ssh://git@ssh.github.com:443/owner/name[.git]` (PROJ-SSH-7), the host compared without regard to
+/// case. Any other user, host, port, or path is `None`.
 // spec: ordin-desktop/components/ProjectService#SA-CLOSE-01
 pub fn github_ssh_repository(url: &str) -> Option<String> {
     let rest = if let Some(rest) = url.strip_prefix("ssh://git@") {
         let (host, path) = rest.split_once('/')?;
-        host.eq_ignore_ascii_case(GITHUB_HOST).then_some(path)?
+        let port_443 = host
+            .strip_suffix(":443")
+            .is_some_and(|name| name.eq_ignore_ascii_case(GITHUB_SSH_443_HOST));
+        (host.eq_ignore_ascii_case(GITHUB_HOST) || port_443).then_some(path)?
     } else {
         let rest = url.strip_prefix("git@")?;
         let (host, path) = rest.split_once(':')?;
@@ -118,15 +206,33 @@ pub fn github_repository(url: &str) -> Option<String> {
 }
 
 /// The SSH address of a GitHub repository.
+// spec: ordin-desktop/components/ProjectService#PROJ-SSH-7
 pub fn github_ssh_url(repository: &str) -> String {
-    format!("git@{GITHUB_HOST}:{repository}.git")
+    ssh_url_for(current_port(), repository)
+}
+
+/// The SSH address of `repository` on `port`'s host.
+pub fn ssh_url_for(port: SshPort, repository: &str) -> String {
+    match port {
+        SshPort::Standard => format!("git@{GITHUB_HOST}:{repository}.git"),
+        SshPort::Https => format!("ssh://git@{GITHUB_SSH_443_HOST}:443/{repository}.git"),
+    }
+}
+
+/// Whether `host` is one of GitHub's two SSH host names.
+fn github_ssh_host(host: &str) -> bool {
+    host.eq_ignore_ascii_case(GITHUB_HOST) || host.eq_ignore_ascii_case(GITHUB_SSH_443_HOST)
 }
 
 /// The SSH address and the key to use for `url`, when it is a GitHub repository and the person chose a
 /// key; `None` otherwise, so the caller goes on over HTTPS with the token.
 // spec: ordin-desktop/components/ProjectService#PROJ-SSH-1
 pub fn github_route(url: &str) -> Option<(String, PathBuf)> {
-    route_with(url, chosen_key())
+    let key = chosen_key();
+    if key.is_some() && github_repository(url).is_some() {
+        refresh_port_if_stale();
+    }
+    route_with(url, key)
 }
 
 /// [`github_route`] with the key given, for callers and tests that hold it.
@@ -182,12 +288,12 @@ pub fn add_callbacks<'a>(callbacks: &mut RemoteCallbacks<'a>, key: &'a Path) {
         if cert.as_hostkey().is_none() {
             return Ok(CertificateCheckStatus::CertificatePassthrough);
         }
-        if host.eq_ignore_ascii_case(GITHUB_HOST) && github_host_key(cert) {
+        if github_ssh_host(host) && github_host_key(cert) {
             Ok(CertificateCheckStatus::CertificateOk)
         } else {
             // spec: ordin-desktop/components/ProjectService#PROJ-SSH-6
             tracing::warn!(
-                github = host.eq_ignore_ascii_case(GITHUB_HOST),
+                github = github_ssh_host(host),
                 key_type =
                     format!("{:?}", cert.as_hostkey().and_then(|k| k.hostkey_type())).as_str(),
                 "ssh.host_key_refused"
@@ -388,6 +494,8 @@ pub fn check_key(key: &Path, limit: Duration) -> CheckOutcome {
     let key = key.to_path_buf();
     std::thread::spawn(move || {
         let outcome = (|| {
+            // PROJ-SSH-7: each check probes again, so a changed network is picked up at once.
+            choose_port_with(tcp_open);
             let mut remote = git2::Remote::create_detached(github_ssh_url(CHECK_REPOSITORY))
                 .map_err(|e| outcome_of(&e))?;
             remote
@@ -409,6 +517,48 @@ pub fn check_key(key: &Path, limit: Duration) -> CheckOutcome {
 #[cfg(test)]
 mod ssh_tests {
     use super::*;
+
+    // PROJ-SSH-7: port 22 when it answers, else 443 when it answers, else 22.
+    // spec: ordin-desktop/components/ProjectService#PROJ-SSH-7
+    #[test]
+    fn table_which_github_address_is_used() {
+        for (open_22, open_443, expected) in [
+            (true, true, SshPort::Standard),
+            (true, false, SshPort::Standard),
+            (false, true, SshPort::Https),
+            (false, false, SshPort::Standard),
+        ] {
+            let chosen = pick_port(|host, port| match (host, port) {
+                (GITHUB_HOST, 22) => open_22,
+                (GITHUB_SSH_443_HOST, 443) => open_443,
+                _ => panic!("unexpected probe {host}:{port}"),
+            });
+            assert_eq!(chosen, expected, "22 open {open_22}, 443 open {open_443}");
+        }
+        assert_eq!(
+            ssh_url_for(SshPort::Standard, "acme/docs"),
+            "git@github.com:acme/docs.git"
+        );
+        assert_eq!(
+            ssh_url_for(SshPort::Https, "acme/docs"),
+            "ssh://git@ssh.github.com:443/acme/docs.git"
+        );
+        assert!(github_ssh_host("ssh.github.com") && github_ssh_host("GitHub.com"));
+        assert!(!github_ssh_host("ssh.github.com.example.net"));
+        // A clone made over port 443 keeps that address as its origin, and it still reads as GitHub's.
+        assert_eq!(
+            github_ssh_repository("ssh://git@ssh.github.com:443/acme/docs.git").as_deref(),
+            Some("acme/docs")
+        );
+        assert_eq!(
+            github_ssh_repository("ssh://git@ssh.github.com:22/acme/docs.git"),
+            None
+        );
+        assert_eq!(
+            github_ssh_repository("ssh://git@ssh.github.com/acme/docs.git"),
+            None
+        );
+    }
 
     struct Dir(PathBuf);
     impl Dir {
