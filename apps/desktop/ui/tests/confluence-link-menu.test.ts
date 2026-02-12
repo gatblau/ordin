@@ -9,6 +9,7 @@ import { ScreenAreaState } from '../src/lib/shell/screen-area.svelte';
 import { DocumentLinksModel } from '../src/lib/views/add/links-model.svelte';
 import { hello, LOCAL, ok, R1_GROUPS, settle } from './support/fake-backend';
 import { appWith, loadWindowCatalogue } from './support/ssr';
+import { uid } from './support/ids';
 
 beforeAll(loadWindowCatalogue);
 
@@ -19,12 +20,13 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-const WS = 'ws-1';
+const WS = uid('ws-1');
+const PCF = uid('p-cf');
 const clean = (s: string | null | undefined): string => (s ?? '').replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ').trim();
 const link = (id: string, kind: string, display_name: string) =>
-  ({ id, kind, display_name, state: 'active', workspace_id: WS, added_at: '2026-01-06T09:00:00.000Z', origin_location: display_name, place_id: `p-${id}` }) as never;
-const PAGE = { name: 'Supplier pages.confluence.xhtml', path: 'Supplier pages.confluence.xhtml', is_folder: false, kind: 'xhtml', place_id: 'p-cf', size_bytes: 1, changed_at: '2026-01-10T10:00:00Z', has_versions: false };
-const CHILDREN = { name: 'Supplier pages', path: 'Supplier pages', is_folder: true, kind: '', place_id: 'p-cf', size_bytes: 0, changed_at: '2026-01-10T10:00:00Z', has_versions: false };
+  ({ id, kind, display_name, state: 'active', workspace_id: WS, added_at: '2026-01-06T09:00:00.000Z', origin_location: display_name, place_id: uid(`p-${id}`) }) as never;
+const PAGE = { name: 'Supplier pages.confluence.xhtml', path: 'Supplier pages.confluence.xhtml', is_folder: false, kind: 'xhtml', place_id: PCF, size_bytes: 1, changed_at: '2026-01-10T10:00:00Z', has_versions: false };
+const CHILDREN = { name: 'Supplier pages', path: 'Supplier pages', is_folder: true, kind: '', place_id: PCF, size_bytes: 0, changed_at: '2026-01-10T10:00:00Z', has_versions: false };
 
 const CHILD = { ...PAGE, name: '2026.confluence.xhtml', path: 'Supplier pages/2026.confluence.xhtml' };
 
@@ -68,7 +70,7 @@ describe("A Confluence link row's document menu (SM-RL-5)", () => {
     await settle(10);
     const sent = transport.sentOf('ordin.send_message')[0]?.input as { text: string; attachments: unknown[] };
     expect(clean(sent.text)).toBe('Add the facts in “Supplier pages” to memory.');
-    expect(sent.attachments).toEqual([{ kind: 'place_file', place_id: 'p-cf', relative_path: 'Supplier pages.confluence.xhtml' }]);
+    expect(sent.attachments).toEqual([{ kind: 'place_file', place_id: PCF, relative_path: 'Supplier pages.confluence.xhtml' }]);
   });
 
   it('Edge case — a SharePoint link keeps only Remove', async () => {
@@ -88,7 +90,7 @@ describe('A linked Confluence page is one row (SM-RL-6)', () => {
     await settle(10);
     flushSync();
     const scope = ScreenAreaState.scope(app.local.id, WS);
-    expect(app.screens.tabs(scope).find((t) => t.key === 'document:p-cf:Supplier pages.confluence.xhtml')?.title).toBe('Supplier pages');
+    expect(app.screens.tabs(scope).find((t) => t.key === `document:${PCF}:Supplier pages.confluence.xhtml`)?.title).toBe('Supplier pages');
     expect(names()).toEqual([]);
     expect(row().closest('[role=treeitem]')?.hasAttribute('aria-expanded')).toBe(false);
   });
