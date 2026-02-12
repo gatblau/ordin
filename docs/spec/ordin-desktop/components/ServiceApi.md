@@ -3702,3 +3702,7 @@ Feature: A turn's idle event says why it gave no answer (SVC-WK-2)
 ### Gaps
 
 None.
+
+## Amendment February 2026 — ordin moves itself to the Applications folder (SVC-MOVE-1) (plan 08 Phase 19; user decision; Approved by the user February 2026)
+
+- **SVC-MOVE-1 Two `app` rows.** The counterpart of OrdinDesktop.md DSK-MOVE-1 to DSK-MOVE-3, added while building Phase 19 because the approved amendment named the two commands without their catalogue rows. Each is scope `Local`, budget `Interactive`, group `app`, answered by the desktop program: `app.install_place` (input `{}`, result `InstallPlace { installed: bool, target: string }`, effect `Read`) and `app.move_to_applications` (input `{}`, result `MovedToApplications { moved: bool }`, effect `Change`). `app.move_to_applications` is added to `PERSON_ONLY_COMMANDS`. The catalogue then holds 454 rows (474 with `minutes`).

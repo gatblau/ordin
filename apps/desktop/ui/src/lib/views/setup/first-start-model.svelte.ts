@@ -29,8 +29,11 @@ import type {
   StepState,
 } from '../../service-api/types.gen';
 
-/** `checking`: `setup.status` has not answered yet; `first_start`: only `FirstStart` is drawn; `regions`: the three regions. */
-export type StartPhase = 'checking' | 'first_start' | 'regions';
+/**
+ * `checking`: `setup.status` has not answered yet; `move`: only the question to move ordin is drawn
+ * (SM-FS-14); `first_start`: only `FirstStart` is drawn; `regions`: the three regions.
+ */
+export type StartPhase = 'checking' | 'move' | 'first_start' | 'regions';
 
 /** The run-state dot of a step's state (V6 *Run-state dot*): `waiting` → not yet, `running` → now, `done` → done, `needs_you` → waiting, `failed` → failed. */
 export type DotTone = 'empty' | 'now' | 'done' | 'waiting' | 'failed';
@@ -86,6 +89,12 @@ const NO_PROGRESS: SetupProgress = { done: 0, total: 0, running: false, steps: [
 
 export class FirstStartModel {
   phase = $state<StartPhase>('checking');
+  /** SM-FS-14: `app.move_to_applications` has been sent; the program quits once the copy is made. */
+  moving = $state(false);
+  /** SM-FS-14: a refusal of `app.move_to_applications`, drawn under **Move ordin**. */
+  moveError = $state.raw<ServiceError | null>(null);
+  /** SM-FS-14: `app.install_place` is asked once per start. */
+  #placeAsked = false;
   /** A failed `setup.status`, drawn in the frame with Try again (SM-FS-1). */
   statusError = $state.raw<ServiceError | null>(null);
   progress = $state.raw<SetupProgress>(NO_PROGRESS);
@@ -139,8 +148,22 @@ export class FirstStartModel {
     if (out.kind === 'ok') this.attachments = out.result.attachments;
   }
 
-  /** `setup.status {}` (SM-FS-1). Sent at start-up, and again by Try again after a failure. */
+  /**
+   * `setup.status {}` (SM-FS-1). Sent at start-up, and again by Try again after a failure. Before the
+   * first one, `app.install_place {}` (SM-FS-14): ordin outside an Applications folder draws the
+   * question to move it first. A backend that does not answer it draws nothing new.
+   */
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-14
   async checkStatus(): Promise<void> {
+    if (!this.#placeAsked) {
+      this.#placeAsked = true;
+      const place = await this.handle.call('app.install_place', {});
+      // Only an explicit `installed: false` asks: an answer without it is read as installed.
+      if (place.kind === 'ok' && place.result.installed === false) {
+        this.phase = 'move';
+        return;
+      }
+    }
     const out = await this.handle.call('setup.status', {});
     if (out.kind === 'error') {
       this.statusError = { ...out.error, action: 'try_again' };
@@ -153,6 +176,25 @@ export class FirstStartModel {
     this.progress = out.result.progress;
     this.phase = out.result.needs_guided ? 'first_start' : 'regions';
     if (this.phase === 'first_start' && this.inUse === null) await this.readInUse();
+  }
+
+  /** SM-FS-14: **Move ordin**: `app.move_to_applications {}`; on success the program quits by itself. */
+  // spec: ordin-desktop/components/ScreensModule#SM-FS-14
+  async moveToApplications(): Promise<void> {
+    if (this.moving) return;
+    this.moving = true;
+    this.moveError = null;
+    const out = await this.handle.call('app.move_to_applications', {});
+    if (out.kind === 'error') {
+      this.moveError = out.error;
+      this.moving = false;
+    }
+  }
+
+  /** SM-FS-14: **Not now**: first start carries on; the question comes back at the next start. */
+  async notNow(): Promise<void> {
+    this.moveError = null;
+    await this.checkStatus();
   }
 
   /** SM-FS-13: the harness the guided run walks is the one in use, which a stored choice decides. */

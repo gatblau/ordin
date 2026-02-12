@@ -435,6 +435,24 @@ pub struct SshKeysView {
     pub chosen: Option<String>,
 }
 
+/// `app.install_place` (SVC-MOVE-1): whether ordin runs from an Applications folder, and where
+/// `app.move_to_applications` would put it.
+// spec: ordin-desktop/components/ServiceApi#SVC-MOVE-1
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct InstallPlace {
+    pub installed: bool,
+    pub target: String,
+}
+
+/// `app.move_to_applications` (SVC-MOVE-1): the copy is made; ordin quits and the copy starts.
+// spec: ordin-desktop/components/ServiceApi#SVC-MOVE-1
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MovedToApplications {
+    pub moved: bool,
+}
+
 /// `app.choose_ssh_key` (SVC-SSH-1): one of the listed keys' `path`, or `null` to stop using SSH.
 // spec: ordin-desktop/components/ServiceApi#SVC-SSH-1
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]

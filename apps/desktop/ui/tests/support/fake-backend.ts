@@ -132,6 +132,8 @@ export class FakeTransport implements Transport {
     this.on('app.agent_settings', ok(AGENT_SETTINGS_DEFAULT));
     // Not a first start: the window draws its three regions (ScreensModule.md SM-FS-1). A first-start test replaces it.
     this.on('setup.status', ok({ needs_guided: false, progress: { done: 0, total: 0, running: false, steps: [] }, attachments: [] }));
+    // SM-FS-14: ordin runs from an Applications folder unless a test says otherwise.
+    this.on('app.install_place', ok({ installed: true, target: '' }));
   }
 
   /** Sets (or replaces) the reply of a command. */

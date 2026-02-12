@@ -12200,6 +12200,22 @@
       ],
       "type": "object"
     },
+    "InstallPlace": {
+      "description": "`app.install_place` (SVC-MOVE-1): whether ordin runs from an Applications folder, and where\n`app.move_to_applications` would put it.",
+      "properties": {
+        "installed": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "installed",
+        "target"
+      ],
+      "type": "object"
+    },
     "InstalledAgent": {
       "properties": {
         "instance": {
@@ -16404,6 +16420,18 @@
         "unanswered",
         "done",
         "expired"
+      ],
+      "type": "object"
+    },
+    "MovedToApplications": {
+      "description": "`app.move_to_applications` (SVC-MOVE-1): the copy is made; ordin quits and the copy starts.",
+      "properties": {
+        "moved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "moved"
       ],
       "type": "object"
     },
@@ -34662,6 +34690,32 @@
       "rest_path": "/v1/app/check_ssh_key",
       "result": {
         "$ref": "#/$defs/SshKeyCheck"
+      },
+      "scope": "local"
+    },
+    {
+      "effect": "read",
+      "input": {
+        "$ref": "#/$defs/Done"
+      },
+      "ipc_name": "app_install_place",
+      "name": "app.install_place",
+      "rest_path": "/v1/app/install_place",
+      "result": {
+        "$ref": "#/$defs/InstallPlace"
+      },
+      "scope": "local"
+    },
+    {
+      "effect": "change",
+      "input": {
+        "$ref": "#/$defs/Done"
+      },
+      "ipc_name": "app_move_to_applications",
+      "name": "app.move_to_applications",
+      "rest_path": "/v1/app/move_to_applications",
+      "result": {
+        "$ref": "#/$defs/MovedToApplications"
       },
       "scope": "local"
     },

@@ -97,6 +97,17 @@ if [ "$1" = tauri ] && [ "$2" = signer ] && [ "$3" = sign ]; then
 fi
 exit 0
 SH
+# PB-REL-37: hdiutil makes the disk image from a staging folder; the stand-in records what it holds.
+cat > "$T/bin/hdiutil" <<'SH'
+#!/usr/bin/env bash
+echo "hdiutil $*" >> "$SHIM_LOG"
+[ -z "${SHIM_HDIUTIL_FAIL:-}" ] || exit 1
+src=""; out="${!#}"
+while [ $# -gt 0 ]; do [ "$1" = -srcfolder ] && src="$2"; shift; done
+echo "DMG_HOLDS=$(cd "$src" && ls -A | tr '\n' ' ')" >> "$SHIM_LOG"
+echo "image" > "$out"
+SH
+chmod +x "$T/bin/hdiutil"
 cat > "$T/bin/minisign" <<'SH'
 #!/usr/bin/env bash
 file=""; sig=""
@@ -278,7 +289,14 @@ expect_pass "make release asks for the password and builds"
 printf '%s' "$OUTPUT" | grep -qF "stopped after the build" && ok "PUBLISH=0 stops after the build" || bad "PUBLISH=0 stops after the build"
 printf '%s' "$OUTPUT" | grep -qF "$PASSWORD" && bad "make release never prints the password" || ok "make release never prints the password"
 grep -q 'tauri build' "$SHIM_LOG" && ok "make release ran the build" || bad "make release ran the build"
+# --- the disk image (PB-REL-37): the app only, no Applications link, made by hdiutil after Tauri's app
+grep -qx 'DMG_HOLDS=ordin.app ' "$SHIM_LOG" && ok "the disk image holds ordin.app and no Applications link" || bad "the disk image holds ordin.app and no Applications link ($(grep '^DMG_HOLDS=' "$SHIM_LOG"))"
+grep -q 'hdiutil create -volname Open ordin -srcfolder' "$SHIM_LOG" && ok "the disk image is named Open ordin" || bad "the disk image is named Open ordin"
+grep -q 'cargo tauri build --config .* --bundles app$' "$SHIM_LOG" && ok "on macOS Tauri builds the app only" || bad "on macOS Tauri builds the app only"
 [ ! -e "$T/out/latest.json" ] && ok "PUBLISH=0 published nothing" || bad "PUBLISH=0 published nothing"
+rm -rf "$T/out" "$T/bundle"
+run release.sh VERSION=1.2.3 PUBLISH=0 SHIM_HDIUTIL_FAIL=1 "${KEYENV[@]}" "${ALLOW[@]}"
+expect_fail "a failing hdiutil stops the build" "hdiutil could not make the disk image"
 # --- GitHub sign-in (PB-REL-31): RELEASE_GITHUB_APP_CLIENT_ID reaches the build as GITHUB_APP_CLIENT_ID
 grep -qx 'GITHUB_APP=' "$SHIM_LOG" && ok "an empty GitHub App client id builds with none (the token box)" || bad "an empty GitHub App client id builds with none (the token box)"
 printf '%s' "$OUTPUT" | grep -qF "people paste a personal access token" && ok "the build says GitHub is connected with a token" || bad "the build says GitHub is connected with a token"

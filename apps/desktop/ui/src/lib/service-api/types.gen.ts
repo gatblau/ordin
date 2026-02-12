@@ -3079,6 +3079,12 @@ export interface InputUsed {
   version_read: string;
 }
 
+/** `app.install_place` (SVC-MOVE-1): whether ordin runs from an Applications folder, and where `app.move_to_applications` would put it. */
+export interface InstallPlace {
+  installed: boolean;
+  target: string;
+}
+
 export interface InstalledAgent {
   instance: AgentInstance;
   /** One form per task, in the order of `tasks` (PackageCatalogue.md PKG-TF-1). */
@@ -4251,6 +4257,11 @@ export interface MoreFoundView {
   recall_id: string;
   unanswered: UnansweredSource[];
   wider: WiderFact[];
+}
+
+/** `app.move_to_applications` (SVC-MOVE-1): the copy is made; ordin quits and the copy starts. */
+export interface MovedToApplications {
+  moved: boolean;
 }
 
 /** `domain::runs::NamedPath` — distinct from `wire::workflow_file::NamedPath` (part 2 §8); converted by the Ordin Host on import and export (amended January 2026, decision 80: C-1, namespaced). */

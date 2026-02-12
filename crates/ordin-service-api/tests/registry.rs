@@ -7,7 +7,7 @@ use ordin_types::error_registry::{lookup, owns_prefix};
 
 /// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
 /// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 472 } else { 452 };
+const ROWS: usize = if cfg!(feature = "minutes") { 474 } else { 454 };
 
 #[test]
 fn every_code_is_registered_under_this_crate() {
@@ -88,8 +88,8 @@ fn budgets_follow_the_notes() {
     // app.agent_settings and app.change_agent_setting (SVC-AGM-1); 433 with the four SSH key commands
     // (SVC-SSH-1); 435 with confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1).
     // 453 with the eighteen interactive minutes rows (SVC-MIN-1). One more with setup.choose_harness
-    // (SVC-CHO-1).
-    assert_eq!(others, if cfg!(feature = "minutes") { 454 } else { 436 });
+    // (SVC-CHO-1), and two with app.install_place and app.move_to_applications (SVC-MOVE-1).
+    assert_eq!(others, if cfg!(feature = "minutes") { 456 } else { 438 });
 }
 
 #[test]
@@ -115,10 +115,10 @@ fn person_only_commands_are_catalogue_commands() {
     // confluence.connect_with_jira (SVC-CONF-TOKEN-1).
     // 37 with the five minutes commands (SVC-MIN-2); 39 with minutes.delete_recording and
     // minutes.remove_model (SVC-MIN-2 amended 2026-11-21). One more with setup.choose_harness
-    // (SVC-CHO-1).
+    // (SVC-CHO-1), and one more with app.move_to_applications (SVC-MOVE-1).
     assert_eq!(
         PERSON_ONLY_COMMANDS.len(),
-        if cfg!(feature = "minutes") { 40 } else { 33 }
+        if cfg!(feature = "minutes") { 41 } else { 34 }
     );
     for name in PERSON_ONLY_COMMANDS {
         let meta = command(name).unwrap_or_else(|| panic!("{name} in the catalogue"));

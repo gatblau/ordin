@@ -13,6 +13,7 @@
   import { CONVERSATION, RAIL } from './lib/store/view-prefs';
   import QuitDialog from './lib/views/QuitDialog.svelte';
   import FirstStart from './lib/views/setup/FirstStart.svelte';
+  import MoveToApplications from './lib/views/setup/MoveToApplications.svelte';
   import RecordingIndicator from './lib/views/minutes/RecordingIndicator.svelte';
 
   interface Props {
@@ -179,7 +180,8 @@
 {#snippet conversationToggle()}{@render toggleButton('conversation', false)}{@render agentWorkButton()}{/snippet}
 
 {#if !regions}
-  {#if firstStart.phase === 'first_start'}<FirstStart model={firstStart} />{/if}
+  <!-- SM-FS-14: the question to move ordin comes before anything else of first start. -->
+  {#if firstStart.phase === 'move'}<MoveToApplications model={firstStart} />{:else if firstStart.phase === 'first_start'}<FirstStart model={firstStart} />{/if}
 {:else}
 <div
   class="shell"

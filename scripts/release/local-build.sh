@@ -13,7 +13,8 @@ set -euo pipefail
 load_conf
 
 case "$(uname -s)" in
-  Darwin) BUNDLES="app,dmg" ;;
+  # PB-REL-37: the disk image is made after the build, with the app only.
+  Darwin) BUNDLES="app" ;;
   MINGW*|MSYS*|CYGWIN*) BUNDLES="nsis" ;;
   *) die "ordin opens a window on macOS and Windows only; build on one of them" ;;
 esac
@@ -74,4 +75,7 @@ fi
 make -C "$ROOT" desktop-build-inputs
 # CI=true: Tauri's DMG step skips the Finder layout, which fails intermittently on macOS.
 (cd "$ROOT/apps/desktop" && CI=true cargo tauri build --bundles "$BUNDLES" ${CONFIG[@]+"${CONFIG[@]}"} ${FEATURES[@]+"${FEATURES[@]}"})
+if [ "$BUNDLES" = app ]; then
+  make_dmg "$ROOT/target/release/bundle" "$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/apps/desktop/Cargo.toml" | head -1)"
+fi
 note "unsigned build of $(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet HEAD || echo ' plus uncommitted changes') in target/release/bundle/"

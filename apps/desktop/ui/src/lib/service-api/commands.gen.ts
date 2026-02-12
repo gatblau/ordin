@@ -197,6 +197,7 @@ import type {
   IdentitySignOutInput,
   ImportInput,
   ImportReport,
+  InstallPlace,
   InstalledAgent,
   InstalledFileEntry,
   InstalledFileInput,
@@ -328,6 +329,7 @@ import type {
   MessageRow,
   MessageView,
   MoreFoundView,
+  MovedToApplications,
   NewDashboard,
   NewPartInput,
   OfferedChat,
@@ -713,7 +715,9 @@ export type Commands = {
   "app.create_ssh_key": { input: Done; result: SshKeysView; scope: "local"; effect: "change" };
   "app.decline_memory_models": { input: Done; result: MemoryModelsView; scope: "local"; effect: "change" };
   "app.download_memory_models": { input: Done; result: MemoryModelsView; scope: "local"; effect: "change" };
+  "app.install_place": { input: Done; result: InstallPlace; scope: "local"; effect: "read" };
   "app.memory_models": { input: Done; result: MemoryModelsView; scope: "local"; effect: "read" };
+  "app.move_to_applications": { input: Done; result: MovedToApplications; scope: "local"; effect: "change" };
   "app.open_slack_link": { input: AppOpenSlackLinkInput; result: Done; scope: "local"; effect: "read" };
   "app.open_web_page": { input: OpenWebPage; result: Done; scope: "local"; effect: "change" };
   "app.pick_folder": { input: Done; result: AppPickFolderResult; scope: "local"; effect: "read" };
@@ -1168,7 +1172,9 @@ export const IPC_NAMES: Record<keyof Commands, string> = {
   "app.create_ssh_key": "app_create_ssh_key",
   "app.decline_memory_models": "app_decline_memory_models",
   "app.download_memory_models": "app_download_memory_models",
+  "app.install_place": "app_install_place",
   "app.memory_models": "app_memory_models",
+  "app.move_to_applications": "app_move_to_applications",
   "app.open_slack_link": "app_open_slack_link",
   "app.open_web_page": "app_open_web_page",
   "app.pick_folder": "app_pick_folder",

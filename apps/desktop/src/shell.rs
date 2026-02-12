@@ -29,6 +29,9 @@ pub enum QuitTrigger {
     /// `setup.choose_harness` changed the harness to use (DSK-CHO-2 step 3). First start is still
     /// drawn, so no session runs and nothing is asked.
     HarnessChosen,
+    /// `app.move_to_applications` made the copy (DSK-MOVE-2). First start is still drawn, so no
+    /// session runs and nothing is asked.
+    MovedToApplications,
 }
 
 /// The window shell's part of the commands and of the quit flow.
@@ -98,6 +101,8 @@ impl QuitControl {
             QuitTrigger::OperatingSystemEnding => QuitReason::OperatingSystemEnding,
             // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
             QuitTrigger::HarnessChosen => QuitReason::HarnessChosen,
+            // spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-2
+            QuitTrigger::MovedToApplications => QuitReason::MovedToApplications,
             QuitTrigger::Update => {
                 state.update_requested = true;
                 if running_sessions > 0 {

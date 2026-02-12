@@ -5,7 +5,7 @@
 use super::RegistryEntry;
 
 #[rustfmt::skip]
-pub(super) static REGISTRY: [RegistryEntry; 2153] = [
+pub(super) static REGISTRY: [RegistryEntry; 2156] = [
     RegistryEntry { code: "ADRAFT_BRANCH_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-branch-invalid" },
     RegistryEntry { code: "ADRAFT_LIST_TOO_LONG", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-list-too-long" },
     RegistryEntry { code: "ADRAFT_NAME_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-name-invalid" },
@@ -575,6 +575,9 @@ pub(super) static REGISTRY: [RegistryEntry; 2153] = [
     RegistryEntry { code: "DSK_MODELS_NOT_IN_BUILD", owner_crate: "ordin-desktop", http_status: Some(200), retryable: false, sentence_id: "dsk-models-not-in-build" },
     RegistryEntry { code: "DSK_MODELS_OFFLINE", owner_crate: "ordin-desktop", http_status: Some(200), retryable: true, sentence_id: "dsk-models-offline" },
     RegistryEntry { code: "DSK_MODELS_WRITE_FAILED", owner_crate: "ordin-desktop", http_status: Some(200), retryable: true, sentence_id: "dsk-models-write-failed" },
+    RegistryEntry { code: "DSK_MOVE_COPY_FAILED", owner_crate: "ordin-desktop", http_status: Some(200), retryable: true, sentence_id: "dsk-move-copy-failed" },
+    RegistryEntry { code: "DSK_MOVE_NOT_NEEDED", owner_crate: "ordin-desktop", http_status: Some(200), retryable: false, sentence_id: "dsk-move-not-needed" },
+    RegistryEntry { code: "DSK_MOVE_START_FAILED", owner_crate: "ordin-desktop", http_status: Some(200), retryable: false, sentence_id: "dsk-move-start-failed" },
     RegistryEntry { code: "DSK_NOTIFY_FAILED", owner_crate: "ordin-desktop", http_status: None, retryable: false, sentence_id: "dsk-notify-failed" },
     RegistryEntry { code: "DSK_PICKER_UNAVAILABLE", owner_crate: "ordin-desktop", http_status: Some(200), retryable: true, sentence_id: "dsk-picker-unavailable" },
     RegistryEntry { code: "DSK_PREFERENCES_UNREADABLE", owner_crate: "ordin-desktop", http_status: None, retryable: false, sentence_id: "dsk-preferences-unreadable" },

@@ -146,6 +146,7 @@ const FIXED = new Set<string>([
   'servers.list',
   'app.memory_models',
   'setup.status',
+  'app.install_place',
 ]);
 
 /** A `FakeTransport` whose every other command answers with a sample result. */

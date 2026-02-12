@@ -24,6 +24,8 @@ service_catalogue! {
     app create_ssh_key app_create_ssh_key => ::ordin_service_api::Done => ::ordin_service_api::commands::SshKeysView, Local, Change, Interactive;
     app choose_ssh_key app_choose_ssh_key => ::ordin_service_api::commands::ChooseSshKey => ::ordin_service_api::commands::SshKeysView, Local, Change, Interactive;
     app check_ssh_key app_check_ssh_key => ::ordin_service_api::Done => ::ordin_service_api::commands::SshKeyCheck, Local, Read, Interactive;
+    app install_place app_install_place => ::ordin_service_api::Done => ::ordin_service_api::commands::InstallPlace, Local, Read, Interactive;
+    app move_to_applications app_move_to_applications => ::ordin_service_api::Done => ::ordin_service_api::commands::MovedToApplications, Local, Change, Interactive;
     app memory_models app_memory_models => ::ordin_service_api::Done => ::ordin_service_api::commands::MemoryModelsView, Local, Read, Interactive;
     app download_memory_models app_download_memory_models => ::ordin_service_api::Done => ::ordin_service_api::commands::MemoryModelsView, Local, Change, Interactive;
     app stop_memory_models_download app_stop_memory_models_download => ::ordin_service_api::Done => ::ordin_service_api::commands::MemoryModelsView, Local, Change, Interactive;

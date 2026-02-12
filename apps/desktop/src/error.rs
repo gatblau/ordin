@@ -41,6 +41,9 @@ pub const ALL_CODES: &[&str] = &[
     SSH_KEY_NOT_MADE,
     SSH_KEY_UNKNOWN,
     SSH_NO_KEY,
+    MOVE_COPY_FAILED,
+    MOVE_NOT_NEEDED,
+    MOVE_START_FAILED,
 ];
 
 pub const DATA_ROOT_UNWRITABLE: &str = "DSK_DATA_ROOT_UNWRITABLE";
@@ -76,6 +79,16 @@ pub const SSH_KEY_UNKNOWN: &str = "DSK_SSH_KEY_UNKNOWN";
 /// `app.check_ssh_key` with no key chosen.
 // spec: ordin-desktop/components/OrdinDesktop#DSK-SSH-3
 pub const SSH_NO_KEY: &str = "DSK_SSH_NO_KEY";
+// ordin moves itself to the person's Applications folder (OrdinDesktop.md DSK-MOVE-1 to DSK-MOVE-3).
+/// The folder, the older copy or the copy failed.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-3
+pub const MOVE_COPY_FAILED: &str = "DSK_MOVE_COPY_FAILED";
+/// ordin already runs from an Applications folder.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-2
+pub const MOVE_NOT_NEEDED: &str = "DSK_MOVE_NOT_NEEDED";
+/// The copy is made, but it could not be set to start.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-3
+pub const MOVE_START_FAILED: &str = "DSK_MOVE_START_FAILED";
 pub const PICKER_UNAVAILABLE: &str = "DSK_PICKER_UNAVAILABLE";
 pub const NOTIFY_FAILED: &str = "DSK_NOTIFY_FAILED";
 pub const LINK_REGISTER_FAILED: &str = "DSK_LINK_REGISTER_FAILED";

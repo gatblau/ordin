@@ -5,6 +5,11 @@
 
 # ---- Getting ready ----------------------------------------------------------------------------------
 setup-getting-ready = Getting you ready…
+setup-move-title = Move ordin to your Applications folder?
+setup-move-line = It goes in the Applications folder in your home folder. No administrator is needed.
+setup-move-do = Move ordin
+setup-move-later = Not now
+setup-move-moving = Moving ordin…
 setup-progress-count = { $done } of { $total } done
 setup-sends-to = To do the work, Ordin sends what it reads to { $harness }. Your documents stay where they live.
 

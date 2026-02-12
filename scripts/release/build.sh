@@ -140,7 +140,11 @@ else
   make -C "$ROOT" desktop-build-inputs 2>&1 | tee -a "$LOG"
   # CI=true makes Tauri's DMG step skip the Finder icon layout, which fails intermittently
   # (AppleScript error -1728) and is unavailable on headless machines.
-  (cd "$ROOT/apps/desktop" && CI=true cargo tauri build --config "$CONFIG") 2>&1 | tee -a "$LOG"
+  # PB-REL-37: on macOS Tauri builds the app (and its update archive) only; the disk image is made after it.
+  ONLY_APP=()
+  if [ "$IS_MAC" = 1 ]; then ONLY_APP=(--bundles app); fi
+  (cd "$ROOT/apps/desktop" && CI=true cargo tauri build --config "$CONFIG" ${ONLY_APP[@]+"${ONLY_APP[@]}"}) 2>&1 | tee -a "$LOG"
+  if [ "$IS_MAC" = 1 ]; then make_dmg "$BUNDLE" "$VERSION" 2>&1 | tee -a "$LOG"; fi
 fi
 
 # The Windows programs need no Visual C++ runtime the PC may lack (PB-REL-24), checked before the

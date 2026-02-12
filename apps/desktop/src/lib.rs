@@ -25,6 +25,7 @@ pub mod install_kind;
 pub mod log_files;
 pub mod memory_models;
 pub mod migrations;
+pub mod move_app;
 pub mod notifier;
 pub mod paths;
 pub mod plan;

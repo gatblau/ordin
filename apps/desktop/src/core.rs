@@ -33,6 +33,9 @@ pub enum QuitReason {
     Update,
     // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
     HarnessChosen,
+    /// DSK-MOVE-2: ordin copied itself to `~/Applications`; it exits and the copy starts.
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-2
+    MovedToApplications,
 }
 
 impl QuitReason {
@@ -43,6 +46,7 @@ impl QuitReason {
             QuitReason::OperatingSystemEnding => "operating_system_ending",
             QuitReason::Update => "update",
             QuitReason::HarnessChosen => "harness_chosen",
+            QuitReason::MovedToApplications => "moved_to_applications",
         }
     }
 }
@@ -420,6 +424,9 @@ impl Core {
             // chosen harness.
             // spec: ordin-desktop/components/OrdinDesktop#DSK-CHO-2
             QuitReason::HarnessChosen => AfterQuit::Restart,
+            // DSK-MOVE-2: the copy starts once this process has ended, so this one exits.
+            // spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-2
+            QuitReason::MovedToApplications => AfterQuit::Exit,
         };
         tracing::info!(
             component = "desktop",

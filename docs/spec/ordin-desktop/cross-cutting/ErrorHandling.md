@@ -941,6 +941,9 @@ Each prefix with the component specs that raise codes under it and the number of
 | `DSK_MODELS_NOT_IN_BUILD` | Ordin Desktop | Service API | 200 (`kind: error`) | no | `app.download_memory_models` in a build with no models input (DSK-MD-2) | ET |
 | `DSK_MODELS_OFFLINE` | Ordin Desktop | Service API | 200 (`kind: error`) | yes | No connection to the models' host after 6 attempts, and no byte received; arrives in `MemoryModelsView.failure` (DSK-MD-7) | ET |
 | `DSK_MODELS_WRITE_FAILED` | Ordin Desktop | Service API | 200 (`kind: error`) | yes | Writing, unpacking or renaming the models fails for a reason other than a full disk; arrives in `MemoryModelsView.failure` (DSK-MD-8 to DSK-MD-10) | ET |
+| `DSK_MOVE_COPY_FAILED` | Ordin Desktop | Service API | 200 (`kind: error`) | yes | `app.move_to_applications`: the folder, the older copy or the copy failed (DSK-MOVE-3; amended February 2026) | ET |
+| `DSK_MOVE_NOT_NEEDED` | Ordin Desktop | Service API | 200 (`kind: error`) | no | `app.move_to_applications` while ordin already runs from an Applications folder (DSK-MOVE-2; amended February 2026) | ET |
+| `DSK_MOVE_START_FAILED` | Ordin Desktop | Service API | 200 (`kind: error`) | no | `app.move_to_applications`: the copy is made but could not be set to start (DSK-MOVE-3; amended February 2026) | ET |
 | `DSK_NOTIFY_FAILED` | Ordin Desktop | internal | — | no | The operating system refuses a notification (permission off) | ET |
 | `DSK_PICKER_UNAVAILABLE` | Ordin Desktop | Service API | 200 (`kind: error`) | yes | The operating system's folder picker fails to open | ET |
 | `DSK_PREFERENCES_UNREADABLE` | Ordin Desktop | internal | — | no | `preferences.json` unreadable at `settings.get` | ET |

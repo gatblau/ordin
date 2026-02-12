@@ -13,7 +13,7 @@ use support::*;
 
 /// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
 /// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 472 } else { 452 };
+const ROWS: usize = if cfg!(feature = "minutes") { 474 } else { 454 };
 
 const WS: &str = "0192a0f1-1111-7222-8333-444455556666";
 const OTHER: &str = "0192a0f1-2222-7333-8444-555566667777";

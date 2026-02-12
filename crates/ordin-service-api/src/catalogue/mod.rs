@@ -244,6 +244,7 @@ pub const PERSON_ONLY_COMMANDS: &[&str] = &[
     // spec: ordin-desktop/components/ServiceApi#SVC-SSH-1
     "app.create_ssh_key",
     "app.choose_ssh_key",
+    "app.move_to_applications",
     // spec: ordin-desktop/components/ServiceApi#SVC-CONF-TOKEN-1
     "confluence.connect_token",
     "confluence.connect_with_jira",

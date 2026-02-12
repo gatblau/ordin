@@ -523,6 +523,8 @@ mod dashboards;
 #[path = "service_api/knowledge_export.rs"]
 mod knowledge_export;
 
+#[path = "service_api/move_app.rs"]
+mod move_app;
 #[path = "service_api/ssh_keys.rs"]
 mod ssh_keys;
 
@@ -937,6 +939,16 @@ macro_rules! answer {
     ($api:expr, $ctx:expr, $input:expr, app_check_ssh_key) => {{
         let _ = ($ctx, $input);
         $api.app_check_ssh_key().await
+    }};
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-1
+    ($api:expr, $ctx:expr, $input:expr, app_install_place) => {{
+        let _ = ($ctx, $input);
+        $api.app_install_place()
+    }};
+    // spec: ordin-desktop/components/OrdinDesktop#DSK-MOVE-2
+    ($api:expr, $ctx:expr, $input:expr, app_move_to_applications) => {{
+        let _ = ($ctx, $input);
+        $api.app_move_to_applications().await
     }};
     ($api:expr, $ctx:expr, $input:expr, app_open_slack_link) => {{
         let _ = $ctx;

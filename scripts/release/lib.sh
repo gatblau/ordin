@@ -43,6 +43,27 @@ microsoft_app_env() {
   fi
 }
 
+# PB-REL-37: the macOS disk image, made here rather than by Tauri, so it holds the app only and no link to
+# /Applications (ordin offers to move itself to the person's own Applications folder, DSK-MOVE-1). Any image
+# Tauri left in <bundle dir>/dmg is replaced; the image is <bundle dir>/dmg/<app>_<version>_<arch>.dmg.
+# spec: ordin-desktop/phase-5-playbook#PB-REL-37
+make_dmg() { # make_dmg <bundle dir> <version>
+  local bundle="$1" version="$2" app arch stage out
+  app="$(find "$bundle/macos" -maxdepth 1 -type d -name '*.app' 2>/dev/null | head -1)"
+  [ -n "$app" ] || die "the build produced no .app in $bundle/macos, so there is no disk image to make"
+  case "$(uname -m)" in arm64|aarch64) arch=aarch64 ;; *) arch=x64 ;; esac
+  stage="$(mktemp -d)"
+  cp -R "$app" "$stage/"
+  rm -rf "$bundle/dmg" && mkdir -p "$bundle/dmg"
+  out="$bundle/dmg/$(basename "$app" .app)_${version}_${arch}.dmg"
+  if ! hdiutil create -volname "Open ordin" -srcfolder "$stage" -format UDZO -ov "$out" >/dev/null; then
+    rm -rf "$stage" "$bundle/dmg"
+    die "hdiutil could not make the disk image; nothing was kept"
+  fi
+  rm -rf "$stage"
+  note "disk image: $out (the app only, no Applications link)"
+}
+
 # PB-REL-1: KEY=value lines; a value already in the environment wins.
 load_conf() {
   local conf="${RELEASE_CONF:-$ROOT/release/release.conf}" line key value
