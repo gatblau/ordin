@@ -6,7 +6,7 @@ use ordin_journal::NewJournalEntry;
 use ordin_service_api::blocks::{Block, ResultBlock, ResultOffer};
 use ordin_service_api::commands::ordin::{
     BlockAnswer, ConversationBlock, ConversationEnd, ConversationMessage, ConversationState,
-    ConversationSummary, MessageAuthor, MessageKind, OrdinSendMessageResult,
+    ConversationSummary, MenuAction, MessageAuthor, MessageKind, OrdinSendMessageResult,
 };
 use ordin_service_api::commands::voice::VoiceUpdateInput;
 use ordin_types::common::SetBy;
@@ -22,6 +22,7 @@ use crate::host::{
     MESSAGE_MAX_CHARS,
 };
 use crate::ids::{ConversationId, OrdinConversationId};
+use crate::menu::MenuCheck;
 use crate::ports::LocMessage;
 use crate::store::{self, BlockRow};
 
@@ -93,12 +94,24 @@ const DISMISSED_TITLE_MAX_CHARS: usize = 200;
 const SKIPPED_ANSWER: &str = "The person skipped this question. Carry on without the answer.";
 
 impl OrdinHost {
-    /// `ordin.send_message` (step 4).
+    /// `ordin.send_message` (step 4) for a message the person typed.
     pub async fn send_message(
         &self,
         workspace_id: WorkspaceId,
         text: String,
         attachments: Vec<ContentRef>,
+    ) -> Result<OrdinSendMessageResult, OhError> {
+        self.send_message_from(workspace_id, text, attachments, None)
+            .await
+    }
+
+    /// `ordin.send_message` (step 4), with the menu item that sent it (OH-MENU-1).
+    pub async fn send_message_from(
+        &self,
+        workspace_id: WorkspaceId,
+        text: String,
+        attachments: Vec<ContentRef>,
+        from_menu: Option<MenuAction>,
     ) -> Result<OrdinSendMessageResult, OhError> {
         self.ports
             .workspaces
@@ -160,7 +173,9 @@ impl OrdinHost {
                 } else {
                     host.wait_for_break(workspace_id).await;
                 }
-                let delivered = host.deliver_message(workspace_id, text, attachments).await;
+                let delivered = host
+                    .deliver_message(workspace_id, text, attachments, from_menu)
+                    .await;
                 if after_break {
                     if let Some(conv) = lock(&host.state).convs.get_mut(&workspace_id) {
                         conv.breaking = false;
@@ -179,7 +194,8 @@ impl OrdinHost {
                 position_in_queue: 0,
             });
         }
-        self.deliver_message(workspace_id, text, attachments).await
+        self.deliver_message(workspace_id, text, attachments, from_menu)
+            .await
     }
 
     /// OH-BRK-1: waits, at most a minute, until the summary after a break has delivered its message.
@@ -202,47 +218,30 @@ impl OrdinHost {
         workspace_id: WorkspaceId,
         text: String,
         attachments: Vec<ContentRef>,
+        from_menu: Option<MenuAction>,
     ) -> Result<OrdinSendMessageResult, OhError> {
         self.ensure_conversation(workspace_id).await?;
-        let now = Timestamp::now();
         // OH-MSG-1: the person's message is shown in the conversation as their own message block, stored
         // with it (author `person`) and announced as `block_shown` with that author.
         // spec: ordin-desktop/components/OrdinHost#OH-MSG-1
-        self.show_block(
-            workspace_id,
-            MessageAuthor::Person,
-            Block::Message(ordin_service_api::blocks::MessageBlock {
-                text: text.clone(),
-                attachments: vec![],
-                memory_used: vec![],
-            }),
-            false,
-        )
-        .await?;
-        if let Some(conv) = lock(&self.state).convs.get_mut(&workspace_id) {
-            conv.last_message_at = now;
-            // OH-TF-5, OH-ACC-2: what the person's latest message said and which folders its files
-            // are in; the folders asked about for the message before are forgotten.
-            // spec: ordin-desktop/components/OrdinHost#OH-TF-5
-            // spec: ordin-desktop/components/OrdinHost#OH-ACC-2
-            conv.persons_text = text.clone();
-            conv.attached_places = Vec::new();
-            conv.attached_files = Vec::new();
-            for a in &attachments {
-                if let ContentRef::PlaceFile {
-                    place_id,
-                    relative_path,
-                } = a
-                {
-                    if !conv.attached_places.contains(place_id) {
-                        conv.attached_places.push(*place_id);
-                    }
-                    // spec: ordin-desktop/components/OrdinHost#OH-ATT-2
-                    conv.attached_files.push((*place_id, relative_path.clone()));
-                }
-            }
-            conv.folder_asked.clear();
+        let shown = self
+            .show_block(
+                workspace_id,
+                MessageAuthor::Person,
+                Block::Message(ordin_service_api::blocks::MessageBlock {
+                    text: text.clone(),
+                    attachments: vec![],
+                    memory_used: vec![],
+                }),
+                false,
+            )
+            .await?;
+        // spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+        if let Some(menu) = from_menu {
+            let mut c = self.pool.acquire().await?;
+            store::set_message_from_menu(&mut c, shown, menu.word()).await?;
         }
+        self.note_persons_message(workspace_id, &text, &attachments);
         // Answered without the model: a single waiting question whose choice the text names.
         if self.ports.usage.answer_without_model() {
             let waiting = {
@@ -282,7 +281,108 @@ impl OrdinHost {
                 }
             }
         }
-        let mut turn_text = text;
+        // OH-MENU-3: Add to memory on one document is checked against its last menu read.
+        // spec: ordin-desktop/components/OrdinHost#OH-MENU-3
+        let mut prefix = None;
+        if from_menu == Some(MenuAction::AddToMemory) {
+            let files: Vec<(ordin_types::PlaceId, &str)> = attachments
+                .iter()
+                .filter_map(|a| match a {
+                    ContentRef::PlaceFile {
+                        place_id,
+                        relative_path,
+                    } => Some((*place_id, relative_path.as_str())),
+                    _ => None,
+                })
+                .collect();
+            if let [(place_id, path)] = files.as_slice() {
+                match self.menu_check(workspace_id, *place_id, path).await {
+                    MenuCheck::Unchanged(row, read) => {
+                        let question = crate::menu::already_question(
+                            crate::menu::file_name(path),
+                            &row.read_at,
+                        );
+                        self.ask(
+                            workspace_id,
+                            &question,
+                            vec![
+                                crate::menu::READ_AGAIN.into(),
+                                crate::menu::THATS_FINE.into(),
+                            ],
+                            Some(Kept::MenuRepeat {
+                                text,
+                                attachments,
+                                read,
+                            }),
+                        )
+                        .await?;
+                        return Ok(OrdinSendMessageResult {
+                            accepted: true,
+                            position_in_queue: 0,
+                        });
+                    }
+                    MenuCheck::Changed(row, read) => {
+                        prefix = Some(crate::menu::changed_line(&row.read_at));
+                        self.hold_menu_read(workspace_id, Some(read));
+                    }
+                    MenuCheck::New(read) => self.hold_menu_read(workspace_id, Some(read)),
+                    MenuCheck::Unknown => {}
+                }
+            }
+        }
+        self.person_turn(workspace_id, text, &attachments, prefix)
+            .await
+    }
+
+    /// Step 4: what the person's latest message said and which files it attached (OH-TF-5,
+    /// OH-ACC-2, OH-ATT-2); a menu read held for the message before is dropped (OH-MENU-2).
+    fn note_persons_message(
+        &self,
+        workspace_id: WorkspaceId,
+        text: &str,
+        attachments: &[ContentRef],
+    ) {
+        let now = Timestamp::now();
+        if let Some(conv) = lock(&self.state).convs.get_mut(&workspace_id) {
+            conv.pending_menu_read = None;
+            conv.last_message_at = now;
+            // OH-TF-5, OH-ACC-2: what the person's latest message said and which folders its files
+            // are in; the folders asked about for the message before are forgotten.
+            // spec: ordin-desktop/components/OrdinHost#OH-TF-5
+            // spec: ordin-desktop/components/OrdinHost#OH-ACC-2
+            conv.persons_text = text.to_owned();
+            conv.attached_places = Vec::new();
+            conv.attached_files = Vec::new();
+            for a in attachments {
+                if let ContentRef::PlaceFile {
+                    place_id,
+                    relative_path,
+                } = a
+                {
+                    if !conv.attached_places.contains(place_id) {
+                        conv.attached_places.push(*place_id);
+                    }
+                    // spec: ordin-desktop/components/OrdinHost#OH-ATT-2
+                    conv.attached_files.push((*place_id, relative_path.clone()));
+                }
+            }
+            conv.folder_asked.clear();
+        }
+    }
+
+    /// Step 4: the person's message as Ordin's next turn, each attachment as an `Attached:` line;
+    /// `prefix` goes first (OH-MENU-3).
+    async fn person_turn(
+        &self,
+        workspace_id: WorkspaceId,
+        text: String,
+        attachments: &[ContentRef],
+        prefix: Option<String>,
+    ) -> Result<OrdinSendMessageResult, OhError> {
+        let mut turn_text = match prefix {
+            Some(line) => format!("{line}\n{text}"),
+            None => text,
+        };
         // OH-ATT-1: a file in a linked folder says which folder and where in it, so Ordin can name
         // that exact document in a brief. The folders are read once, only when a file is attached.
         // spec: ordin-desktop/components/OrdinHost#OH-ATT-1
@@ -309,7 +409,7 @@ impl OrdinHost {
         } else {
             Vec::new()
         };
-        for a in &attachments {
+        for a in attachments {
             let line = match a {
                 ContentRef::Artefact { artefact_id } => crate::host::cut_chars(
                     &artefact_id.to_string(),
@@ -530,6 +630,20 @@ impl OrdinHost {
                         .await
                         .map(|_| ()),
                 }
+            }
+            // spec: ordin-desktop/components/OrdinHost#OH-MENU-4
+            Some(Kept::MenuRepeat {
+                text: message,
+                attachments,
+                read,
+            }) => {
+                if text == crate::menu::READ_AGAIN {
+                    self.note_persons_message(workspace_id, &message, &attachments);
+                    self.hold_menu_read(workspace_id, Some(read));
+                    self.person_turn(workspace_id, message, &attachments, None)
+                        .await?;
+                }
+                Ok(())
             }
             Some(Kept::SendBack {
                 pending_push_id,
@@ -1031,6 +1145,7 @@ impl OrdinHost {
         for head in heads {
             let mut count = 0;
             let mut first: Option<String> = None;
+            let mut from_menu = false;
             let mut next = Some(head.id);
             let mut hops = 0;
             while let Some(id) = next {
@@ -1044,6 +1159,8 @@ impl OrdinHost {
                         .into_iter()
                         .find(|m| m.author == MessageAuthor::Person)
                         .map(|m| first_request(&m.text));
+                    // spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+                    from_menu = store::first_person_from_menu(&mut c, row.id).await?;
                 }
                 next = row.continues_id;
                 hops += 1;
@@ -1061,6 +1178,7 @@ impl OrdinHost {
                 message_count: count,
                 continues: head.continues_id.map(|c| c.wire()).transpose()?,
                 first_request: first,
+                started_from_menu: from_menu,
             });
         }
         page(out, cursor.as_ref())

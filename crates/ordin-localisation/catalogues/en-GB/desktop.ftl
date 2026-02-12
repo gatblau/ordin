@@ -13,3 +13,5 @@ notification-crew-done-title = Crew finished
 notification-done-body = Done
 notification-question-title = { $coordinator } has a question
 notification-on-server = { $text } · On { $server }
+# OrdinDesktop.md DSK-REC-51: under a conversation found by search.
+goto-conversation-detail = Started { $date } · { $count } messages

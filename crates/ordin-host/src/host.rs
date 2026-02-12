@@ -138,6 +138,8 @@ pub(crate) struct Conv {
     pub attached_places: Vec<ordin_types::PlaceId>,
     /// OH-ATT-2: the files the person's latest message attached from linked folders, in order.
     pub attached_files: Vec<(ordin_types::PlaceId, String)>,
+    /// OH-MENU-2: a menu **Add to memory** the next task started takes, until the next message.
+    pub pending_menu_read: Option<crate::menu::MenuRead>,
     /// OH-ACC-2: the agents and folders already asked about since the person's latest message.
     pub folder_asked:
         std::collections::HashSet<(ordin_types::AgentInstanceId, ordin_types::PlaceId)>,
@@ -174,6 +176,12 @@ pub(crate) enum Kept {
     /// continue (OH-WR-1).
     KeyPoints {
         continues: Option<crate::ids::OrdinConversationId>,
+    },
+    /// OH-MENU-3: a menu **Add to memory** on an unchanged document; **Read it again** sends it.
+    MenuRepeat {
+        text: String,
+        attachments: Vec<ordin_types::wire::ContentRef>,
+        read: crate::menu::MenuRead,
     },
     /// OH-PF-1: the failed items of an approved send-back that **Try again** sends again.
     SendBack {
@@ -280,7 +288,8 @@ pub(crate) fn cut_sentence(text: &str, max: usize) -> String {
 impl OrdinHost {
     pub const MODULE: &'static str = "ordin_host";
 
-    /// `ModuleMigrations { module: "ordin_host", sqlite: [(1, "ordin_host_init", …), (2, "ordin_host_continue", …)],
+    /// `ModuleMigrations { module: "ordin_host", sqlite: [(1, "ordin_host_init", …), (2, "ordin_host_continue", …),
+    /// (3, "ordin_host_menu_reads", …) (OH-MENU-1, OH-MENU-2)],
     /// postgres: [] }`, registered by the program with the Journal's `MigrationRegistry` (X-14).
     // spec: ordin-desktop/components/OrdinHost#SA-RECON-07
     pub fn migrations() -> ordin_journal::ModuleMigrations {
@@ -289,6 +298,11 @@ impl OrdinHost {
             sqlite: &[
                 (1, "ordin_host_init", include_str!("sql/sqlite_v1.sql")),
                 (2, "ordin_host_continue", include_str!("sql/sqlite_v2.sql")),
+                (
+                    3,
+                    "ordin_host_menu_reads",
+                    include_str!("sql/sqlite_v3.sql"),
+                ),
             ],
             postgres: &[],
         }
@@ -923,6 +937,7 @@ impl OrdinHost {
             persons_text: String::new(),
             attached_places: Vec::new(),
             attached_files: Vec::new(),
+            pending_menu_read: None,
             folder_asked: std::collections::HashSet::new(),
             breaking: false,
             directory_changed: false,

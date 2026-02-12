@@ -23,6 +23,7 @@ mod host;
 mod ids;
 mod language;
 mod memory;
+mod menu;
 #[cfg(feature = "minutes")]
 mod minutes;
 #[cfg(feature = "minutes")]

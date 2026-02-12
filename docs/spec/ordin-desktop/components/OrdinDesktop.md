@@ -3612,3 +3612,31 @@ Feature: ordin moves itself to the person's Applications folder (DSK-MOVE-1 to D
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Search lists only conversations the person started, with their date (DSK-REC-51) (plan 10 Phase 7; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 7 as written, build it"). Source: the user's decision of 2026-02-11 that search should not list menu actions. Evidence read: `apps/desktop/src/hosts_home.rs:617-666` (`ConversationSearch`, `detail: None`), `crates/ordin-service-api/src/commands/ordin.rs:95-109` (`ConversationSummary` holds `started_at` and `message_count`). Amends DSK-REC-20's `conversation` search source; its `opens` target is unchanged.
+
+- **DSK-REC-51 The conversation search source.** `ConversationSearch` skips a `ConversationSummary` whose `started_from_menu` is true (ServiceApi.md SVC-MENU-1), before matching its text. A conversation it lists gets `detail` = the message `goto-conversation-detail` (`crates/ordin-localisation/catalogues/en-GB/desktop.ftl`, en-GB "Started { $date } · { $count } messages") with `$date` the summary's `started_at` as a local date in the form `YYYY-MM-DD` and `$count` its `message_count`; when the program holds no `Localisation`, `detail` stays `None`. The result limit counts listed conversations only.
+
+| String id | en-GB |
+|---|---|
+| `goto-conversation-detail` | Started { $date } · { $count } messages |
+
+```gherkin
+Feature: Search lists only conversations the person started (DSK-REC-51)
+
+  Scenario: Happy path — a typed conversation is found with its date
+    Given a conversation started on 2026-02-11 by "what is the budget in this pdf?" with 4 messages
+    When the person searches "budget"
+    Then one conversation result is listed with detail "Started 2026-02-11 · 4 messages"
+
+  Scenario: Edge case — a menu-started conversation is not found
+    Given a conversation started from the menu with "Add the facts in “budget.pdf” to memory."
+    When the person searches "budget"
+    Then no conversation result is listed
+```
+
+### Gaps
+
+None.

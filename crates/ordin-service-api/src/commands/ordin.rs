@@ -110,6 +110,11 @@ pub struct ConversationSummary {
     /// end; `None` before it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_request: Option<String>,
+    /// SVC-MENU-1: the message `first_request` is taken from was sent from a menu; serialised only
+    /// when true, so an older reader takes it as false.
+    // spec: ordin-desktop/components/ServiceApi#SVC-MENU-1
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub started_from_menu: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -171,6 +176,30 @@ pub struct OrdinSendMessageInput {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachments: Option<Vec<ContentRef>>,
+    /// SVC-MENU-1: the menu item that sent this message; absent for a message the person typed.
+    // spec: ordin-desktop/components/ServiceApi#SVC-MENU-1
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_menu: Option<MenuAction>,
+}
+
+/// SVC-MENU-1: the menu item a message came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MenuAction {
+    AskAbout,
+    AddToMemory,
+    AddToKnowledge,
+}
+
+impl MenuAction {
+    /// The word stored and sent on the wire.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::AskAbout => "ask_about",
+            Self::AddToMemory => "add_to_memory",
+            Self::AddToKnowledge => "add_to_knowledge",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -498,6 +527,7 @@ mod tests {
                 workspace_id: ws,
                 text: text.into(),
                 attachments,
+                from_menu: None,
             }
             .check()
         };
@@ -678,5 +708,41 @@ mod tests {
             answer,
         };
         assert!(input.check().is_ok());
+    }
+
+    // spec: ordin-desktop/components/ServiceApi#SVC-MENU-1
+    #[test]
+    fn from_menu_is_one_of_three_words() {
+        let ws = WorkspaceId::new();
+        let input = |menu: serde_json::Value| {
+            serde_json::from_value::<OrdinSendMessageInput>(serde_json::json!({
+                "workspace_id": ws, "text": "Add the facts", "from_menu": menu
+            }))
+        };
+        assert_eq!(
+            input(serde_json::json!("add_to_memory")).unwrap().from_menu,
+            Some(MenuAction::AddToMemory)
+        );
+        assert!(input(serde_json::json!("whatever")).is_err());
+        let typed: OrdinSendMessageInput =
+            serde_json::from_value(serde_json::json!({ "workspace_id": ws, "text": "hi" }))
+                .unwrap();
+        assert_eq!(typed.from_menu, None);
+        let summary = |from_menu: bool| {
+            serde_json::to_value(ConversationSummary {
+                conversation_id: conversation(),
+                state: ConversationState::Earlier,
+                started_at: Timestamp::now(),
+                ended_at: None,
+                ended_by: None,
+                message_count: 1,
+                continues: None,
+                first_request: Some("hi".into()),
+                started_from_menu: from_menu,
+            })
+            .unwrap()
+        };
+        assert!(summary(false).get("started_from_menu").is_none());
+        assert_eq!(summary(true)["started_from_menu"], serde_json::json!(true));
     }
 }

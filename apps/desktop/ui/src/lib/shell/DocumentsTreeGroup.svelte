@@ -8,7 +8,7 @@
   // spec: ordin-desktop/components/ScreensModule#SM-RL-1
   // spec: ordin-desktop/components/ScreensModule#SM-RL-2
   // spec: ordin-desktop/components/ScreensModule#SM-RL-3
-  import { askOrdin, isWaitingForServer } from '../blocks/ask';
+  import { askOrdin, isWaitingForServer, menuOf, type MenuText } from '../blocks/ask';
   import { answers } from '../backend/groups';
   import { t } from '../i18n/fluent';
   import Icon from '../icons/Icon.svelte';
@@ -100,7 +100,7 @@
     }
   });
 
-  type AskText = 'block-ask-text-this' | 'tree-ask-text-knowledge' | 'tree-ask-text-memory';
+  type AskText = MenuText;
   async function askAboutPage(link: SourceLink, text: AskText): Promise<void> {
     menuFor = null;
     const path = await pageFile(link);
@@ -112,7 +112,7 @@
       app.shell.openWorkspaceTab(backend.id, workspaceId);
       if (app.shell.narrow) app.shell.conversationOverlayOpen = true;
     }
-    const out = await askOrdin(backend, workspaceId, t(text, { title: link.display_name }), [{ kind: 'place_file', place_id: link.place_id ?? '', relative_path: path }]);
+    const out = await askOrdin(backend, workspaceId, t(text, { title: link.display_name }), [{ kind: 'place_file', place_id: link.place_id ?? '', relative_path: path }], menuOf(text));
     actionError = out.kind === 'error' ? out.error : null;
   }
 

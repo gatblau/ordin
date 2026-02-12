@@ -21,7 +21,7 @@
   // spec: ordin-desktop/components/ScreensModule#SM-PUB-1
   // spec: ordin-desktop/components/ScreensModule#SM-FP-1
   import { answers, answersAll } from '../backend/groups';
-  import { askOrdin, isWaitingForServer } from '../blocks/ask';
+  import { askOrdin, isWaitingForServer, menuOf, type MenuText } from '../blocks/ask';
   import { t } from '../i18n/fluent';
   import Icon from '../icons/Icon.svelte';
   import { fileKindIcon, fileKindTint } from '../icons/kinds';
@@ -121,14 +121,14 @@
   // 2026): no command makes a knowledge page or memory from a document (`knowledge.write` takes a finished
   // body, `memory.*` keeps what is already remembered), so each asks Ordin in the workspace's conversation
   // with the entry attached, the same path as Ask Ordin about this; the conversation is brought into view.
-  type AskText = 'block-ask-text-this' | 'tree-ask-text-knowledge' | 'tree-ask-text-memory';
+  type AskText = MenuText;
   async function ask(entry: FileEntry, text: AskText = 'block-ask-text-this'): Promise<void> {
     menuFor = null;
     if (text !== 'block-ask-text-this' && app !== null) {
       app.shell.openWorkspaceTab(backend.id, workspaceId);
       if (app.shell.narrow) app.shell.conversationOverlayOpen = true;
     }
-    const out = await askOrdin(backend, workspaceId, t(text, { title: entry.name }), [{ kind: 'place_file', place_id: placeId, relative_path: entry.path }]);
+    const out = await askOrdin(backend, workspaceId, t(text, { title: entry.name }), [{ kind: 'place_file', place_id: placeId, relative_path: entry.path }], menuOf(text));
     actionError = out.kind === 'error' ? out.error : null;
   }
 

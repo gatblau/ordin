@@ -100,6 +100,7 @@ ordin-telegram-adapter = { workspace = true, optional = true }
 ordin-telegram-service = { workspace = true, optional = true }
 ordin-hosted-agent-adapter = { workspace = true, optional = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }
 http = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

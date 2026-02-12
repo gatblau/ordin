@@ -7258,3 +7258,25 @@ Feature: The question to move ordin (SM-FS-14)
     Given app.move_to_applications answers DSK_MOVE_COPY_FAILED
     Then its sentence is drawn with Try again, and Not now stays
 ```
+
+## Amendment 2026-02-12 — Menu items say they came from a menu (SM-RL-7) (plan 10 Phase 7; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 7 as written, build it"). Source: the user's decisions of 2026-02-11 (a repeated **Add to memory** gives the same answer; search does not list menu actions). Amends SM-RL-4, SM-RL-5, SM-PUB-1's overview menu and SM-ASK-1; ServiceApi.md SVC-MENU-1 defines the field.
+
+- **SM-RL-7 `from_menu` on menu messages.** Every `ordin.send_message` sent by a menu item adds `from_menu`: **Ask Ordin about this** (SM-ASK-1, wherever it is drawn) sends `"ask_about"`; **Add to memory** (SM-RL-4, SM-RL-5, the Documents overview of SM-PUB-1) sends `"add_to_memory"`; **Add to knowledge** (the same places, and a folder row's menu) sends `"add_to_knowledge"`. The text, the attachment and the conversation brought into view are unchanged. A message typed in the conversation sends no `from_menu`. When the answer is the question of OrdinHost.md OH-MENU-3 ("already in memory"), it is drawn as any waiting `QuestionBlock`; no screen change is needed.
+
+```gherkin
+Feature: Menu items say they came from a menu (SM-RL-7)
+
+  Scenario: Happy path — Add to memory from the tree
+    When the person chooses Add to memory on "Quarterly plan.pdf"
+    Then ordin.send_message carries from_menu "add_to_memory" with the file attached
+
+  Scenario: Edge case — a typed message
+    When the person types a message and sends it
+    Then ordin.send_message carries no from_menu
+```
+
+### Gaps
+
+None.

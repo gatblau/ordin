@@ -1374,6 +1374,8 @@ export interface ConversationSummary {
   /** Messages of this conversation and of every conversation it continues (its chain; ADR-108). */
   message_count: number;
   started_at: Timestamp;
+  /** SVC-MENU-1: the message `first_request` is taken from was sent from a menu; serialised only when true, so an older reader takes it as false. */
+  started_from_menu?: boolean;
   state: ConversationState;
 }
 
@@ -4173,6 +4175,9 @@ export interface MemoryVocabularyInput {
   workspace_id?: string | null;
 }
 
+/** SVC-MENU-1: the menu item a message came from. */
+export type MenuAction = "ask_about" | "add_to_memory" | "add_to_knowledge";
+
 export interface MergeTermReceipt {
   kept: TermView;
   rewritten: number;
@@ -4594,6 +4599,8 @@ export interface OrdinReadConversationInput {
 /** `ordin.send_message`. */
 export interface OrdinSendMessageInput {
   attachments?: ContentRef[] | null;
+  /** SVC-MENU-1: the menu item that sent this message; absent for a message the person typed. */
+  from_menu?: (MenuAction | null);
   text: string;
   workspace_id: string;
 }

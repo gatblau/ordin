@@ -68,8 +68,10 @@ describe("A Confluence link row's document menu (SM-RL-5)", () => {
     const { transport } = await draw('cf');
     ([...document.querySelectorAll<HTMLButtonElement>('[role=menuitem]')].find((b) => clean(b.textContent) === 'Add to memory') as HTMLButtonElement).click();
     await settle(10);
-    const sent = transport.sentOf('ordin.send_message')[0]?.input as { text: string; attachments: unknown[] };
+    const sent = transport.sentOf('ordin.send_message')[0]?.input as { text: string; attachments: unknown[]; from_menu?: string };
     expect(clean(sent.text)).toBe('Add the facts in “Supplier pages” to memory.');
+    // spec: ordin-desktop/components/ScreensModule#SM-RL-7
+    expect(sent.from_menu).toBe('add_to_memory');
     expect(sent.attachments).toEqual([{ kind: 'place_file', place_id: PCF, relative_path: 'Supplier pages.confluence.xhtml' }]);
   });
 

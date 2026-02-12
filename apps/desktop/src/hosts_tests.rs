@@ -430,7 +430,10 @@ async fn ref_resolver_journal_reader_and_search_sources_answer_on_an_empty_compu
             GoToKind::Workflow,
         ),
         (
-            Arc::new(ConversationSearch { late: late.clone() }),
+            Arc::new(ConversationSearch {
+                late: late.clone(),
+                localisation: None,
+            }),
             GoToKind::Conversation,
         ),
     ];
@@ -490,6 +493,54 @@ fn plain(text: &str) -> String {
 
 fn words_runner_localisation(runner: &ModuleRunner) -> Arc<ordin_localisation::Localisation> {
     runner.modules.localisation.clone().expect("localisation")
+}
+
+// Gherkin (amendment 2026-02-12): DSK-REC-51 — search lists only conversations the person started.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-REC-51
+#[tokio::test]
+async fn search_lists_only_conversations_the_person_started_with_their_date() {
+    use ordin_service_api::commands::ordin::ConversationSummary;
+    let dir = TempDir::new("conversation-search");
+    let runner = build_until(&dir, Row::Brand).await;
+    let localisation = words_runner_localisation(&runner);
+    let ws = WorkspaceId::new();
+    let started = ordin_types::time::Timestamp::now();
+    let summary = |first: &str, from_menu: bool| {
+        serde_json::from_value::<ConversationSummary>(serde_json::json!({
+            "conversation_id": "0192a1c0-0d1e-7f20-8a31-425364758697",
+            "state": "earlier",
+            "started_at": started,
+            "message_count": 4,
+            "first_request": first,
+            "started_from_menu": from_menu,
+        }))
+        .expect("a summary")
+    };
+    // Happy path — a typed conversation is found with its date.
+    let found = crate::hosts_home::conversation_result(
+        summary("what is the budget in this pdf?", false),
+        "budget",
+        ws,
+        Some(&localisation),
+    )
+    .expect("found");
+    let local: chrono::DateTime<chrono::Local> = started.0.into();
+    assert_eq!(
+        plain(found.detail.as_deref().unwrap_or_default()),
+        format!("Started {} · 4 messages", local.format("%Y-%m-%d"))
+    );
+    // Edge case — a menu-started conversation is not found.
+    assert!(crate::hosts_home::conversation_result(
+        summary("Add the facts in “budget.pdf” to memory.", true),
+        "budget",
+        ws,
+        Some(&localisation),
+    )
+    .is_none());
+    // Without the localisation, no detail.
+    let bare = crate::hosts_home::conversation_result(summary("budget", false), "budget", ws, None)
+        .expect("found");
+    assert_eq!(bare.detail, None);
 }
 
 // Gherkin (amendment January 2026): DSK-REC-1 card words pass the Approval Service's checks.

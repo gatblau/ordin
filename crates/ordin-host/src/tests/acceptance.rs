@@ -4057,3 +4057,259 @@ async fn refreshing_a_conversation_dashboard_asks_ordin_again() {
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].0.run_again_of, None);
 }
+
+// ---------------------------------------------------------------- OH-MENU-1 to OH-MENU-4
+
+mod menu_reads {
+    use super::*;
+    use crate::tests::acceptance_amendments::wrote;
+    use ordin_service_api::commands::ordin::MenuAction;
+    use ordin_types::wire::ContentRef;
+
+    const PDF: &str = "Agent-Platform.pdf";
+    const ASK: &str = "Add the facts in “Agent-Platform.pdf” to memory.";
+
+    fn hash_of(path: &str) -> String {
+        use sha2::Digest;
+        format!("{:x}", sha2::Sha256::digest(path.as_bytes()))
+    }
+
+    async fn recorded(f: &Fixture, place: PlaceId, hash: &str, run: RunId) {
+        sqlx::query(
+            "INSERT INTO ordin_menu_reads (workspace_id, action, place_id, relative_path, content_hash, run_id, read_at) \
+             VALUES (?, 'add_to_memory', ?, ?, ?, ?, ?)",
+        )
+        .bind(f.ws.to_string())
+        .bind(place.to_string())
+        .bind(PDF)
+        .bind(hash)
+        .bind(run.to_string())
+        .bind(Timestamp::now().to_wire())
+        .execute(&f.pool)
+        .await
+        .unwrap();
+    }
+
+    async fn rows(f: &Fixture) -> Vec<(String, String)> {
+        sqlx::query_as("SELECT content_hash, run_id FROM ordin_menu_reads")
+            .fetch_all(&f.pool)
+            .await
+            .unwrap()
+    }
+
+    async fn add_to_memory(f: &Fixture, place: PlaceId) {
+        f.host
+            .send_message_from(
+                f.ws,
+                ASK.to_owned(),
+                vec![ContentRef::PlaceFile {
+                    place_id: place,
+                    relative_path: PDF.to_owned(),
+                }],
+                Some(MenuAction::AddToMemory),
+            )
+            .await
+            .unwrap();
+    }
+
+    fn sent_to_ordin(f: &Fixture) -> Vec<String> {
+        f.supervisor
+            .turn_texts()
+            .into_iter()
+            .filter(|t| t.contains(ASK))
+            .collect()
+    }
+
+    // Scenario: Happy path — the same PDF a second time; then Read it again
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-3
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-4
+    #[tokio::test]
+    async fn the_same_pdf_a_second_time_answers_at_once_and_read_it_again_reads_it() {
+        let (f, _, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        recorded(&f, place, &hash_of(PDF), RunId::new()).await;
+        *f.memory.in_run.lock().unwrap() = Some(wrote(&[("t1", "Agent platform", 12)]));
+        add_to_memory(&f, place).await;
+        assert!(sent_to_ordin(&f).is_empty(), "no Ordin turn runs");
+        assert_eq!(task_count(&f), 0, "no agent task starts");
+        let asked = waiting_in(&f, "question");
+        assert_eq!(asked.len(), 1);
+        let shown = events(&f, "block_shown");
+        assert!(shown.iter().any(
+            |s| s.contains("“Agent-Platform.pdf” is already in memory from")
+                && s.contains("The document has not changed since.")
+                && s.contains("Read it again")
+                && s.contains("That's fine")
+        ));
+        f.host
+            .answer_block(
+                f.ws,
+                asked[0].block_id,
+                BlockAnswer::Choice {
+                    choice: "Read it again".to_owned(),
+                },
+            )
+            .await
+            .unwrap();
+        assert!(
+            eventually(|| !sent_to_ordin(&f).is_empty()).await,
+            "Read it again sends the message to Ordin"
+        );
+    }
+
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-4
+    #[tokio::test]
+    async fn thats_fine_reads_nothing() {
+        let (f, _, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        recorded(&f, place, &hash_of(PDF), RunId::new()).await;
+        *f.memory.in_run.lock().unwrap() = Some(wrote(&[("t1", "Agent platform", 1)]));
+        add_to_memory(&f, place).await;
+        let asked = waiting_in(&f, "question");
+        f.host
+            .answer_block(
+                f.ws,
+                asked[0].block_id,
+                BlockAnswer::Choice {
+                    choice: "That's fine".to_owned(),
+                },
+            )
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(sent_to_ordin(&f).is_empty());
+    }
+
+    // Scenario: Edge case — the document changed
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-3
+    #[tokio::test]
+    async fn a_changed_document_is_read_with_the_line_before_it() {
+        let (f, _, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        recorded(&f, place, &"0".repeat(64), RunId::new()).await;
+        *f.memory.in_run.lock().unwrap() = Some(wrote(&[("t1", "Agent platform", 1)]));
+        add_to_memory(&f, place).await;
+        let sent = sent_to_ordin(&f);
+        assert_eq!(sent.len(), 1);
+        assert!(sent[0].starts_with("Read before on "), "{}", sent[0]);
+        assert!(sent[0].contains(
+            "; the document has changed since. Keep only facts that are new or changed.\n"
+        ));
+        assert!(waiting_in(&f, "question").is_empty());
+    }
+
+    // Scenario: Edge case — the facts were forgotten
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-3
+    #[tokio::test]
+    async fn forgotten_facts_are_read_again() {
+        let (f, _, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        recorded(&f, place, &hash_of(PDF), RunId::new()).await;
+        add_to_memory(&f, place).await;
+        let sent = sent_to_ordin(&f);
+        assert_eq!(sent.len(), 1);
+        assert!(!sent[0].contains("Read before"));
+    }
+
+    // Scenario: Error path — the file cannot be read for the check
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-3
+    #[tokio::test]
+    async fn a_file_that_cannot_be_read_goes_to_ordin() {
+        let (f, _, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        recorded(&f, place, &hash_of(PDF), RunId::new()).await;
+        *f.memory.in_run.lock().unwrap() = Some(wrote(&[("t1", "Agent platform", 1)]));
+        f.files.missing.lock().unwrap().push(PDF.to_owned());
+        add_to_memory(&f, place).await;
+        assert_eq!(sent_to_ordin(&f).len(), 1);
+    }
+
+    // Scenario: a finished read is recorded; a run that kept nothing records nothing
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+    #[tokio::test]
+    async fn a_finished_read_that_kept_facts_is_recorded() {
+        let (f, a, _) = background().await;
+        f.open().await;
+        let place = PlaceId::new();
+        add_to_memory(&f, place).await;
+        f.tool(
+            "delegate",
+            json!({ "agent": key(&a), "brief": "Add the facts in the attached PDF to memory" }),
+        )
+        .await
+        .unwrap();
+        let run = *f.supervisor.task_runs.lock().unwrap().last().unwrap();
+        *f.memory.in_run.lock().unwrap() = Some(wrote(&[("t1", "Agent platform", 3)]));
+        f.supervisor.end(run);
+        let mut found = vec![];
+        for _ in 0..50 {
+            found = rows(&f).await;
+            if !found.is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert_eq!(found, vec![(hash_of(PDF), run.to_string())]);
+    }
+
+    // Scenario: Edge case — a run that kept nothing records nothing
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+    #[tokio::test]
+    async fn a_run_that_kept_nothing_records_nothing() {
+        let (f, a, _) = background().await;
+        f.open().await;
+        add_to_memory(&f, PlaceId::new()).await;
+        f.tool(
+            "delegate",
+            json!({ "agent": key(&a), "brief": "Add the facts in the attached PDF to memory" }),
+        )
+        .await
+        .unwrap();
+        let run = *f.supervisor.task_runs.lock().unwrap().last().unwrap();
+        f.supervisor.end(run);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(rows(&f).await.is_empty());
+    }
+
+    // Scenario: Happy path — a menu-started conversation is marked
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+    #[tokio::test]
+    async fn a_menu_started_conversation_is_marked() {
+        let (f, _, _) = background().await;
+        f.host
+            .send_message_from(
+                f.ws,
+                "Tell me about “notes.pdf”.".to_owned(),
+                vec![],
+                Some(MenuAction::AskAbout),
+            )
+            .await
+            .unwrap();
+        let page = f.host.list_conversations(f.ws, None).await.unwrap();
+        assert!(page.items[0].started_from_menu);
+        let typed: Option<String> = sqlx::query_scalar(
+            "SELECT from_menu FROM ordin_messages WHERE author = 'person' ORDER BY seq LIMIT 1",
+        )
+        .fetch_one(&f.pool)
+        .await
+        .unwrap();
+        assert_eq!(typed.as_deref(), Some("ask_about"));
+    }
+
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+    #[tokio::test]
+    async fn a_typed_conversation_is_not_marked() {
+        let (f, _, _) = background().await;
+        f.host
+            .send_message(f.ws, "what is the budget?".to_owned(), vec![])
+            .await
+            .unwrap();
+        let page = f.host.list_conversations(f.ws, None).await.unwrap();
+        assert!(!page.items[0].started_from_menu);
+    }
+}

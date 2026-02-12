@@ -614,9 +614,55 @@ impl SearchSource for WorkflowSearch {
 }
 
 /// Conversations by their first request, over the Ordin Host's `ordin.list_conversations` of each
-/// workspace not in the bin.
+/// workspace not in the bin; one started from a menu is not listed (DSK-REC-51).
 pub struct ConversationSearch {
     pub late: Arc<Late>,
+    /// DSK-REC-51: the start date and message count under a result; `None` draws no detail.
+    pub localisation: Option<Arc<ordin_localisation::Localisation>>,
+}
+
+/// DSK-REC-51: one conversation as a search result — none when it was started from a menu, has no
+/// first request yet or does not match; its detail is the start date and the message count.
+// spec: ordin-desktop/components/OrdinDesktop#DSK-REC-51
+pub(crate) fn conversation_result(
+    conversation: ordin_service_api::commands::ordin::ConversationSummary,
+    query: &str,
+    workspace_id: WorkspaceId,
+    localisation: Option<&ordin_localisation::Localisation>,
+) -> Option<GoToResult> {
+    if conversation.started_from_menu {
+        return None;
+    }
+    let first = conversation.first_request?;
+    if !contains_text(&first, query) {
+        return None;
+    }
+    let detail = localisation.map(|l| {
+        use ordin_localisation::{ArgValue, MessageArgs};
+        let started: chrono::DateTime<chrono::Local> = conversation.started_at.0.into();
+        let args = MessageArgs::new()
+            .with(
+                "date",
+                ArgValue::Text(started.format("%Y-%m-%d").to_string()),
+            )
+            .with(
+                "count",
+                ArgValue::Count(u64::from(conversation.message_count)),
+            );
+        l.message(ordin_localisation::id::GOTO_CONVERSATION_DETAIL, &args)
+    });
+    Some(GoToResult {
+        kind: GoToKind::Conversation,
+        label: first,
+        detail,
+        workspace_id: Some(workspace_id),
+        // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-20
+        opens: OpenTarget::Item {
+            kind: "conversation".to_owned(),
+            id: conversation.conversation_id.as_str().to_owned(),
+            workspace_id: Some(workspace_id),
+        },
+    })
 }
 
 #[async_trait::async_trait]
@@ -641,22 +687,13 @@ impl SearchSource for ConversationSearch {
                     if out.len() >= limit {
                         return out;
                     }
-                    let Some(first) = conversation.first_request else {
-                        continue;
-                    };
-                    if contains_text(&first, query) {
-                        out.push(GoToResult {
-                            kind: GoToKind::Conversation,
-                            label: first,
-                            detail: None,
-                            workspace_id: Some(workspace_id),
-                            // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-20
-                            opens: OpenTarget::Item {
-                                kind: "conversation".to_owned(),
-                                id: conversation.conversation_id.as_str().to_owned(),
-                                workspace_id: Some(workspace_id),
-                            },
-                        });
+                    if let Some(found) = conversation_result(
+                        conversation,
+                        query,
+                        workspace_id,
+                        self.localisation.as_deref(),
+                    ) {
+                        out.push(found);
                     }
                 }
                 cursor = page.next_cursor;

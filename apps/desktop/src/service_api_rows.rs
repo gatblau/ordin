@@ -594,7 +594,11 @@ macro_rules! delegate {
         // `attachments` is optional on the wire and the conversation screen leaves it out: absent
         // is no attachment, not a value the restatement refuses.
         let p2 = $api.restate(input.attachments.unwrap_or_default())?;
-        let out = m.send_message(p0, p1, p2).await.map_err(|e| $api.module_error(e))?;
+        // spec: ordin-desktop/components/ServiceApi#SVC-MENU-1
+        let out = m
+            .send_message_from(p0, p1, p2, input.from_menu)
+            .await
+            .map_err(|e| $api.module_error(e))?;
         $api.restate(out)
     }};
     ($api:expr, $ctx:expr, $input:expr, ordin_answer_block) => {{

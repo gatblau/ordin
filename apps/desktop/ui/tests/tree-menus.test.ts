@@ -93,18 +93,22 @@ describe("A document's ⋯ menu in the tree (SM-RL-4)", () => {
     expect(sent[0]?.workspace_id).toBe(WS);
     expect(clean(sent[0]?.text)).toContain('Quarterly plan.pdf');
     expect(sent[0]?.attachments).toEqual([{ kind: 'place_file', place_id: PLACE, relative_path: DOC.path }]);
+    // spec: ordin-desktop/components/ScreensModule#SM-RL-7
+    expect((sent[0] as { from_menu?: string }).from_menu).toBe('ask_about');
   });
 
+  // spec: ordin-desktop/components/ScreensModule#SM-RL-7
   it.each([
-    ['Add to knowledge', 'Write a knowledge page from “Quarterly plan.pdf”.'],
-    ['Add to memory', 'Add the facts in “Quarterly plan.pdf” to memory.'],
-  ])('%s asks Ordin in the conversation with the file attached and brings the conversation into view', async (label, words) => {
+    ['Add to knowledge', 'Write a knowledge page from “Quarterly plan.pdf”.', 'add_to_knowledge'],
+    ['Add to memory', 'Add the facts in “Quarterly plan.pdf” to memory.', 'add_to_memory'],
+  ])('%s asks Ordin in the conversation with the file attached and brings the conversation into view', async (label, words, menu) => {
     const { app, target, transport } = await draw();
     await openMenu(target, 'Quarterly plan.pdf');
     await pick(label);
-    const sent = transport.sentOf('ordin.send_message').map((s) => s.input) as { text: string; attachments: unknown[] }[];
+    const sent = transport.sentOf('ordin.send_message').map((s) => s.input) as { text: string; attachments: unknown[]; from_menu?: string }[];
     expect(clean(sent[0]?.text)).toBe(words);
     expect(sent[0]?.attachments).toEqual([{ kind: 'place_file', place_id: PLACE, relative_path: DOC.path }]);
+    expect(sent[0]?.from_menu).toBe(menu);
     expect(app.shell.openWorkspace).toBe(WS);
   });
 

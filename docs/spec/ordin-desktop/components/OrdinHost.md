@@ -4623,3 +4623,84 @@ Feature: Changing a linked document asks for read and change (OH-ACC-3)
     Then the question reads "Document agent needs to change Docs. Changes go back only after you approve them."
     And Allow grants read and change on that working copy, and the task starts
 ```
+
+## Amendment 2026-02-12 — Menu messages are marked, and Add to memory on an unchanged document answers at once (OH-MENU-1 to OH-MENU-4) (plan 10 Phase 7; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 7 as written, build it"). Source: the user's decisions of 2026-02-11 ("if I repeated the add to memory of the same pdf document the output should be the same"; search should not list menu actions). Evidence read: `crates/ordin-host/src/conversation.rs:1030-1063` (`list_conversations`), `crates/ordin-host/src/tools.rs:1815-1842` (step 8.3 (a), skipped when a delegation carries artefacts), `crates/ordin-host/src/sql/sqlite_v1.sql:17-25` (`ordin_messages`), `crates/ordin-host/src/ports.rs:986` (`remembered_in_run`), `crates/ordin-memory-service/src/store.rs:508-515` (a run's rows are its `pending` and `kept` facts only, so forgotten facts are not counted), `crates/ordin-files/src/types.rs:61-67` (`FileBytes.hash`). Every section above stays in force. **Add to knowledge** keeps today's behaviour apart from OH-MENU-1: its "already done" check waits for plan 10 Phase 6, because until then no session started from that menu can write a page (see *Gaps*).
+
+- **OH-MENU-1 The menu a message came from is kept.** Step 4 takes `from_menu` (ServiceApi.md SVC-MENU-1) and stores it on the person's message. Schema version 3 of this crate's store adds one column: `ALTER TABLE ordin_messages ADD COLUMN from_menu TEXT CHECK (from_menu IS NULL OR from_menu IN ('ask_about','add_to_memory','add_to_knowledge'))`; existing rows read NULL. `list_conversations` sets `ConversationSummary.started_from_menu` from the `from_menu` of the message `first_request` is taken from. Nothing else reads the column; a message's text, its turn and its attachments are unchanged.
+
+- **OH-MENU-2 What a menu read records.** Schema version 3 also adds:
+
+  ```sql
+  CREATE TABLE ordin_menu_reads (
+    workspace_id  TEXT NOT NULL,
+    action        TEXT NOT NULL CHECK (action IN ('add_to_memory')),
+    place_id      TEXT NOT NULL,
+    relative_path TEXT NOT NULL CHECK (length(relative_path) BETWEEN 1 AND 4096),
+    content_hash  TEXT NOT NULL CHECK (length(content_hash) = 64),
+    run_id        TEXT NOT NULL,
+    read_at       TEXT NOT NULL,
+    PRIMARY KEY (workspace_id, action, place_id, relative_path)
+  );
+  ```
+
+  A message with `from_menu = add_to_memory` and exactly one attachment of kind `place_file` that goes to Ordin (OH-MENU-3 found no match, or the person chose **Read it again**) leaves the conversation holding a *pending menu read* `{ place_id, relative_path, content_hash }`, where `content_hash` is the `FileBytes.hash` read by OH-MENU-3. The pending read is dropped by the person's next message. The first `delegate` that starts a task (step 8.3 (d)) while it is held takes it, and the task's follower (the one step 8.3 already runs for indexing, started for this task too) does the following on `Ended { reason: Completed }`: `memory.remembered_in_run(run_id)` (X-11); one item or more → upsert the row with this run's id and `read_at = now`; no items, an `Ended` with any other reason, or a `MemoryError` → no row (the error is logged `ordin_host.menu_read_not_recorded { code }` at `warn`). Rows are deleted wherever this crate deletes a workspace's `ordin_conversations` rows, in the same transaction, and are never sent to a model.
+
+- **OH-MENU-3 An unchanged document answers at once.** In step 4, after the checks and before any Ordin turn, a message with `from_menu = add_to_memory` and exactly one `place_file` attachment is checked: `files.read_file(place_id, relative_path)` (X-27) gives the document's `hash`; the row of OH-MENU-2 for `(workspace_id, add_to_memory, place_id, relative_path)` is read. When the row's `content_hash` equals `hash` **and** `memory.remembered_in_run(row.run_id)` returns one item or more (the facts have not all been forgotten since), no Ordin turn runs: the person's message is stored as usual, and the conversation gets one waiting `QuestionBlock { question: "“<file name>” is already in memory from <read_at as a local date>. The document has not changed since.", choices: ["Read it again", "That's fine"], allow_other: false }`, kept in memory with the message under the question's `BlockId`. `send_message` answers `{ accepted: true, position_in_queue: 0 }`. Every other outcome sends the message to Ordin as step 4 says: no row; a different hash, where the turn is prefixed by the line "Read before on <read_at as a local date>; the document has changed since. Keep only facts that are new or changed."; no items left in memory; or a `FileError` or `MemoryError` on either read, logged `ordin_host.menu_read_unknown { code }` at `warn`. A message with `from_menu` absent, `ask_about` or `add_to_knowledge`, or with no `place_file` attachment, or with more than one, is not checked.
+
+- **OH-MENU-4 Answering the question.** Through step 38: **Read it again** → the kept message goes to Ordin as step 4 delivers it, holding the pending menu read of OH-MENU-2 with the hash just read; **That's fine** → nothing runs. The question is not reused: a later menu message is checked again. A question whose kept message was lost on restart is answered as step 8.3's are: nothing starts and Ordin is told "That request is no longer waiting."
+
+### Error Table (rows added)
+
+| Condition | Outcome | Code | Log |
+|---|---|---|---|
+| The document or the earlier run's facts cannot be read during the check (OH-MENU-3) | the message goes to Ordin as if never read | — | `ordin_host.menu_read_unknown { code }` |
+| Memory cannot say what the finished run kept (OH-MENU-2) | no row is recorded; the next **Add to memory** reads the document again | — | `ordin_host.menu_read_not_recorded { code }` |
+| `from_menu` holds an unknown word | refused before this crate (SVC-MENU-1) | `SVC_INPUT_INVALID` | — |
+
+### Acceptance Criteria (Gherkin, added)
+
+```gherkin
+Feature: Add to memory on an unchanged document answers at once (OH-MENU-1 to OH-MENU-4)
+
+  Scenario: Happy path — the same PDF a second time
+    Given "Agent-Platform.pdf" was added to memory from the menu on 11 February 2026 and its run kept 12 facts
+    And the file's content has not changed
+    When the person chooses Add to memory on "Agent-Platform.pdf" again
+    Then no Ordin turn runs and no agent task starts
+    And the conversation asks "“Agent-Platform.pdf” is already in memory from 11 February 2026. The document has not changed since." with Read it again and That's fine
+
+  Scenario: Happy path — Read it again
+    Given that question is waiting
+    When the person chooses Read it again
+    Then the message goes to Ordin and a task is delegated
+
+  Scenario: Edge case — the document changed
+    Given "Agent-Platform.pdf" was added to memory from the menu and its content has changed since
+    When the person chooses Add to memory on it
+    Then the message goes to Ordin with the line "Read before on 11 February 2026; the document has changed since. Keep only facts that are new or changed."
+
+  Scenario: Edge case — the facts were forgotten
+    Given every fact the earlier run kept from "Agent-Platform.pdf" has been forgotten
+    When the person chooses Add to memory on it
+    Then the message goes to Ordin
+
+  Scenario: Edge case — a run that kept nothing records nothing
+    Given an Add to memory task ends Completed and kept no facts
+    Then no menu read is recorded and the next Add to memory reads the document
+
+  Scenario: Error path — the file cannot be read for the check
+    Given files.read_file fails for "Agent-Platform.pdf"
+    When the person chooses Add to memory on it
+    Then the message goes to Ordin and ordin_host.menu_read_unknown is logged
+
+  Scenario: Happy path — a menu-started conversation is marked
+    Given a conversation whose first message was sent with from_menu "ask_about"
+    When the conversations are listed
+    Then its summary has started_from_menu true
+```
+
+### Gaps
+
+- **G-MENU-1** *(not blocking this amendment's build)*: the same answer for **Add to knowledge** needs to know that a finished run wrote a knowledge page from the document, and that the page still exists. No call of X-12 or X-25 answers either today, and no run started from that menu can write a page until plan 10 Phase 6 is built. To be specified with Phase 6; until then **Add to knowledge** is marked (OH-MENU-1) but not checked.

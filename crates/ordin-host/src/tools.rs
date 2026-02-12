@@ -2188,7 +2188,16 @@ impl OrdinHost {
         }
         let eligible =
             d.args.artefacts.is_empty() && d.args.code_in.is_none() && d.args.form.is_none();
-        self.follow_task(ws, run_id, d.agent, d.args.brief.clone(), eligible);
+        // spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+        let menu_read = self.take_menu_read(ws);
+        self.follow_task(
+            ws,
+            run_id,
+            d.agent,
+            d.args.brief.clone(),
+            eligible,
+            menu_read,
+        );
         Delegated8::Started {
             run_id,
             name: d.name,
@@ -2408,6 +2417,7 @@ impl OrdinHost {
         agent: AgentInstanceId,
         brief: String,
         eligible: bool,
+        menu_read: Option<crate::menu::MenuRead>,
     ) {
         let Ok(mut events) = self.ports.supervisor.subscribe(run_id) else {
             return;
@@ -2468,6 +2478,9 @@ impl OrdinHost {
                                     ),
                                 }
                             }
+                        }
+                        if let (Some(read), RunEndReason::Completed) = (&menu_read, end.reason) {
+                            host.record_menu_read(ws, run_id, read).await;
                         }
                         host.show_task_end(ws, run_id, agent, &end).await;
                         host.count_run(ws, run_id).await;

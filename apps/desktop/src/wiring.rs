@@ -1572,6 +1572,7 @@ impl ModuleRunner {
             }),
             Arc::new(ConversationSearch {
                 late: self.late.clone(),
+                localisation: self.modules.localisation.clone(),
             }),
         ];
         for source in sources {

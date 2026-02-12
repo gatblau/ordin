@@ -5,7 +5,7 @@
   //
   // spec: ordin-desktop/components/ScreensModule#SM-PUB-1
   import { answers } from '../../backend/groups';
-  import { askOrdin, isWaitingForServer } from '../../blocks/ask';
+  import { askOrdin, isWaitingForServer, menuOf, type MenuText } from '../../blocks/ask';
   import { t } from '../../i18n/fluent';
   import Icon from '../../icons/Icon.svelte';
   import type { BackendState } from '../../store/backend-state.svelte';
@@ -31,10 +31,10 @@
 
   // The same Ask Ordin items as the tree's document menu (TreeFolder.svelte, SM-ASK-1).
   const canAsk = $derived(backend.groups.has('ordin') && answers(backend, 'ordin.send_message'));
-  async function ask(text: 'block-ask-text-this' | 'tree-ask-text-knowledge' | 'tree-ask-text-memory'): Promise<void> {
+  async function ask(text: MenuText): Promise<void> {
     open = false;
     if (text !== 'block-ask-text-this' && app !== null) app.shell.openWorkspaceTab(backend.id, workspaceId);
-    await askOrdin(backend, workspaceId, t(text, { title: name }), [{ kind: 'place_file', place_id: placeId, relative_path: path }]);
+    await askOrdin(backend, workspaceId, t(text, { title: name }), [{ kind: 'place_file', place_id: placeId, relative_path: path }], menuOf(text));
   }
 
   async function toggle(): Promise<void> {

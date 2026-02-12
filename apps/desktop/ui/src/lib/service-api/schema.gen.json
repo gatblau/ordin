@@ -5497,6 +5497,10 @@
         "started_at": {
           "$ref": "#/$defs/Timestamp"
         },
+        "started_from_menu": {
+          "description": "SVC-MENU-1: the message `first_request` is taken from was sent from a menu; serialised only\nwhen true, so an older reader takes it as false.",
+          "type": "boolean"
+        },
         "state": {
           "$ref": "#/$defs/ConversationState"
         }
@@ -16105,6 +16109,15 @@
       },
       "type": "object"
     },
+    "MenuAction": {
+      "description": "SVC-MENU-1: the menu item a message came from.",
+      "enum": [
+        "ask_about",
+        "add_to_memory",
+        "add_to_knowledge"
+      ],
+      "type": "string"
+    },
     "MergeTermReceipt": {
       "properties": {
         "kept": {
@@ -17736,6 +17749,17 @@
             "array",
             "null"
           ]
+        },
+        "from_menu": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MenuAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "SVC-MENU-1: the menu item that sent this message; absent for a message the person typed."
         },
         "text": {
           "type": "string"

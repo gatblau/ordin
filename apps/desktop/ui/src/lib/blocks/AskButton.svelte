@@ -29,7 +29,7 @@
   async function press(): Promise<void> {
     if (busy || !canAsk(backend)) return;
     busy = true;
-    const out = await askOrdin(backend, workspaceId, text, attachments);
+    const out = await askOrdin(backend, workspaceId, text, attachments, asksAbout ? 'ask_about' : undefined);
     busy = false;
     error = out.kind === 'error' ? out.error : null;
   }

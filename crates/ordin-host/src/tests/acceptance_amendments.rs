@@ -483,7 +483,7 @@ impl W {
 }
 
 /// A fact as the Memory Service returns it.
-fn fact(
+pub(super) fn fact(
     statement: &str,
     folder: Option<&str>,
     description: Option<&str>,
@@ -2824,7 +2824,7 @@ fn outcome(runs: &[RunId]) -> CrewOutcome {
 }
 
 /// Episodic facts a run wrote: `per_thing` facts naming each `(id, name)`.
-fn wrote(things: &[(&str, &str, usize)]) -> RememberedInRun {
+pub(super) fn wrote(things: &[(&str, &str, usize)]) -> RememberedInRun {
     let mut items = Vec::new();
     for (id, name, n) in things {
         for i in 0..*n {

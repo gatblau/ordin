@@ -3706,3 +3706,32 @@ None.
 ## Amendment February 2026 — ordin moves itself to the Applications folder (SVC-MOVE-1) (plan 08 Phase 19; user decision; Approved by the user February 2026)
 
 - **SVC-MOVE-1 Two `app` rows.** The counterpart of OrdinDesktop.md DSK-MOVE-1 to DSK-MOVE-3, added while building Phase 19 because the approved amendment named the two commands without their catalogue rows. Each is scope `Local`, budget `Interactive`, group `app`, answered by the desktop program: `app.install_place` (input `{}`, result `InstallPlace { installed: bool, target: string }`, effect `Read`) and `app.move_to_applications` (input `{}`, result `MovedToApplications { moved: bool }`, effect `Change`). `app.move_to_applications` is added to `PERSON_ONLY_COMMANDS`. The catalogue then holds 454 rows (474 with `minutes`).
+
+## Amendment 2026-02-12 — A message sent from a menu says which menu (SVC-MENU-1) (plan 10 Phase 7; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 7 as written, build it"). Source: the user's decisions of 2026-02-11 ("if I repeated the add to memory of the same pdf document the output should be the same"; search should not list menu actions). OrdinHost.md OH-MENU-1 to OH-MENU-4 and OrdinDesktop.md DSK-REC-51 consume these fields; ScreensModule.md SM-RL-7 sends them.
+
+- **SVC-MENU-1 `from_menu` on `ordin.send_message`, `started_from_menu` on `ConversationSummary`.** `OrdinSendMessageInput` gains `from_menu?: MenuAction`, where `MenuAction` is one of `"ask_about"`, `"add_to_memory"`, `"add_to_knowledge"` (snake_case strings; any other value → `SVC_INPUT_INVALID`, as for any field of the row). It is absent for a message the person typed. `ConversationSummary` (`ordin.list_conversations`) gains `started_from_menu: bool`, true when the first `person` message of the chain's first conversation was sent with `from_menu` (the same message `first_request` is cut from); it is serialised only when true, so a reader built before this amendment reads it as false. The catalogue row becomes `| ordin.send_message | { workspace_id, text, attachments?: Vec<ContentRef>, from_menu?: MenuAction } (text 1–8,000 characters; 0–20 attachments) | { accepted: true, position_in_queue: u8 } | Any | Change |  |`. No row is added; the catalogue's count is unchanged.
+
+```gherkin
+Feature: A message sent from a menu says which menu (SVC-MENU-1)
+
+  Scenario: Happy path — a menu message is accepted
+    Given ordin.send_message with from_menu "add_to_memory"
+    When the input is checked
+    Then it is accepted and carries from_menu "add_to_memory"
+
+  Scenario: Error path — an unknown menu word is refused
+    Given ordin.send_message with from_menu "whatever"
+    When the input is checked
+    Then it is refused with SVC_INPUT_INVALID
+
+  Scenario: Edge case — a typed message has no from_menu
+    Given ordin.send_message with no from_menu
+    When the input is checked
+    Then it is accepted and the conversation it starts lists started_from_menu false
+```
+
+### Gaps
+
+None.

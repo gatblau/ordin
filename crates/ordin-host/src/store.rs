@@ -7,7 +7,7 @@ use ordin_types::domain::runs::{CrewCharter, CrewCharterState};
 use ordin_types::domain::{WorkflowOrigin, WorkflowShare, WorkflowState};
 use ordin_types::time::Timestamp;
 use ordin_types::wire::WorkflowFile;
-use ordin_types::{BlockId, CrewCharterId, CrewRunId, RunId, WorkflowId, WorkspaceId};
+use ordin_types::{BlockId, CrewCharterId, CrewRunId, PlaceId, RunId, WorkflowId, WorkspaceId};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sqlx::{Row, SqliteConnection};
@@ -308,6 +308,94 @@ pub(crate) async fn message_of_block(
         .as_ref()
         .map(message_from)
         .transpose()
+}
+
+/// OH-MENU-1: the menu item the message holding `block_id` came from.
+// spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+pub(crate) async fn set_message_from_menu(
+    c: &mut Conn,
+    block_id: BlockId,
+    from_menu: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE ordin_messages SET from_menu = ? WHERE block_id = ?")
+        .bind(from_menu)
+        .bind(block_id.to_string())
+        .execute(&mut *c)
+        .await?;
+    Ok(())
+}
+
+/// OH-MENU-1: whether the conversation's first `person` message came from a menu.
+// spec: ordin-desktop/components/OrdinHost#OH-MENU-1
+pub(crate) async fn first_person_from_menu(
+    c: &mut Conn,
+    conversation_id: ConversationId,
+) -> Result<bool, sqlx::Error> {
+    let menu: Option<Option<String>> = sqlx::query_scalar(
+        "SELECT from_menu FROM ordin_messages WHERE conversation_id = ? AND author = 'person' \
+         ORDER BY seq LIMIT 1",
+    )
+    .bind(conversation_id.to_string())
+    .fetch_optional(&mut *c)
+    .await?;
+    Ok(menu.flatten().is_some())
+}
+
+/// OH-MENU-2: a document added to memory from the menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MenuReadRow {
+    pub content_hash: String,
+    pub run_id: RunId,
+    pub read_at: Timestamp,
+}
+
+// spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+pub(crate) async fn menu_read(
+    c: &mut Conn,
+    workspace_id: WorkspaceId,
+    place_id: PlaceId,
+    relative_path: &str,
+) -> Result<Option<MenuReadRow>, sqlx::Error> {
+    let row = sqlx::query(
+        "SELECT content_hash, run_id, read_at FROM ordin_menu_reads WHERE workspace_id = ? \
+         AND action = 'add_to_memory' AND place_id = ? AND relative_path = ?",
+    )
+    .bind(workspace_id.to_string())
+    .bind(place_id.to_string())
+    .bind(relative_path)
+    .fetch_optional(&mut *c)
+    .await?;
+    let Some(row) = row else { return Ok(None) };
+    Ok(Some(MenuReadRow {
+        content_hash: row.try_get("content_hash")?,
+        run_id: id(&row.try_get::<String, _>("run_id")?)?,
+        read_at: ts(&row.try_get::<String, _>("read_at")?)?,
+    }))
+}
+
+// spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+pub(crate) async fn put_menu_read(
+    c: &mut Conn,
+    workspace_id: WorkspaceId,
+    place_id: PlaceId,
+    relative_path: &str,
+    read: &MenuReadRow,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO ordin_menu_reads (workspace_id, action, place_id, relative_path, content_hash, run_id, read_at) \
+         VALUES (?, 'add_to_memory', ?, ?, ?, ?, ?) \
+         ON CONFLICT (workspace_id, action, place_id, relative_path) \
+         DO UPDATE SET content_hash = excluded.content_hash, run_id = excluded.run_id, read_at = excluded.read_at",
+    )
+    .bind(workspace_id.to_string())
+    .bind(place_id.to_string())
+    .bind(relative_path)
+    .bind(&read.content_hash)
+    .bind(read.run_id.to_string())
+    .bind(read.read_at.to_wire())
+    .execute(&mut *c)
+    .await?;
+    Ok(())
 }
 
 pub(crate) async fn person_message_count(
@@ -871,6 +959,11 @@ pub(crate) async fn delete_workspace(
         .execute(&mut *c)
         .await?;
     sqlx::query("DELETE FROM ordin_conversations WHERE workspace_id = ?")
+        .bind(&ws)
+        .execute(&mut *c)
+        .await?;
+    // spec: ordin-desktop/components/OrdinHost#OH-MENU-2
+    sqlx::query("DELETE FROM ordin_menu_reads WHERE workspace_id = ?")
         .bind(&ws)
         .execute(&mut *c)
         .await?;
