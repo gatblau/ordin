@@ -3241,6 +3241,7 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
   - A company profile that names `microsoft` always wins: its tenant and its own registration are used, unchanged.
   - A build without the client id behaves exactly as today: without a profile, Microsoft 365 is shown as not available.
   - When the person's organisation does not let people approve apps themselves, ordin says so in one plain sentence (the person's organisation must approve ordin, or they can use a company profile). Ordin does not try to get round that block.
+  - *Amended 2026-02-12 (user decision "add the OneDrive fallback").* Wherever no Microsoft sign-in can complete, or as the person's choice, a SharePoint library is added as the folder OneDrive syncs it to on the computer: an ordinary local folder, with no sign-in in ordin and nothing an organisation's consent rules can block. OneDrive keeps it in step; ordin does not search SharePoint for it.
 - **Context.** The 0.2.1-test.5 smoke test (2026-02-05): with no company profile, **Sign in with Microsoft** answered "Signing in to that service isn't set up in this version of ordin", so a person on their own could not use SharePoint at all. This conflicts with the stance that every feature is self-service. The GitHub App client id (PB-REL-31) already shows how a build carries a public client id without any company set-up.
 - **Consequences.**
   - A person with a work account whose organisation allows user consent can use SharePoint with no profile.
@@ -3250,4 +3251,5 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
 - **Alternatives considered.**
   - *Require a company profile for Microsoft 365.* Rejected: a person on their own cannot use SharePoint, against the self-service stance.
   - *Let the person paste their own app registration's client id in Settings.* Rejected: it needs an Azure administrator, which is the company set-up this decision removes.
+  - *Present ordin as one of Microsoft's own apps (a first-party client id).* Rejected: ordin would pose as a Microsoft product, and Microsoft or an organisation can block those ids at any time.
   - *The `common` authority (personal Microsoft accounts too).* Rejected: SharePoint needs a work or school account, and personal accounts would only reach a failure later.

@@ -8,6 +8,7 @@
   // spec: ordin-desktop/components/ScreensModule#SM-AW-2
   // spec: ordin-desktop/components/ScreensModule#SM-AW-3
   // spec: ordin-desktop/components/ScreensModule#SM-AW-4
+  // spec: ordin-desktop/components/ScreensModule#SM-AW-6
   import { onMount } from 'svelte';
 
   import { answers } from '../../backend/groups';
@@ -47,6 +48,8 @@
   const entries = $derived(ENTRIES.filter((e) => e.offered()));
   const jira = $derived(jiraOffered(backend.handle) && answers(backend, 'jira.find_issues'));
   const chosen = $derived(ENTRIES.find((e) => e.entry === model.entry) ?? null);
+  // SM-AW-6: SharePoint through the folder OneDrive syncs, where a folder can be picked.
+  const oneDrive = $derived(model.entry === 'sharepoint' && backend.kind === 'local' && answers(backend, 'app.pick_folder'));
 
   // The screen is in front: its workspace is open and its tab is the front one.
   const inFront = $derived(
@@ -150,7 +153,10 @@
       <p class="add-none" role="status">{t('add-search-none', { query: model.searched })}</p>
     {/if}
     {#if model.errorAt === 'add'}<ErrorLine error={model.error} onsignin={() => openSettings('sign-ins')} />{/if}
-    <div class="add-row"><button type="button" class="small" onclick={() => model.back()}>{t('add-back')}</button></div>
+    <div class="add-row">
+      <button type="button" class="small" onclick={() => model.back()}>{t('add-back')}</button>
+      {#if oneDrive}<button type="button" class="small" onclick={() => model.openOneDrive()}>{t('add-onedrive-open')}</button>{/if}
+    </div>
   {:else if model.step === 'sign_in'}
     {@const heading = model.signInKind === 'confluence' ? t('add-sign-in-confluence') : t('add-sign-in-microsoft')}
     <div class="add-panel">
@@ -161,6 +167,22 @@
         <button type="button" class="small" onclick={() => model.back()}>{t('add-back')}</button>
       </div>
       <ErrorLine error={model.error} onretry={() => void model.signIn(t('add-sign-in-reason'))} />
+      {#if oneDrive}<div class="add-row"><button type="button" class="small" onclick={() => model.openOneDrive()}>{t('add-onedrive-open')}</button></div>{/if}
+    </div>
+  {:else if model.step === 'onedrive'}
+    <div class="add-panel">
+      <h3><span class="icon-tile" data-tint="sharepoint"><Icon name="sp" /></span>{t('add-onedrive-title')}</h3>
+      <p>{t('add-onedrive-line')}</p>
+      <ol class="add-steps">
+        <li>{t('add-onedrive-step-1')}</li>
+        <li>{t('add-onedrive-step-2')}</li>
+        <li>{t('add-onedrive-step-3')}</li>
+      </ol>
+      <div class="add-row">
+        <button type="button" class="primary" onclick={() => void model.chooseFolder()}>{t('add-onedrive-choose')}</button>
+        <button type="button" class="small" onclick={() => model.back()}>{t('add-back')}</button>
+      </div>
+      <ErrorLine error={model.error} />
     </div>
   {:else if model.step === 'not_configured'}
     <div class="add-panel">
@@ -250,6 +272,13 @@
     gap: var(--space-06);
     font-size: 16px;
     margin: 0;
+  }
+  .add-steps {
+    margin: 0;
+    padding-inline-start: var(--space-24);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-04);
   }
   .add-row {
     display: flex;

@@ -24,7 +24,7 @@ export const LINK_PROGRESS_EVERY_MS = 2000;
 
 /** The entries of *Where it lives* this screen opens itself (Jira opens its own dialog). */
 export type AddEntry = 'sharepoint' | 'confluence' | 'local' | 'code';
-export type AddStep = 'where' | 'search' | 'sign_in' | 'not_configured' | 'folder' | 'jira' | 'added';
+export type AddStep = 'where' | 'search' | 'sign_in' | 'not_configured' | 'folder' | 'onedrive' | 'jira' | 'added';
 
 /** The link kind each entry adds, for the *Linked* label. */
 export const ENTRY_LINK_KIND: Readonly<Record<AddEntry | 'jira', SourceLinkKind>> = {
@@ -104,6 +104,16 @@ export class AddToWorkspaceModel {
     this.step = entry === 'sharepoint' || entry === 'confluence' ? 'search' : 'folder';
   }
 
+  /** SM-AW-6: **Use a folder OneDrive syncs**, the SharePoint entry's way in with no sign-in in ordin. */
+  // spec: ordin-desktop/components/ScreensModule#SM-AW-6
+  openOneDrive(): void {
+    clearTimeout(this.#timer);
+    this.entry = 'sharepoint';
+    this.error = null;
+    this.results = [];
+    this.step = 'onedrive';
+  }
+
   openJira(): void {
     this.entry = null;
     this.error = null;
@@ -175,7 +185,9 @@ export class AddToWorkspaceModel {
     try {
       const out = await this.#handle.call('identity.sign_in', { kind: this.signInKind, reason });
       if (out.kind === 'error') {
-        this.error = out.error;
+        // SM-AW-6: no Microsoft sign-in can complete in this version, so the synced folder is the way in.
+        if (this.entry === 'sharepoint' && out.error.code === 'CRED_PROVIDER_NOT_CONFIGURED') this.openOneDrive();
+        else this.error = out.error;
         return;
       }
       if (out.result.kind !== 'already_signed_in') {
@@ -256,6 +268,9 @@ export class AddToWorkspaceModel {
       this.error = null;
       this.results = [];
       this.step = 'sign_in';
+    } else if (NOT_CONFIGURED.has(error.code) && this.entry === 'sharepoint') {
+      // SM-AW-6: SharePoint without a way to sign in opens the OneDrive step.
+      this.openOneDrive();
     } else if (NOT_CONFIGURED.has(error.code)) {
       this.error = null;
       this.results = [];

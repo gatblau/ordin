@@ -7185,3 +7185,40 @@ Feature: A question's short choices sit side by side (SM-QB-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — SharePoint through a folder OneDrive syncs (SM-AW-6) (user decision 2026-02-12, "add the OneDrive fallback"; ADR-126)
+
+Plan 09 Phase 4: a person whose organisation blocks ordin's Microsoft app, or whose build carries none and who has no company profile, could not use SharePoint at all. Most such people already have OneDrive signed in to their work account, and OneDrive can sync a SharePoint library to a folder on the computer. Adding that folder needs no sign-in in ordin.
+
+- **SM-AW-6 Use a folder OneDrive syncs.** On **Add to workspace**, with the SharePoint entry chosen, on a backend that answers `app.pick_folder`:
+  1. The search step and the sign-in step each draw, below their own controls, the secondary button **Use a folder OneDrive syncs** (`add-onedrive-open`), which opens the OneDrive step.
+  2. The SharePoint entry goes straight to the OneDrive step, instead of `not_configured`, when `sharepoint.find` answers `WS_SOURCE_NOT_CONFIGURED`, or `identity.sign_in { kind: microsoft }` answers `CRED_PROVIDER_NOT_CONFIGURED`, since no sign-in can complete there. `CRED_ADMIN_CONSENT_REQUIRED` stays on the sign-in step with its sentence, where the button of item 1 is drawn.
+  3. The OneDrive step is one panel: the heading `add-onedrive-title`; `add-onedrive-line` (OneDrive can keep a SharePoint library on your computer, and ordin reads it from there); three numbered steps `add-onedrive-step-1` (open the library in your browser), `add-onedrive-step-2` (select **Sync**, and OneDrive adds it to your computer), `add-onedrive-step-3` (choose that folder here; on a Mac it is under your OneDrive folder in Finder's sidebar, on Windows under your organisation's name in File Explorer); the one main action **Choose the synced folder…** (`add-onedrive-choose`), which sends `app.pick_folder {}` and adds the answer as a `local_folder` link exactly as **Choose a folder…** does (SM-AW-3); and **Back** (`add-back`) to *Where it lives*. A refusal is drawn under the main action with `ErrorLine`.
+  4. The link is an ordinary folder on this computer: the *Linked* label, *Added*, reading progress and folder access are those of a local folder. OneDrive keeps it in step with SharePoint; ordin does not search SharePoint for it.
+
+```gherkin
+Feature: SharePoint through a folder OneDrive syncs (SM-AW-6)
+
+  Scenario: Happy path — the person adds a synced library
+    Given the SharePoint entry is chosen on Add to workspace
+    When the person presses "Use a folder OneDrive syncs" and then "Choose the synced folder…"
+    And the picker answers "/Users/asha/Library/CloudStorage/OneDrive-SharedLibraries-Contoso/Finance - Documents"
+    Then workspaces.add_link is sent with a local_folder link of that path
+    And Added is drawn
+
+  Scenario: Edge case — no Microsoft sign-in is possible in this version
+    Given no company profile names Microsoft and the build carries no Microsoft app
+    When the person presses "Sign in with Microsoft"
+    And identity.sign_in answers CRED_PROVIDER_NOT_CONFIGURED
+    Then the OneDrive step is drawn
+
+  Scenario: Error path — the organisation blocks ordin's app
+    Given the sign-in answers CRED_ADMIN_CONSENT_REQUIRED
+    Then its sentence is drawn on the sign-in step
+    And "Use a folder OneDrive syncs" is drawn below it
+
+  Scenario: Edge case — the person closes the picker
+    Given the OneDrive step is drawn
+    When the picker answers no folder
+    Then nothing is sent and the step stays drawn
+```
