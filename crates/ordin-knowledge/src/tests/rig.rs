@@ -129,6 +129,27 @@ impl Rig {
         self.journal().await.into_iter().map(|(k, _)| k).collect()
     }
 
+    /// The `knowledge_pages_changed` events appended so far, as their `workspace_id` (KS-PC-1).
+    pub(crate) async fn pages_changed(&self) -> Vec<String> {
+        if self.svc.journal.last_seq() == 0 {
+            return Vec::new();
+        }
+        self.svc
+            .journal
+            .events_since(0, 500)
+            .await
+            .expect("events")
+            .into_iter()
+            .filter(|e| e.kind == "knowledge_pages_changed")
+            .map(|e| {
+                e.data["workspace_id"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .collect()
+    }
+
     pub(crate) fn text(&self, path: &str) -> String {
         self.f.files.text(self.place, path).unwrap_or_default()
     }

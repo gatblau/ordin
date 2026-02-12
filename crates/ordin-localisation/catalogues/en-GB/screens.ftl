@@ -36,6 +36,11 @@ tree-telegram = Telegram
 tree-slack = Slack
 tree-running = Running now
 tree-knowledge = Knowledge
+# SM-KT-2: the unfolded Knowledge row.
+tree-knowledge-show = Show the pages
+tree-knowledge-hide = Hide the pages
+tree-show-all = Show all…
+tree-knowledge-none = No pages yet.
 tree-node-menu = Actions for { $name }
 tree-memory = Memory
 # SM-TW-7, SM-TW-8: a team workspace's activity (ADR-121).

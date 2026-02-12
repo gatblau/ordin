@@ -20,6 +20,7 @@
   import AgentsTreeGroup from './AgentsTreeGroup.svelte';
   import DashboardsTreeGroup from './DashboardsTreeGroup.svelte';
   import DocumentsTreeGroup from './DocumentsTreeGroup.svelte';
+  import KnowledgeTreeGroup from './KnowledgeTreeGroup.svelte';
   import MinutesTreeGroup from './MinutesTreeGroup.svelte';
   import { openScreen } from './open-item';
   import { SCREEN_IDS } from './screens';
@@ -162,6 +163,9 @@
     <DashboardsTreeGroup {backend} {workspaceId} />
     <!-- SM-MIN-1: Minutes, after Dashboards, only when the backend answers the minutes group. -->
     {#if answers(backend, 'minutes.list')}<MinutesTreeGroup {backend} {workspaceId} />{/if}
+  {:else if group.screen === SCREEN_IDS.knowledge}
+    <!-- SM-KT-1: the Knowledge row opens the screen and unfolds to its pages. -->
+    <KnowledgeTreeGroup {backend} {workspaceId} />
   {:else}
   <div role="treeitem" aria-selected="false" tabindex="-1" class="tree-leaf">
     <button type="button" class="tree-row" class:leaf={group.screen === SCREEN_IDS.knowledge || group.screen === SCREEN_IDS.memory} onclick={() => openScreen(app, backend.id, workspaceId, group.screen)}><span class="icon-tile" data-tint={group.tint}><Icon name={group.icon} /></span>{t(group.label)}</button>

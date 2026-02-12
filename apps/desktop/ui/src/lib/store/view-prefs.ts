@@ -24,6 +24,8 @@ export const KEYS = {
   memoryShown: 'ordin.view.memory.shown',
   /** The agent-work layout and the panes' collapsed state to restore when it is left (amended January 2026; user decision; Approved by the user January 2026). */
   agentWork: 'ordin.view.panel.agent_work',
+  /** The workspaces whose Knowledge row is unfolded, as `<backend id>:<workspace id>` (ScreensModule.md SM-KT-1). */
+  knowledgeUnfolded: 'ordin.view.tree.knowledge_unfolded',
 } as const;
 
 /** The choices of "Facts shown before Show more" (SM-NS-1.9). */
@@ -205,6 +207,14 @@ export class ViewPrefs {
   }
   setExpanded(nodeKeys: string[]): void {
     this.#write(KEYS.expanded, nodeKeys);
+  }
+
+  /** The Knowledge rows unfolded in the tree (SM-KT-1), kept apart from `expanded`, which holds workspaces only. */
+  knowledgeUnfolded(): string[] {
+    return this.#read<string[]>(KEYS.knowledgeUnfolded, [], isStringList);
+  }
+  setKnowledgeUnfolded(nodeKeys: string[]): void {
+    this.#write(KEYS.knowledgeUnfolded, nodeKeys);
   }
 }
 

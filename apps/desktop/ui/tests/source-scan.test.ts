@@ -142,6 +142,10 @@ describe('icons — the whole window', () => {
       // 2026; user decision; Approved by the user January 2026).
       // spec: ordin-desktop/components/ScreensModule#SM-DB-7
       'src/lib/shell/DashboardsTreeGroup.svelte',
+      // The Knowledge row's arrow, which unfolds its pages (SM-KT-1, plan 10 Phase 9; Approved by the user
+      // 2026-02-12); a tree node's arrow, as the workspace row draws it (UX-A14).
+      // spec: ordin-desktop/components/ScreensModule#SM-KT-1
+      'src/lib/shell/KnowledgeTreeGroup.svelte',
       // The Minutes row's ⋯ (Record…, Make minutes from a file…) and a job row's ⋯ in the side tree
       // (SM-MIN-18, SM-MIN-19, user decision 2026-11-22).
       // spec: ordin-desktop/components/ScreensModule#SM-MIN-18

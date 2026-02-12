@@ -1778,3 +1778,24 @@ fn svc_nkp_edge_case_the_removed_command_is_unknown() {
     names.dedup();
     assert_eq!(names.len(), ROWS, "names are unique");
 }
+
+// ---- plan 10 Phase 9: the pages of a workspace changed ----
+
+// Scenario: The event names the workspace
+// spec: ordin-desktop/components/ServiceApi#SVC-PC-1
+#[test]
+fn happy_path_knowledge_pages_changed_names_the_workspace() {
+    let event =
+        ServiceEvent::from_journal("knowledge_pages_changed", json!({"workspace_id": WS})).unwrap();
+    assert_eq!(event.kind(), EventKind::KnowledgePagesChanged);
+    assert_eq!(event.kind().as_str(), "knowledge_pages_changed");
+    assert_eq!(event.to_journal_data(), json!({"workspace_id": WS}));
+}
+
+// Scenario: Edge case — a missing workspace is refused
+// spec: ordin-desktop/components/ServiceApi#SVC-PC-1
+#[test]
+fn edge_case_knowledge_pages_changed_without_a_workspace_is_refused() {
+    let err = ServiceEvent::from_journal("knowledge_pages_changed", json!({})).unwrap_err();
+    assert_eq!(err.code, "SVC_EVENT_INVALID");
+}

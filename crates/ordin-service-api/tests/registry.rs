@@ -132,7 +132,7 @@ fn schema_lists_every_command_and_event() {
     let schema = json_schemas();
     assert_eq!(schema["x-ordin-commands"].as_array().unwrap().len(), ROWS);
     // 22, and `ordin_turn_changed` (SVC-WK-1).
-    assert_eq!(schema["x-ordin-events"].as_array().unwrap().len(), 23);
+    assert_eq!(schema["x-ordin-events"].as_array().unwrap().len(), 24);
     for name in [
         "Block",
         "ServiceEvent",

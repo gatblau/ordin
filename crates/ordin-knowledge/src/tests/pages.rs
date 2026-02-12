@@ -529,3 +529,40 @@ async fn the_start_up_scan_adopts_files_of_a_workspace_with_no_pages_yet() {
     let pages = store::workspace_pages(&mut conn, other).await.unwrap();
     assert_eq!(pages.len(), 1, "the file is adopted as a page");
 }
+
+// ---- KS-PC-1: the screens hear when pages change ----
+
+// Scenario: Writing a page sends the event
+// spec: ordin-desktop/components/KnowledgeService#KS-PC-1
+#[tokio::test]
+async fn writing_a_page_sends_knowledge_pages_changed() {
+    let rig = Rig::desktop().await;
+    rig.write("Budget 2026", "Body text.").await;
+    assert_eq!(rig.pages_changed().await, [rig.w.to_string()]);
+}
+
+// Scenario: Removing and restoring a page each send the event
+// spec: ordin-desktop/components/KnowledgeService#KS-PC-1
+#[tokio::test]
+async fn removing_and_restoring_a_page_each_send_knowledge_pages_changed() {
+    let rig = Rig::desktop().await;
+    let id = rig.write("Rates", "Body text.").await;
+    rig.svc.remove_page(id).await.unwrap();
+    rig.svc.undo_remove(id).await.unwrap();
+    let w = rig.w.to_string();
+    assert_eq!(rig.pages_changed().await, [w.clone(), w.clone(), w]);
+}
+
+// Scenario: Error — a refused write sends nothing
+// spec: ordin-desktop/components/KnowledgeService#KS-PC-1
+#[tokio::test]
+async fn a_refused_write_sends_no_knowledge_pages_changed() {
+    let rig = Rig::desktop().await;
+    let e = rig
+        .svc
+        .write_page(KnowledgeAuthor::Ordin, rig.req("", "x", vec![]))
+        .await
+        .unwrap_err();
+    assert!(!e.code().is_empty());
+    assert!(rig.pages_changed().await.is_empty());
+}

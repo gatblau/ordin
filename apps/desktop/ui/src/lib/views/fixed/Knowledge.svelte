@@ -81,6 +81,18 @@
     if (instance) void c.open(instance);
   });
 
+  // SM-KT-3: a page written, changed, removed or restored in this workspace (`knowledge_pages_changed`
+  // raises its revision) is listed at once; the filter and an open page are kept.
+  // spec: ordin-desktop/components/ScreensModule#SM-KT-3
+  // svelte-ignore state_referenced_locally
+  let seenRevision = backend.workspaceRevision(workspaceId ?? '');
+  $effect(() => {
+    const revision = backend.workspaceRevision(workspaceId ?? '');
+    if (revision === seenRevision) return;
+    seenRevision = revision;
+    void c.load();
+  });
+
   function startEdit(): void {
     if (c.page === null) return;
     title = c.page.page.title;

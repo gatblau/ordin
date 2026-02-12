@@ -3754,3 +3754,26 @@ Feature: ordin.prepare_start_fresh is withdrawn (SVC-NKP-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — The event `knowledge_pages_changed` (SVC-PC-1) (plan 10 Phase 9; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 9 as written, build it"). Source: plan 10 Phase 9; the user's report of 2026-02-11 that a written page did not appear until the Knowledge screen was opened again. Counterparts: KnowledgeService.md KS-PC-1, ScreensModule.md SM-KT-1. Evidence read: `crates/ordin-types/src/wire/events.rs:11-35` (23 kinds), `crates/ordin-service-api/src/events.rs:143` (`KnowledgeAgentsChanged`, the pattern followed), the table of kinds at this spec's `knowledge_agents_changed` row.
+
+- **SVC-PC-1 `knowledge_pages_changed`.** A new `ServiceEvent` kind `knowledge_pages_changed { workspace_id: WorkspaceId }`, emitted by the Knowledge Service (KS-PC-1) and written to the Journal like the other kinds; 2C `EventKind::KnowledgePagesChanged`; the catalogue holds **24 event kinds**. It is carried to a paired desktop. Its meaning: the pages of that workspace changed; reload with `knowledge.list`. Row added to the table of kinds: | `knowledge_pages_changed` | Knowledge Service (KS-PC-1) | — | yes |. The generated `types.gen.ts` and `schema.gen.json` carry it. No command is added or changed; an older desktop ignores a kind it does not know, as for any new kind.
+
+```gherkin
+Feature: The event knowledge_pages_changed (SVC-PC-1)
+
+  Scenario: The event names the workspace
+    When the Journal holds the event knowledge_pages_changed {workspace_id: W}
+    Then it is read as ServiceEvent KnowledgePagesChanged with workspace W
+    And its kind is knowledge_pages_changed
+
+  Scenario: Edge case — a missing workspace is refused
+    When the event knowledge_pages_changed carries no workspace_id
+    Then it is not read as a ServiceEvent
+```
+
+### Gaps
+
+None.

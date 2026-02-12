@@ -6406,6 +6406,9 @@ export type ServiceEvent = ({
   since: Timestamp;
   state: OrdinTurnState;
   workspace_id: string;
+} | {
+  kind: "knowledge_pages_changed";
+  workspace_id: string;
 });
 
 export interface ServiceHello {

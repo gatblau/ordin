@@ -311,6 +311,26 @@ impl KnowledgeService {
         }
     }
 
+    /// KS-PC-1: tells the screens that the pages of a workspace changed. A failure is logged and
+    /// does not fail the change; the screens catch up on their next read.
+    // spec: ordin-desktop/components/KnowledgeService#KS-PC-1
+    pub(crate) async fn pages_changed(&self, workspace_id: WorkspaceId) {
+        if let Err(e) = self
+            .journal
+            .append_event(
+                "knowledge_pages_changed",
+                serde_json::json!({ "workspace_id": workspace_id }),
+            )
+            .await
+        {
+            tracing::warn!(
+                component = "knowledge",
+                code = ordin_types::CodedError::code(&e),
+                "knowledge_event_failed"
+            );
+        }
+    }
+
     pub(crate) fn wake_indexer(&self) {
         self.index_wake.notify_one();
     }

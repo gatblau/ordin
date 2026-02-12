@@ -3044,3 +3044,37 @@ No error row, scenario or code is added.
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — The screens hear when pages change (KS-PC-1) (plan 10 Phase 9; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 9 as written, build it"). Source: the user's report of 2026-02-11 that a page Ordin wrote did not appear on an open Knowledge screen or in the tree; user decisions of 2026-02-12 (the tree row keeps opening the screen; one folder level). Counterparts: ServiceApi.md SVC-PC-1, ScreensModule.md SM-KT-1. Evidence read: `crates/ordin-knowledge/src/pages.rs:156` (`commit_page`, used by `write_page`, `save_edit`, `use_update`, `copy_to_workspace`, `outside.rs:555`, `read.rs:1148`, `suggest.rs:492`), `:952` (`remove_page`), `:1032` (`undo_remove`), `crates/ordin-knowledge/src/service.rs:53` (the service holds the Journal), `crates/ordin-journal/src/journal.rs:288` (`append_event`).
+
+- **KS-PC-1 One event after a change to the page list.** After the transaction of `commit_page` commits, and after `remove_page` and `undo_remove` succeed, the service calls `journal.append_event("knowledge_pages_changed", { workspace_id })` with the workspace of the page's row. One event per successful call; a call that fails sends none. A failure to append is logged `knowledge_event_failed` (warning, with `code`) and does not fail the call, as `knowledge_journal_failed` does not. The event carries no title, path or body.
+- Where a page is written is unchanged: a new page's file is `knowledge/<file name>` in the workspace's own folder (`pages.rs:378-384`), so pages the person or Ordin writes have no sub-folders. A team folder's page carries its folder's name in `PageSummary.folder` as before; its path inside the bundle is not sent.
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| The event cannot be appended | — (none returned) | The page change stands; warning `knowledge_event_failed` logged; the screens catch up on their next read |
+
+```gherkin
+Feature: The screens hear when pages change (KS-PC-1)
+
+  Scenario: Writing a page sends the event
+    Given workspace W
+    When Ordin writes the page "Budget 2026" in W
+    Then one event knowledge_pages_changed {workspace_id: W} is appended
+
+  Scenario: Removing and restoring a page each send the event
+    Given the page P in W
+    When the person removes P and then undoes the removal
+    Then two events knowledge_pages_changed {workspace_id: W} are appended
+
+  Scenario: Error — a refused write sends nothing
+    When a page is written with an empty title
+    Then the call fails with the title error
+    And no knowledge_pages_changed event is appended
+```
+
+### Gaps
+
+None.

@@ -277,6 +277,7 @@ impl KnowledgeService {
             }),
         )
         .await;
+        self.pages_changed(row.workspace_id).await;
         self.wake_indexer();
         self.schedule_index(row.workspace_id);
         self.refresh_suggestions_after(&row).await;
@@ -979,6 +980,7 @@ impl KnowledgeService {
             json!({ "page_id": page_id }),
         )
         .await;
+        self.pages_changed(old.workspace_id).await;
         Ok(())
     }
 
@@ -1083,6 +1085,7 @@ impl KnowledgeService {
             json!({ "page_id": page_id }),
         )
         .await;
+        self.pages_changed(row.workspace_id).await;
         self.wake_indexer();
         self.schedule_index(row.workspace_id);
         self.refresh_suggestions_after(&row).await;

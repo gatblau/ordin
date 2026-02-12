@@ -32,6 +32,7 @@ pub enum EventKind {
     MoreFound,              // amended January 2026, ADR-113
     MemoryModelsChanged,    // amended 2026-01-28, ServiceApi.md SVC-MD-2
     OrdinTurnChanged,       // amended January 2026, ServiceApi.md SVC-WK-1
+    KnowledgePagesChanged,  // amended 2026-02-12, ServiceApi.md SVC-PC-1
 }
 
 impl EventKind {
@@ -61,6 +62,7 @@ impl EventKind {
             EventKind::MoreFound => "more_found",
             EventKind::MemoryModelsChanged => "memory_models_changed",
             EventKind::OrdinTurnChanged => "ordin_turn_changed",
+            EventKind::KnowledgePagesChanged => "knowledge_pages_changed",
         }
     }
 
@@ -90,6 +92,7 @@ impl EventKind {
             "more_found" => Some(EventKind::MoreFound),
             "memory_models_changed" => Some(EventKind::MemoryModelsChanged),
             "ordin_turn_changed" => Some(EventKind::OrdinTurnChanged),
+            "knowledge_pages_changed" => Some(EventKind::KnowledgePagesChanged),
             _ => None,
         }
     }

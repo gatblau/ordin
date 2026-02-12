@@ -171,6 +171,12 @@ pub enum ServiceEvent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         failure: Option<OrdinTurnFailure>,
     },
+    /// The pages of a workspace changed: written, edited, removed or restored. Reload with
+    /// `knowledge.list`. Emitted by the Knowledge Service (KnowledgeService.md KS-PC-1).
+    // spec: ordin-desktop/components/ServiceApi#SVC-PC-1
+    KnowledgePagesChanged {
+        workspace_id: WorkspaceId,
+    },
 }
 
 /// The state `ordin_turn_changed` carries (SVC-WK-1).
@@ -260,6 +266,7 @@ impl ServiceEvent {
             ServiceEvent::MoreFound { .. } => EventKind::MoreFound,
             ServiceEvent::MemoryModelsChanged { .. } => EventKind::MemoryModelsChanged,
             ServiceEvent::OrdinTurnChanged { .. } => EventKind::OrdinTurnChanged,
+            ServiceEvent::KnowledgePagesChanged { .. } => EventKind::KnowledgePagesChanged,
         }
     }
 

@@ -175,8 +175,9 @@ fn happy_path_every_event_kind_round_trips_through_its_wire_name() {
         MoreFound,
         MemoryModelsChanged,
         OrdinTurnChanged,
+        KnowledgePagesChanged,
     ];
-    assert_eq!(all.len(), 23);
+    assert_eq!(all.len(), 24);
     for kind in all {
         assert_eq!(EventKind::parse(kind.as_str()), Some(kind));
         // The serde name is the same wire name.
@@ -187,6 +188,7 @@ fn happy_path_every_event_kind_round_trips_through_its_wire_name() {
     assert_eq!(MoreFound.as_str(), "more_found");
     assert_eq!(MemoryModelsChanged.as_str(), "memory_models_changed");
     assert_eq!(OrdinTurnChanged.as_str(), "ordin_turn_changed");
+    assert_eq!(KnowledgePagesChanged.as_str(), "knowledge_pages_changed");
     assert_eq!(EventKind::parse("job_finished"), None);
 }
 

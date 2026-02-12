@@ -25115,6 +25115,24 @@
             "since"
           ],
           "type": "object"
+        },
+        {
+          "description": "The pages of a workspace changed: written, edited, removed or restored. Reload with\n`knowledge.list`. Emitted by the Knowledge Service (KnowledgeService.md KS-PC-1).",
+          "properties": {
+            "kind": {
+              "const": "knowledge_pages_changed",
+              "type": "string"
+            },
+            "workspace_id": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "workspace_id"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -40756,6 +40774,12 @@
         "$ref": "#/$defs/ServiceEvent"
       },
       "kind": "ordin_turn_changed"
+    },
+    {
+      "data": {
+        "$ref": "#/$defs/ServiceEvent"
+      },
+      "kind": "knowledge_pages_changed"
     }
   ]
 }

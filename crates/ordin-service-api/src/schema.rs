@@ -14,7 +14,7 @@ use crate::pairing::{PairReply, PairRequest};
 use crate::wire::{ServiceApiVersion, ServiceError};
 
 /// Every event kind of this version, in catalogue order.
-pub(crate) const EVENT_KINDS: [EventKind; 23] = [
+pub(crate) const EVENT_KINDS: [EventKind; 24] = [
     EventKind::RunStateChanged,
     EventKind::RunProgress,
     EventKind::PlanChanged,
@@ -38,6 +38,7 @@ pub(crate) const EVENT_KINDS: [EventKind; 23] = [
     EventKind::MoreFound,
     EventKind::MemoryModelsChanged,
     EventKind::OrdinTurnChanged,
+    EventKind::KnowledgePagesChanged,
 ];
 
 fn scope_name(scope: Scope) -> &'static str {

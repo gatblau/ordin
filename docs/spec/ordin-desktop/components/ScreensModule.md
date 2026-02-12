@@ -7314,3 +7314,68 @@ Feature: Clear and Continue offer no key points (SM-NKP-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Knowledge pages in the tree, and screens that keep up (SM-KT-1 to SM-KT-3) (plan 10 Phase 9; Approved by the user 2026-02-12)
+
+> **Status:** Approved by the user, 2026-02-12 ("approve phase 9 as written, build it"). Source: the user's reports of 2026-02-11 (a page Ordin wrote did not appear in the tree or on the Knowledge screen; list pages in the tree under **Knowledge**, in their folders); user decisions of 2026-02-12: choosing **Knowledge** still opens the Knowledge screen and its arrow unfolds the pages (1A); one folder level — the person's and Ordin's pages at the top, each team folder's pages under the folder's name (2A). HLD 11 §4, UX-A14. Counterparts: KnowledgeService.md KS-PC-1, ServiceApi.md SVC-PC-1. Evidence read: `apps/desktop/ui/src/lib/shell/WorkspaceTree.svelte:48`, `:167`; `apps/desktop/ui/src/lib/shell/MinutesTreeGroup.svelte` (a group row that unfolds); `apps/desktop/ui/src/lib/views/fixed/Knowledge.svelte:80`; `apps/desktop/ui/src/lib/store/backend-state.svelte.ts:347-349`; `PageListing` and `PageSummary` (`crates/ordin-knowledge/src/model.rs`); the screen key `knowledge` with `<page id>` (this spec, table of screens).
+
+- **SM-KT-1 The Knowledge row unfolds.** The row keeps its icon, its label `tree-knowledge` and its action: choosing the label opens the Knowledge screen, as before. It gains an arrow (`aria-expanded`), like any node that has children (UX-A14); the arrow, and Right/Left on the focused row, unfold and fold it. Whether it is unfolded is kept with the tree's other unfolded nodes. It is drawn only when the backend answers `knowledge.list`, as now. The row gains no ⋯ menu.
+- **SM-KT-2 What it lists.** When unfolded, the row sends `knowledge.list { workspace_id }` and draws, from `this_workspace` and `from_other_teams`, every page whose `state` is not `removed`:
+  1. One folder row per distinct `folder` in `from_other_teams`, ordered by name; the folder row has the `folder` icon, its name, `folder_description` as its tooltip when present, and unfolds and folds (its state not kept). Under it, its pages.
+  2. Then the pages of `this_workspace`, at the top level.
+  3. At each level, pages are ordered by title (case-insensitive). When a level holds more than 10 pages, it draws the 10 most recently changed (`last_changed_at`), still ordered by title, then a row `tree-show-all` ("Show all…") which draws the rest at that level in place.
+  4. A page row shows its title with the `page` icon; choosing it opens the screen `knowledge:<page id>`. It has no ⋯ menu: a page's actions are on its screen.
+  5. Pages from agents (`from_agents`) and files not adopted (`not_adopted`) are not listed in the tree; they stay on the Knowledge screen.
+  6. No page at all → one muted line `tree-knowledge-none` ("No pages yet."). A failed read → the error line with **Try again**, as the Minutes group draws it.
+- **SM-KT-3 Screens keep up.** On `knowledge_pages_changed` for a workspace (ServiceApi.md SVC-PC-1), the desktop raises that workspace's revision, as for `knowledge_agents_changed`. An unfolded Knowledge row and an open Knowledge screen for that workspace read `knowledge.list` again when the revision changes; a page that is no longer listed is drawn no more, and an open page screen is left as it is.
+
+| Id | Text |
+|---|---|
+| `tree-show-all` | Show all… |
+| `tree-knowledge-none` | No pages yet. |
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| `knowledge.list` fails when the row unfolds or reloads | as returned | Error line under the row with **Try again**; the rows already drawn are left as they were |
+
+```gherkin
+Feature: Knowledge pages in the tree (SM-KT-1 to SM-KT-3)
+
+  Scenario: Choosing Knowledge still opens the screen
+    When the person chooses Knowledge under workspace W
+    Then the Knowledge screen of W opens
+    And the Knowledge row is not unfolded
+
+  Scenario: Unfolding lists team folders, then the workspace's pages
+    Given W has the pages "Budget" and "Agenda" and the team folder "Finance" with the page "Rates"
+    When the person unfolds Knowledge under W
+    Then the rows are "Finance", then "Agenda", then "Budget"
+    And "Rates" is under "Finance"
+
+  Scenario: A page written while the row is unfolded appears
+    Given Knowledge under W is unfolded
+    When the event knowledge_pages_changed {workspace_id: W} arrives
+    Then knowledge.list is read again for W
+    And the new page is drawn
+
+  Scenario: An open Knowledge screen shows a new page
+    Given the Knowledge screen of W is open
+    When the event knowledge_pages_changed {workspace_id: W} arrives
+    Then the screen reads knowledge.list again
+
+  Scenario: Edge case — more than 10 pages at a level
+    Given W has 12 pages
+    When the person unfolds Knowledge under W
+    Then the 10 most recently changed are drawn by title, then "Show all…"
+    When the person chooses "Show all…"
+    Then all 12 are drawn by title
+
+  Scenario: Error — the list cannot be read
+    Given knowledge.list fails for W
+    When the person unfolds Knowledge under W
+    Then an error line with Try again is drawn under the row
+```
+
+### Gaps
+
+None.

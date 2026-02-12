@@ -344,6 +344,7 @@ export class BackendState implements HasGroups {
         if (e.state === 'working') this.ordinWorking.set(e.workspace_id, { since: e.since, ...(e.doing != null ? { doing: e.doing } : {}) });
         else this.ordinWorking.delete(e.workspace_id);
         return true;
+      case 'knowledge_pages_changed': // ScreensModule.md SM-KT-3
       case 'knowledge_agents_changed':
         this.workspaceRevisions.set(e.workspace_id, this.workspaceRevision(e.workspace_id) + 1);
         return true;
