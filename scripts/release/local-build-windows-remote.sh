@@ -37,6 +37,9 @@ UNTRACKED="$(git -C "$ROOT" ls-files --others --exclude-standard | head -n 3 || 
 # PB-REL-31: the GitHub App client id goes with the build, checked here so it cannot break the quoting.
 GITHUB_APP_ID="${RELEASE_GITHUB_APP_CLIENT_ID:-}"
 [[ "$GITHUB_APP_ID" =~ ^[A-Za-z0-9._-]{0,128}$ ]] || die "RELEASE_GITHUB_APP_CLIENT_ID may hold only letters, digits, '.', '_' and '-' (at most 128)"
+# PB-REL-36: the Microsoft app client id, checked as the GitHub one.
+MICROSOFT_APP_ID="${RELEASE_MICROSOFT_CLIENT_ID:-}"
+[[ "$MICROSOFT_APP_ID" =~ ^[A-Za-z0-9._-]{0,128}$ ]] || die "RELEASE_MICROSOFT_CLIENT_ID may hold only letters, digits, '.', '_' and '-' (at most 128)"
 case "${AGENTS:-commit}" in
   commit|worktree|none) ;;
   *) die "AGENTS is commit, worktree or none" ;;
@@ -55,7 +58,7 @@ git checkout -q -f '$COMMIT'
 git clean -fdq -e node_modules -e target
 (cd apps/desktop/ui && npm ci --no-audit --no-fund >/dev/null)
 rm -rf target/release/bundle/nsis
-AGENTS='${AGENTS:-commit}' RELEASE_GITHUB_APP_CLIENT_ID='$GITHUB_APP_ID' make local-build" \
+AGENTS='${AGENTS:-commit}' RELEASE_GITHUB_APP_CLIENT_ID='$GITHUB_APP_ID' RELEASE_MICROSOFT_CLIENT_ID='$MICROSOFT_APP_ID' make local-build" \
   || die "the build on the Windows machine failed; see its output above."
 
 note "windows: bringing the installer into $OUT"

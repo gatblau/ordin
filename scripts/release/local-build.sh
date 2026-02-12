@@ -61,6 +61,7 @@ export ORDIN_MEMORY_MODELS_SHA256="$RELEASE_MEMORY_MODELS_SHA256"
 export ORDIN_MEMORY_MODELS_BYTES="$RELEASE_MEMORY_MODELS_BYTES"
 export ORDIN_MEMORY_MODELS_MANIFEST="$MODELS_MANIFEST"
 github_app_env
+microsoft_app_env
 
 # The bundled agents go into the bundle's `catalogue` resource folder, where the program reads them
 # (DSK-REC-39a), as the release build places them (PB-REL-6); tauri.conf.json names no resource itself.

@@ -944,6 +944,7 @@ async fn real_identity(dir: &TempDir, token_endpoint: &str) -> Arc<IdentityServi
                 key_source: KeySource::KeyFile(key_file),
             },
             github_app_client_id: None,
+            microsoft_client_id: None,
             http: reqwest::Client::new(),
             browser: None,
         },

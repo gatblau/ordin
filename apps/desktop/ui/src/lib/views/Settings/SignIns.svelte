@@ -54,7 +54,7 @@
   /** Jira signed in: **Use my Jira sign-in** is offered under Confluence (its site is the account label). */
   const jiraSignedIn = $derived(model.items.find((c) => c.kind === 'jira' && c.state === 'signed_in') ?? null);
   const challenge = $derived(model.challenge);
-  const rows = $derived(serviceRows(model.items, model.document, (command) => answers(backend, command)));
+  const rows = $derived(serviceRows(model.items, model.document, (command) => answers(backend, command), model.microsoftBuiltIn));
   /** The last sign-in started, so **Try again** repeats it. */
   let retry = $state<(() => void) | null>(null);
 
@@ -139,6 +139,10 @@
                 </p>
               {:else}
                 <p>{t('signin-browser-opened')}</p>
+              {/if}
+              <!-- SM-NS-2.12: the build's own Microsoft app takes any work or school account. -->
+              {#if model.challengeKind === 'microsoft' && model.microsoftBuiltIn && model.document?.microsoft == null}
+                <p>{t('signin-microsoft-work-account')}</p>
               {/if}
               <button type="button" class="small" onclick={() => void model.cancelSignIn()}>{t('confirm-cancel')}</button>
             </div>

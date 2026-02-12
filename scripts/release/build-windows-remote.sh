@@ -30,6 +30,9 @@ COMMIT=$(git -C "$ROOT" rev-parse --verify "HEAD^{commit}")
 # PB-REL-31: the GitHub App client id goes with the build, checked here so it cannot break the quoting.
 GITHUB_APP_ID="${RELEASE_GITHUB_APP_CLIENT_ID:-}"
 [[ "$GITHUB_APP_ID" =~ ^[A-Za-z0-9._-]{0,128}$ ]] || die "RELEASE_GITHUB_APP_CLIENT_ID may hold only letters, digits, '.', '_' and '-' (at most 128)"
+# PB-REL-36: the Microsoft app client id, checked as the GitHub one.
+MICROSOFT_APP_ID="${RELEASE_MICROSOFT_CLIENT_ID:-}"
+[[ "$MICROSOFT_APP_ID" =~ ^[A-Za-z0-9._-]{0,128}$ ]] || die "RELEASE_MICROSOFT_CLIENT_ID may hold only letters, digits, '.', '_' and '-' (at most 128)"
 read -r -a WIN <<< "${RELEASE_WINDOWS_SSH:-${JOURNEYS_WINDOWS_SSH:-ssh -p 2222 ordin@127.0.0.1}}"
 REPO="${RELEASE_WINDOWS_REPO:-/c/o}"
 REMOTE="${RELEASE_WINDOWS_REMOTE:-server}"
@@ -100,7 +103,7 @@ cd '$REPO'
 git checkout -q -f '$COMMIT'
 git clean -fdq -e node_modules -e target
 rm -rf 'target/release-out/$VERSION'
-RELEASE_GITHUB_APP_CLIENT_ID='$GITHUB_APP_ID' make release-build VERSION='$VERSION'" \
+RELEASE_GITHUB_APP_CLIENT_ID='$GITHUB_APP_ID' RELEASE_MICROSOFT_CLIENT_ID='$MICROSOFT_APP_ID' make release-build VERSION='$VERSION'" \
   || die "the build on the Windows machine failed; see its output above. The update key was removed from that machine."
 remove_remote_key
 trap - EXIT

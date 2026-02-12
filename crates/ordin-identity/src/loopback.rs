@@ -39,8 +39,11 @@ pub(crate) async fn bind() -> Result<(TcpListener, u16), CredError> {
 /// What the provider's redirect carried.
 pub(crate) enum Callback {
     Code(Zeroizing<String>),
-    /// `error=access_denied`.
-    Denied,
+    /// `error=access_denied`; `admin_consent` when Microsoft's description names a consent block
+    /// (`AADSTS65001` or `AADSTS90094`, ID-MS-BUILT-4). Nothing else of the description is kept.
+    Denied {
+        admin_consent: bool,
+    },
     /// Any other `error`.
     Error,
 }
@@ -83,7 +86,11 @@ pub(crate) async fn accept(listener: &TcpListener, state: &str) -> Accepted {
             continue;
         }
         let callback = match (params.get("error"), params.get("code")) {
-            (Some(error), _) if error.as_str() == "access_denied" => Callback::Denied,
+            (Some(error), _) if error.as_str() == "access_denied" => Callback::Denied {
+                admin_consent: params
+                    .get("error_description")
+                    .is_some_and(|d| admin_consent_needed(d)),
+            },
             (Some(_), _) => Callback::Error,
             (None, Some(code)) => Callback::Code(code.clone()),
             (None, None) => {
@@ -93,6 +100,12 @@ pub(crate) async fn accept(listener: &TcpListener, state: &str) -> Accepted {
         };
         return Accepted { callback, stream };
     }
+}
+
+/// ID-MS-BUILT-4: Microsoft's codes for "the organisation must approve this app".
+// spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-4
+pub(crate) fn admin_consent_needed(description: &str) -> bool {
+    description.contains("AADSTS65001") || description.contains("AADSTS90094")
 }
 
 /// The request target of a `GET` line, or None for anything else.

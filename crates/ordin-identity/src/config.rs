@@ -23,6 +23,10 @@ pub struct IdentityConfig {
     pub secret_backend: SecretBackendConfig,
     /// Compiled-in GitHub App client id (`option_env!("GITHUB_APP_CLIENT_ID")`); None disables GitHub.
     pub github_app_client_id: Option<String>,
+    /// Compiled-in Microsoft app client id (`option_env!("MICROSOFT_CLIENT_ID")`, ADR-126), used with the
+    /// `organizations` authority when no company profile names Microsoft; None on the server.
+    // spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-1
+    pub microsoft_client_id: Option<String>,
     /// Shared client built by the program (rustls + platform verifier, system proxy; SA-HTTP-02).
     pub http: reqwest::Client,
     /// Opens a URL in the system browser. Implemented by the desktop program over

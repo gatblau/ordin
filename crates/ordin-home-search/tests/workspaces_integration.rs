@@ -305,6 +305,7 @@ async fn env() -> Env {
                     key_source: KeySource::KeyFile(key_file),
                 },
                 github_app_client_id: None,
+                microsoft_client_id: None,
                 http: reqwest::Client::new(),
                 browser: None,
             },

@@ -27,6 +27,22 @@ github_app_env() {
   fi
 }
 
+# PB-REL-36: the Microsoft app client id the desktop program compiles in (`option_env!("MICROSOFT_CLIENT_ID")`).
+# Empty: MICROSOFT_CLIENT_ID is removed from the build's environment, so Microsoft 365 needs a company profile.
+# spec: ordin-desktop/phase-5-playbook#PB-REL-36
+microsoft_app_env() {
+  local id="${RELEASE_MICROSOFT_CLIENT_ID:-}"
+  [[ "$id" =~ ^[A-Za-z0-9._-]{0,128}$ ]] \
+    || die "RELEASE_MICROSOFT_CLIENT_ID may hold only letters, digits, '.', '_' and '-' (at most 128)"
+  if [ -n "$id" ]; then
+    export MICROSOFT_CLIENT_ID="$id"
+    note "Microsoft sign-in: the Microsoft app $id (no company profile needed)"
+  else
+    unset MICROSOFT_CLIENT_ID
+    note "Microsoft sign-in: no Microsoft app (RELEASE_MICROSOFT_CLIENT_ID is empty); Microsoft 365 needs a company profile"
+  fi
+}
+
 # PB-REL-1: KEY=value lines; a value already in the environment wins.
 load_conf() {
   local conf="${RELEASE_CONF:-$ROOT/release/release.conf}" line key value

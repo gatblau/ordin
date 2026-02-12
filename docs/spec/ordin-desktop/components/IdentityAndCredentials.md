@@ -723,6 +723,7 @@ Status for in-process calls: `Err(retryable)` or `Err(permanent)`; the Service A
 | More than 4 sign-ins pending | Err(retryable) | `CRED_TOO_MANY_SIGN_INS` | `{"code":…,"action":"try_again"}` |
 | Unknown challenge id | Err(permanent) | `CRED_CHALLENGE_UNKNOWN` | `{"code":…,"action":null}` |
 | Person cancelled or denied at the provider | Err(permanent) | `CRED_SIGN_IN_CANCELLED` | `{"code":…,"action":"sign_in_again"}` |
+| Microsoft answered that the person's organisation must approve the app (`AADSTS65001` or `AADSTS90094`, ID-MS-BUILT-4) *Amended February 2026 (ADR-126).* | Err(permanent) | `CRED_ADMIN_CONSENT_REQUIRED` | `{"code":…,"action":null}` |
 | Sign-in not finished in time (10 min / device expiry) | Err(retryable) | `CRED_SIGN_IN_TIMEOUT` | `{"code":…,"action":"sign_in_again"}` |
 | Relayed sign-in's `state` differs from the challenge's | Err(permanent) | `CRED_RELAY_STATE_MISMATCH` | `{"code":"CRED_RELAY_STATE_MISMATCH","action":"sign_in_again"}`; the paired desktop shows "That sign-in didn't match. Try signing in to Slack again." |
 | Provider refused the client or the grant (incl. C-12/C-14 failing) | Err(permanent) | `CRED_PROVIDER_REFUSED` | `{"code":…}` |
@@ -1559,6 +1560,45 @@ Feature: One keychain entry unlocks every secret (SA-CRED-VAULT-1 to SA-CRED-VAU
     Given secrets.enc exists and the keychain holds no vault/key
     When ordin reads a secret
     Then secrets.enc is renamed secrets.enc.unreadable-<time> and a new empty vault is used
+```
+
+### Gaps
+
+None.
+
+## Amendment February 2026 — Microsoft 365 through the build's own app (ID-MS-BUILT-1 to ID-MS-BUILT-4) (amended February 2026, from ADR-126; user decision; Approved by the user February 2026)
+
+Every section above stays in force; ID-R1-5's Microsoft row is extended by ID-MS-BUILT-2.
+
+- **ID-MS-BUILT-1 The build's Microsoft client id.** `IdentityConfig` gains `microsoft_client_id: Option<String>`, set by the desktop program from `option_env!("MICROSOFT_CLIENT_ID")` (Playbook PB-REL-36) and `None` on the server. A value that fails C.1's client-id check (1–256 characters) is treated as `None`. `IdentityService::microsoft_built_in()` answers whether it is set.
+- **ID-MS-BUILT-2 Which Microsoft app signs in.** `identity.sign_in { kind: microsoft }` builds `ProviderConfig::Microsoft` from, in order: the profile's `microsoft` section (`tenant_id`, `client_id`), unchanged; else the build's client id with `tenant_id = "organizations"`; else it answers `CRED_PROVIDER_NOT_CONFIGURED`, as before. The scopes are the SharePoint Adapter's (`ordin_sharepoint::SCOPES`) on both routes. The authorize, token and device endpoints are those of C.4 with `organizations` as the tenant segment.
+- **ID-MS-BUILT-3 `identity.list` says the build carries it.** `identity.list` answers `microsoft_built_in: bool` beside `github_one_click`, true when ID-MS-BUILT-1's value is set.
+- **ID-MS-BUILT-4 An organisation that must approve the app.** On either Microsoft route, a loopback callback with `error=access_denied` whose `error_description` contains `AADSTS65001` or `AADSTS90094` answers `CRED_ADMIN_CONSENT_REQUIRED` (not retryable) in place of `CRED_SIGN_IN_CANCELLED`. Nothing of the description is logged or stored beyond the code. *(Assumed here, SA-MS-BUILT-01: Microsoft returns one of these two codes when user consent is blocked; the operator check of plan 09 Phase 4 confirms it with a real tenant.)*
+
+```gherkin
+Feature: Microsoft 365 through the build's own app (ID-MS-BUILT-1 to ID-MS-BUILT-4)
+
+  Scenario: Happy path — no profile, the build carries a Microsoft client id
+    Given no company profile and a build with MICROSOFT_CLIENT_ID "ms-app"
+    When the person signs in with Microsoft
+    Then the browser opens login.microsoftonline.com/organizations/oauth2/v2.0/authorize with client_id "ms-app"
+    And the credential is saved as a Microsoft credential
+
+  Scenario: Edge case — the company profile names Microsoft
+    Given a profile whose microsoft section names tenant "contoso-tenant" and client "company-app"
+    And a build with MICROSOFT_CLIENT_ID "ms-app"
+    When the person signs in with Microsoft
+    Then the sign-in uses tenant "contoso-tenant" and client "company-app"
+
+  Scenario: Error path — neither a profile nor a built-in app
+    Given no company profile and a build without MICROSOFT_CLIENT_ID
+    When the person signs in with Microsoft
+    Then the call fails with CRED_PROVIDER_NOT_CONFIGURED
+
+  Scenario: Error path — the organisation requires an administrator's approval
+    Given the sign-in has opened the browser
+    When the loopback receives error=access_denied with a description containing AADSTS90094
+    Then the call fails with CRED_ADMIN_CONSENT_REQUIRED
 ```
 
 ### Gaps

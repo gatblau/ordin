@@ -38,6 +38,8 @@ export class SignInsModel {
   expanded = $state.raw<ReadonlySet<string>>(new Set());
   /** `identity.list`'s `github_one_click`: this build carries a GitHub App, so one-click sign-in is offered. */
   githubOneClick = $state(false);
+  /** `identity.list`'s `microsoft_built_in`: Microsoft 365 can be signed in to with no company profile (SM-NS-2.12). */
+  microsoftBuiltIn = $state(false);
   /** The sign-in now waiting for the person, and the kind it is for (SM-NS-2.2). */
   challenge = $state.raw<SignInChallenge | null>(null);
   challengeKind = $state<CredentialKind | null>(null);
@@ -74,6 +76,7 @@ export class SignInsModel {
     if (out.kind === 'ok') {
       this.items = out.result.items;
       this.githubOneClick = out.result.github_one_click === true;
+      this.microsoftBuiltIn = out.result.microsoft_built_in === true;
       this.error = null;
     } else this.error = out.error;
   }

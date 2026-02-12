@@ -35,8 +35,10 @@ const CERTIFICATE_INVALID: &str = "CRED_CERTIFICATE_INVALID";
 // spec: ordin-desktop/components/IdentityAndCredentials#ID-R1-4
 // spec: ordin-desktop/components/IdentityAndCredentials#ID-R1-5
 // spec: ordin-desktop/components/IdentityAndCredentials#ID-R1-7
+// spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-2
 pub(crate) fn sign_in_provider(
     document: &ordin_organisation_profile::OrganisationProfileDocument,
+    microsoft_built_in: Option<&str>,
     kind: CredentialKind,
     site: Option<&str>,
     mail_account: Option<&str>,
@@ -44,14 +46,19 @@ pub(crate) fn sign_in_provider(
     let owned = |scopes: &[&str]| scopes.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
     Ok(match kind {
         CredentialKind::Microsoft => {
-            let section = document.microsoft.as_ref().ok_or(NOT_CONFIGURED)?;
-            (
-                ProviderConfig::Microsoft {
+            // ID-MS-BUILT-2: the profile's app wins; else the build's own, for any work or school account.
+            let provider = match (document.microsoft.as_ref(), microsoft_built_in) {
+                (Some(section), _) => ProviderConfig::Microsoft {
                     tenant_id: section.tenant_id.clone(),
                     client_id: section.client_id.clone(),
                 },
-                owned(&ordin_sharepoint::SCOPES),
-            )
+                (None, Some(client_id)) => ProviderConfig::Microsoft {
+                    tenant_id: "organizations".to_owned(),
+                    client_id: client_id.to_owned(),
+                },
+                (None, None) => return Err(NOT_CONFIGURED),
+            };
+            (provider, owned(&ordin_sharepoint::SCOPES))
         }
         CredentialKind::Confluence => {
             let section = document.confluence.as_ref().ok_or(NOT_CONFIGURED)?;
@@ -290,6 +297,7 @@ impl DesktopServiceApi {
         let document = profile.current().document.clone();
         let (provider, scopes) = sign_in_provider(
             &document,
+            identity.microsoft_built_in(),
             input.kind,
             input.site.as_deref(),
             input.mail_account.as_deref(),

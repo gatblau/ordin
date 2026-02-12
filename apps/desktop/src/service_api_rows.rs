@@ -2176,6 +2176,11 @@ macro_rules! delegate {
             "github_one_click".to_owned(),
             ::serde_json::Value::Bool(m.github_app_offered()),
         );
+        // ID-MS-BUILT-3: Microsoft 365 can be signed in to without a profile when the build carries its app.
+        obj.insert(
+            "microsoft_built_in".to_owned(),
+            ::serde_json::Value::Bool(m.microsoft_built_in().is_some()),
+        );
         $api.restate(::serde_json::Value::Object(obj))
     }};
     ($api:expr, $ctx:expr, $input:expr, identity_sign_in_cancel) => {{

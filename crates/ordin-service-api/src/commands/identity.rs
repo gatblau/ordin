@@ -139,6 +139,10 @@ pub struct IdentityListResult {
     /// Settings › Sign-ins draws that way in only then (SM-NS-2.7).
     #[serde(default)]
     pub github_one_click: bool,
+    /// True when this build carries its own Microsoft app, so Microsoft 365 can be signed in to with
+    /// no company profile (ID-MS-BUILT-3, SM-NS-2.12).
+    #[serde(default)]
+    pub microsoft_built_in: bool,
 }
 
 /// `identity.import_client_certificate`: absent when the person cancelled either picker.

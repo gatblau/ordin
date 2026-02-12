@@ -5,7 +5,7 @@
 use super::RegistryEntry;
 
 #[rustfmt::skip]
-pub(super) static REGISTRY: [RegistryEntry; 2152] = [
+pub(super) static REGISTRY: [RegistryEntry; 2153] = [
     RegistryEntry { code: "ADRAFT_BRANCH_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-branch-invalid" },
     RegistryEntry { code: "ADRAFT_LIST_TOO_LONG", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-list-too-long" },
     RegistryEntry { code: "ADRAFT_NAME_INVALID", owner_crate: "ordin-authoring", http_status: Some(200), retryable: false, sentence_id: "adraft-name-invalid" },
@@ -456,6 +456,7 @@ pub(super) static REGISTRY: [RegistryEntry; 2152] = [
     RegistryEntry { code: "CRAFT_TOOL_FAILED", owner_crate: "ordin-craft-toolkit", http_status: Some(200), retryable: false, sentence_id: "craft-tool-failed" },
     RegistryEntry { code: "CRAFT_TOOL_NOT_OFFERED", owner_crate: "ordin-craft-toolkit", http_status: Some(200), retryable: false, sentence_id: "craft-tool-not-offered" },
     RegistryEntry { code: "CRAFT_UNVERIFIED_INSTALL", owner_crate: "ordin-craft-toolkit", http_status: Some(200), retryable: false, sentence_id: "craft-unverified-install" },
+    RegistryEntry { code: "CRED_ADMIN_CONSENT_REQUIRED", owner_crate: "ordin-identity", http_status: Some(200), retryable: false, sentence_id: "cred-admin-consent-required" },
     RegistryEntry { code: "CRED_AMBIGUOUS", owner_crate: "ordin-identity", http_status: Some(200), retryable: false, sentence_id: "cred-ambiguous" },
     RegistryEntry { code: "CRED_BROWSER_FAILED", owner_crate: "ordin-identity", http_status: Some(200), retryable: true, sentence_id: "cred-browser-failed" },
     RegistryEntry { code: "CRED_CERTIFICATE_EXPIRED", owner_crate: "ordin-identity", http_status: Some(200), retryable: false, sentence_id: "cred-certificate-expired" },

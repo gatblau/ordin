@@ -214,6 +214,7 @@ fn identity_config(dir: &Path, key_file: &Path) -> IdentityConfig {
             key_source: KeySource::KeyFile(key_file.to_path_buf()),
         },
         github_app_client_id: None,
+        microsoft_client_id: None,
         http: reqwest::Client::new(),
         browser: None,
     }

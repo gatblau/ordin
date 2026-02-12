@@ -123,6 +123,7 @@ export ORDIN_MEMORY_MODELS_SHA256="$RELEASE_MEMORY_MODELS_SHA256"
 export ORDIN_MEMORY_MODELS_BYTES="$RELEASE_MEMORY_MODELS_BYTES"
 export ORDIN_MEMORY_MODELS_MANIFEST="$MODELS_MANIFEST"
 github_app_env
+microsoft_app_env
 
 note "step 2: building the installers for $PLATFORM"
 # spec: ordin-desktop/phase-5-playbook#PB-REL-25

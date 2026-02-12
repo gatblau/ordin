@@ -1568,3 +1568,78 @@ async fn security_signing_out_drops_resource_tokens() {
     );
     h.mock.verify().await;
 }
+
+// Scenario: Error path — the organisation requires an administrator's approval (ID-MS-BUILT-4)
+// spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-4
+#[tokio::test]
+async fn error_path_the_organisation_requires_an_administrator_s_approval() {
+    let _ports = PORTS.lock().await;
+    let h = Harness::new().await;
+    // The build's own app (ID-MS-BUILT-2): the `organizations` authority.
+    let built_in = ProviderConfig::Microsoft {
+        tenant_id: "organizations".to_owned(),
+        client_id: "ms-app".to_owned(),
+    };
+    let challenge = h
+        .service
+        .begin_sign_in(sign_in(built_in, &[FILES], SignInMethod::Browser))
+        .await
+        .unwrap();
+    let url = h.browser.last().unwrap();
+    assert!(
+        url.starts_with("https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize?")
+    );
+    assert_eq!(query(&url)["client_id"], "ms-app");
+    let state = query(&url)["state"].clone();
+    redirect(
+        &url,
+        &[
+            ("error", "access_denied"),
+            (
+                "error_description",
+                "AADSTS90094: Admin consent is required.",
+            ),
+            ("state", &state),
+        ],
+    )
+    .await;
+    assert_eq!(
+        code_of(h.service.wait_for_sign_in(challenge_id(&challenge)).await),
+        "CRED_ADMIN_CONSENT_REQUIRED"
+    );
+    assert_eq!(h.count("SELECT count(*) FROM credentials").await, 0);
+}
+
+#[test]
+fn only_microsoft_s_consent_codes_count_as_an_organisation_block() {
+    use crate::loopback::admin_consent_needed;
+    assert!(admin_consent_needed(
+        "AADSTS65001: The user or administrator has not consented"
+    ));
+    assert!(admin_consent_needed(
+        "AADSTS90094: Admin consent is required."
+    ));
+    assert!(!admin_consent_needed(
+        "AADSTS65004: User declined to consent"
+    ));
+    assert!(!admin_consent_needed(""));
+}
+
+// ID-MS-BUILT-1: the build's Microsoft client id is offered; an empty or over-long one counts as none.
+// spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-1
+#[tokio::test]
+async fn the_build_s_microsoft_client_id_is_offered_only_when_usable() {
+    for (given, offered) in [
+        (None, None),
+        (Some(String::new()), None),
+        (Some("x".repeat(257)), None),
+        (Some("ms-app".to_owned()), Some("ms-app")),
+    ] {
+        let h = Harness::with(Setup {
+            microsoft: given,
+            ..Setup::default()
+        })
+        .await;
+        assert_eq!(h.service.microsoft_built_in(), offered);
+    }
+}

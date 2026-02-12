@@ -554,6 +554,8 @@ impl ModuleRunner {
                 keychain_service: self.inputs.bundle_identifier.clone(),
                 secret_backend: self.secret_backend(row)?,
                 github_app_client_id: option_env!("GITHUB_APP_CLIENT_ID").map(str::to_owned),
+                // spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-1
+                microsoft_client_id: option_env!("MICROSOFT_CLIENT_ID").map(str::to_owned),
                 http: self.inputs.http.clone(),
                 browser: self.inputs.browser.clone(),
             },

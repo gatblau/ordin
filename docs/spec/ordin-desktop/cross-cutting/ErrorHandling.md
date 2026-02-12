@@ -821,6 +821,7 @@ Each prefix with the component specs that raise codes under it and the number of
 | `CRAFT_TOOL_FAILED` | Craft Toolkit | Service API | 200 (`kind: error`) | no | The app returned an error | ET |
 | `CRAFT_TOOL_NOT_OFFERED` | Craft Toolkit | Service API | 200 (`kind: error`) | no | Tool not offered to this session | ET |
 | `CRAFT_UNVERIFIED_INSTALL` | Craft Toolkit | Service API | 200 (`kind: error`) | no | Duplicate app row; installed without verification; bad file-type map entry | ET |
+| `CRED_ADMIN_CONSENT_REQUIRED` | Identity And Credentials | Service API | 200 (`kind: error`) | no | The person's organisation must approve the Microsoft app (ID-MS-BUILT-4) | ET |
 | `CRED_AMBIGUOUS` | Identity And Credentials | Service API | 200 (`kind: error`) | no | Several active credentials, none named | ET |
 | `CRED_BROWSER_FAILED` | Identity And Credentials | Service API | 200 (`kind: error`) | yes | System browser could not be opened; also answered by the desktop program for `app.open_slack_link` (OrdinDesktop.md DSK-REC-38) and `app.open_web_page` (OrdinDesktop.md DSK-WEB-1; amended January 2026 (user decision; Approved by the user January 2026)) | ET |
 | `CRED_CERTIFICATE_EXPIRED` | Identity And Credentials | Service API | 200 (`kind: error`) | no | Imported client certificate already expired | ET |

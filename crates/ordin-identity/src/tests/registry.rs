@@ -11,7 +11,7 @@ const PACKAGE: &str = "ordin-identity";
 
 #[test]
 fn every_code_of_this_crate_is_registered_under_a_prefix_it_owns() {
-    assert_eq!(ALL_CODES.len(), 39, "one code per Error Table row");
+    assert_eq!(ALL_CODES.len(), 40, "one code per Error Table row");
     for code in ALL_CODES {
         let entry = lookup(code).unwrap_or_else(|| panic!("{code} is not registered"));
         assert_eq!(entry.owner_crate, PACKAGE, "{code}");

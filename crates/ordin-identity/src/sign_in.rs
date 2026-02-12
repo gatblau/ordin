@@ -376,9 +376,13 @@ impl IdentityService {
             let run = async {
                 let mut accepted = loopback::accept(&listener, &pkce.state).await;
                 match accepted.callback {
-                    Callback::Denied => {
+                    Callback::Denied { admin_consent } => {
                         loopback::respond(&mut accepted.stream, 400, "").await;
-                        Err(CredError::of(code::SIGN_IN_CANCELLED))
+                        Err(CredError::of(if admin_consent {
+                            code::ADMIN_CONSENT_REQUIRED
+                        } else {
+                            code::SIGN_IN_CANCELLED
+                        }))
                     }
                     Callback::Error => {
                         loopback::respond(&mut accepted.stream, 400, "").await;

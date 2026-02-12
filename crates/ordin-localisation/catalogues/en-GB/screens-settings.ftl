@@ -619,6 +619,7 @@ signin-expires = until { $date }
 signin-sign-in = Sign in
 signin-sign-out = Sign out
 signin-browser-opened = Finish signing in in your browser.
+signin-microsoft-work-account = Sign in with your work or school account. A personal Microsoft account won't work here.
 signin-device-code = Open { $address } and enter this code:
 signin-copy-code = Copy the code
 signin-mail-title = Sign in to your company's email

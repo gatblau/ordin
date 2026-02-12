@@ -41,6 +41,7 @@ fn config(program: Program, backend: SecretBackendConfig, dir: &std::path::Path)
         keychain_service: "io.gatblau.ordin.test".to_owned(),
         secret_backend: backend,
         github_app_client_id: None,
+        microsoft_client_id: None,
         http: reqwest::Client::new(),
         browser: None,
     }

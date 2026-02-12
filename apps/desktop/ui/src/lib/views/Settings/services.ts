@@ -40,15 +40,17 @@ export const SERVICES: readonly ServiceDef[] = [
  * (an API token the person makes, SM-NS-2.11). Microsoft 365, Google, Confluence otherwise and the company
  * account sign in through an app the organisation profile names; Slack and the company's mail server also need their build switch
  * (`answers` says whether the backend answers a command). With no profile read, the profile's part is not
- * known and counts as present.
+ * known and counts as present. Microsoft 365 is also available when the build carries its own Microsoft app
+ * (`identity.list`'s `microsoft_built_in`, SM-NS-2.12).
  */
-export function serviceAvailable(id: ServiceId, document: OrganisationProfileDocument | null, answers: (command: string) => boolean): boolean {
+// spec: ordin-desktop/components/ScreensModule#SM-NS-2.12
+export function serviceAvailable(id: ServiceId, document: OrganisationProfileDocument | null, answers: (command: string) => boolean, microsoftBuiltIn = false): boolean {
   switch (id) {
     case 'github':
     case 'gitlab':
       return true;
     case 'microsoft':
-      return document === null || document.microsoft != null;
+      return microsoftBuiltIn || document === null || document.microsoft != null;
     case 'google':
       return document === null || document.google != null;
     case 'confluence':
@@ -95,10 +97,10 @@ export interface ServiceRow {
  * account is always available, so it can be signed out. The company account is listed only when the
  * profile names an identity provider or an account is saved.
  */
-export function serviceRows(items: readonly CredentialView[], document: OrganisationProfileDocument | null, answers: (command: string) => boolean = () => true): ServiceRow[] {
+export function serviceRows(items: readonly CredentialView[], document: OrganisationProfileDocument | null, answers: (command: string) => boolean = () => true, microsoftBuiltIn = false): ServiceRow[] {
   const rows: ServiceRow[] = [];
   for (const service of SERVICES) {
-    const available = serviceAvailable(service.id, document, answers);
+    const available = serviceAvailable(service.id, document, answers, microsoftBuiltIn);
     const mine = items.filter((c) => service.kinds.includes(c.kind));
     if (mine.length === 0) {
       if (service.id === 'oidc' && !available) continue;

@@ -11848,6 +11848,11 @@
             "$ref": "#/$defs/CredentialView"
           },
           "type": "array"
+        },
+        "microsoft_built_in": {
+          "default": false,
+          "description": "True when this build carries its own Microsoft app, so Microsoft 365 can be signed in to with\nno company profile (ID-MS-BUILT-3, SM-NS-2.12).",
+          "type": "boolean"
         }
       },
       "required": [

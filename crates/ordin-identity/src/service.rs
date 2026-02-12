@@ -90,6 +90,7 @@ struct AudienceToken {
 pub(crate) struct Inner {
     pub program: Program,
     pub github_app_client_id: Option<String>,
+    pub microsoft_client_id: Option<String>,
     pub browser: Option<Arc<dyn BrowserOpener>>,
     pub http: Http,
     pub pool: Option<SqlitePool>,
@@ -207,6 +208,10 @@ impl IdentityService {
             inner: Arc::new(Inner {
                 program: config.program,
                 github_app_client_id: config.github_app_client_id,
+                // ID-MS-BUILT-1: a value that fails C.1's client-id check counts as none.
+                microsoft_client_id: config
+                    .microsoft_client_id
+                    .filter(|id| (1..=256).contains(&id.chars().count())),
                 browser: config.browser,
                 http,
                 pool,
@@ -611,6 +616,12 @@ impl IdentityService {
     /// without one the person pastes a personal access token instead (ID-GH-PAT-1).
     pub fn github_app_offered(&self) -> bool {
         self.inner.github_app_client_id.is_some()
+    }
+
+    /// The build's own Microsoft app client id (ID-MS-BUILT-1), used when no company profile names one.
+    // spec: ordin-desktop/components/IdentityAndCredentials#ID-MS-BUILT-1
+    pub fn microsoft_built_in(&self) -> Option<&str> {
+        self.inner.microsoft_client_id.as_deref()
     }
 
     pub async fn list(&self) -> Result<Vec<CredentialView>, CredError> {

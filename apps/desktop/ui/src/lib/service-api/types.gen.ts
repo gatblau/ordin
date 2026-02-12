@@ -2978,6 +2978,8 @@ export interface IdentityListResult {
   /** True when this build offers GitHub's one-click sign-in (it carries a GitHub App client id); Settings › Sign-ins draws that way in only then (SM-NS-2.7). */
   github_one_click?: boolean;
   items: CredentialView[];
+  /** True when this build carries its own Microsoft app, so Microsoft 365 can be signed in to with no company profile (ID-MS-BUILT-3, SM-NS-2.12). */
+  microsoft_built_in?: boolean;
 }
 
 export interface IdentityProviderSection {

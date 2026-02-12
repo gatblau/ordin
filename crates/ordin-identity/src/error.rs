@@ -4,6 +4,7 @@ use ordin_types::{CodedError, RepairAction};
 
 /// Every code this crate owns (ErrorHandling.md *Internal Logic* 11): the rows of the Error Table.
 pub const ALL_CODES: &[&str] = &[
+    "CRED_ADMIN_CONSENT_REQUIRED",
     "CRED_AMBIGUOUS",
     "CRED_BROWSER_FAILED",
     "CRED_CERTIFICATE_EXPIRED",
@@ -117,6 +118,7 @@ pub(crate) mod code {
     pub const AMBIGUOUS: &str = "CRED_AMBIGUOUS";
     pub const BROWSER_FAILED: &str = "CRED_BROWSER_FAILED";
     pub const CERTIFICATE_EXPIRED: &str = "CRED_CERTIFICATE_EXPIRED";
+    pub const ADMIN_CONSENT_REQUIRED: &str = "CRED_ADMIN_CONSENT_REQUIRED";
     pub const CERTIFICATE_INVALID: &str = "CRED_CERTIFICATE_INVALID";
     pub const CHALLENGE_UNKNOWN: &str = "CRED_CHALLENGE_UNKNOWN";
     pub const CONFIG_INVALID: &str = "CRED_CONFIG_INVALID";

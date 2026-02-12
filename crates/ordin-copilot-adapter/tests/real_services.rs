@@ -509,6 +509,7 @@ impl Stack {
                     key_source: ordin_identity::KeySource::KeyFile(key_file),
                 },
                 github_app_client_id: None,
+                microsoft_client_id: None,
                 http: reqwest::Client::new(),
                 browser: None,
             },

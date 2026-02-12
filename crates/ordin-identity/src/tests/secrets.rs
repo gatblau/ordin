@@ -18,6 +18,7 @@ fn server(dir: &std::path::Path, key_source: KeySource) -> IdentityConfig {
         keychain_service: "io.gatblau.ordin.test".to_owned(),
         secret_backend: SecretBackendConfig::EncryptedFile { key_source },
         github_app_client_id: None,
+        microsoft_client_id: None,
         http: reqwest::Client::new(),
         browser: None,
     }

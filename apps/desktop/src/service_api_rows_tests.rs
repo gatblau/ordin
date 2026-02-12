@@ -436,17 +436,18 @@ async fn sign_in_provider_follows_the_profile_for_each_kind() {
         K::MailServerSingleSignOn,
     ] {
         assert_eq!(
-            sign_in_provider(&document, kind, None, None).unwrap_err(),
+            sign_in_provider(&document, None, kind, None, None).unwrap_err(),
             "CRED_PROVIDER_NOT_CONFIGURED",
             "{kind:?}"
         );
     }
-    let (github, scopes) = sign_in_provider(&document, K::Github, None, None).expect("github");
+    let (github, scopes) =
+        sign_in_provider(&document, None, K::Github, None, None).expect("github");
     assert!(matches!(github, ProviderConfig::Github { ref host } if host == "github.com"));
     assert!(scopes.is_empty());
     for kind in [K::MailServerPassword, K::MailServerAppPassword] {
         assert_eq!(
-            sign_in_provider(&document, kind, None, None).unwrap_err(),
+            sign_in_provider(&document, None, kind, None, None).unwrap_err(),
             "CRED_FLOW_NOT_OFFERED",
             "{kind:?}"
         );
@@ -457,7 +458,8 @@ async fn sign_in_provider_follows_the_profile_for_each_kind() {
         client_id: "google-client".to_owned(),
         client_secret: Some("google-secret".to_owned()),
     });
-    let (google, scopes) = sign_in_provider(&document, K::Google, None, None).expect("google");
+    let (google, scopes) =
+        sign_in_provider(&document, None, K::Google, None, None).expect("google");
     assert!(matches!(
         google,
         ProviderConfig::Google { ref client_id, ref client_secret }
@@ -465,15 +467,31 @@ async fn sign_in_provider_follows_the_profile_for_each_kind() {
     ));
     assert!(scopes.is_empty());
 
+    // ID-MS-BUILT-2: no profile section, the build's own app with the `organizations` authority.
+    let (built_in, scopes) =
+        sign_in_provider(&document, Some("ms-app"), K::Microsoft, None, None).expect("built in");
+    assert!(matches!(
+        built_in,
+        ProviderConfig::Microsoft { ref tenant_id, ref client_id }
+            if tenant_id == "organizations" && client_id == "ms-app"
+    ));
+    assert_eq!(scopes.len(), ordin_sharepoint::SCOPES.len());
+
     // Microsoft: the SharePoint Adapter's scopes.
     document.microsoft = Some(MicrosoftSection {
         tenant_id: "tenant".to_owned(),
         client_id: "microsoft-client".to_owned(),
     });
     let (microsoft, scopes) =
-        sign_in_provider(&document, K::Microsoft, None, None).expect("microsoft");
+        sign_in_provider(&document, None, K::Microsoft, None, None).expect("microsoft");
     assert!(
         matches!(microsoft, ProviderConfig::Microsoft { ref tenant_id, .. } if tenant_id == "tenant")
+    );
+    // ID-MS-BUILT-2: a profile that names Microsoft wins over the build's own app.
+    let (company, _) =
+        sign_in_provider(&document, Some("ms-app"), K::Microsoft, None, None).expect("company");
+    assert!(
+        matches!(company, ProviderConfig::Microsoft { ref client_id, .. } if client_id == "microsoft-client")
     );
     assert_eq!(
         scopes,
@@ -485,7 +503,14 @@ async fn sign_in_provider_follows_the_profile_for_each_kind() {
 
     // Jira needs the site from the input and the Atlassian client id of the Confluence section.
     assert_eq!(
-        sign_in_provider(&document, K::Jira, Some("https://acme.atlassian.net"), None).unwrap_err(),
+        sign_in_provider(
+            &document,
+            None,
+            K::Jira,
+            Some("https://acme.atlassian.net"),
+            None
+        )
+        .unwrap_err(),
         "CRED_PROVIDER_NOT_CONFIGURED"
     );
 
@@ -497,6 +522,7 @@ async fn sign_in_provider_follows_the_profile_for_each_kind() {
     });
     let (mail, scopes) = sign_in_provider(
         &document,
+        None,
         K::MailServerSingleSignOn,
         None,
         Some("asha@example.com"),

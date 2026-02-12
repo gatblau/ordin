@@ -1,4 +1,5 @@
 # Sign-ins and saved secrets (Identity and Credentials)
+error-cred-admin-consent-required = Your organisation has to approve ordin before you can sign in with Microsoft. Ask whoever manages your Microsoft 365, or use a company profile.
 error-cred-ambiguous = You have more than one sign-in saved for this. Choose which one to use.
 error-cred-browser-failed = ordin couldn't open your web browser. Open it yourself and try again.
 error-cred-certificate-expired = That certificate has expired. Choose one that is still valid.

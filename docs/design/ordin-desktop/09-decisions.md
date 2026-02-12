@@ -3231,3 +3231,23 @@ OQ-31 settled by the user, January 2026, for ADR-044: no written confirmation is
   - *Switch the assistant while ordin runs.* Rejected for now: three components would change to make a single first-start answer take effect without a restart.
   - *Apply the answer from the next start.* Rejected: the first conversation would run on the assistant the person did not choose.
   - *Prefer Copilot when both are found.* Rejected: it steers the person the other way without asking.
+
+### ADR-126: Microsoft 365 signs in through an app built into ordin when no company profile names one
+
+- **Status.** Decided 2026-02-12, from plan 09 Phase 4 and the user's decision of 2026-02-05 ("SharePoint sits behind Microsoft's OpenID sign-in, so ordin signs in through the browser as it does for Copilot, with no company set-up"). Approved by the user 2026-02-12 ("approve as written, build it"). **Amends ADR-070 and the SharePoint line of the document decision** ("the tenant and the application's registration come from the organisation profile"): the profile's registration still wins; without one, the build's own registration is used.
+- **Decision.**
+  - A build may carry the client id of a Microsoft app registration that the maintainer owns: multi-tenant (work and school accounts), a public client with a loopback redirect, and the delegated SharePoint permissions the SharePoint Adapter already asks for. It is public, not a secret, and is set like the GitHub App's client id: `RELEASE_MICROSOFT_CLIENT_ID` in `release/release.conf`, empty by default, compiled in as `MICROSOFT_CLIENT_ID`.
+  - When the company profile has no `microsoft` section and the build carries that client id, **Sign in with Microsoft** uses it with the `organizations` authority (any work or school account, no personal accounts). The person signs in in their browser and consents for themselves, as for GitHub and Copilot.
+  - A company profile that names `microsoft` always wins: its tenant and its own registration are used, unchanged.
+  - A build without the client id behaves exactly as today: without a profile, Microsoft 365 is shown as not available.
+  - When the person's organisation does not let people approve apps themselves, ordin says so in one plain sentence (the person's organisation must approve ordin, or they can use a company profile). Ordin does not try to get round that block.
+- **Context.** The 0.2.1-test.5 smoke test (2026-02-05): with no company profile, **Sign in with Microsoft** answered "Signing in to that service isn't set up in this version of ordin", so a person on their own could not use SharePoint at all. This conflicts with the stance that every feature is self-service. The GitHub App client id (PB-REL-31) already shows how a build carries a public client id without any company set-up.
+- **Consequences.**
+  - A person with a work account whose organisation allows user consent can use SharePoint with no profile.
+  - Organisations that require an administrator to approve every app still block this route (RISK-MS-CONSENT). They keep the company-profile route.
+  - The maintainer registers and keeps the Microsoft app; until they do, released builds behave as today.
+  - The same Microsoft sign-in also serves Outlook mail (ADR-070) only when a profile names it: the built-in registration asks for SharePoint's permissions only.
+- **Alternatives considered.**
+  - *Require a company profile for Microsoft 365.* Rejected: a person on their own cannot use SharePoint, against the self-service stance.
+  - *Let the person paste their own app registration's client id in Settings.* Rejected: it needs an Azure administrator, which is the company set-up this decision removes.
+  - *The `common` authority (personal Microsoft accounts too).* Rejected: SharePoint needs a work or school account, and personal accounts would only reach a failure later.

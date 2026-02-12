@@ -108,6 +108,8 @@ pub(crate) struct Setup {
     pub store: Store,
     pub browser: bool,
     pub github: bool,
+    /// The build's Microsoft client id (ID-MS-BUILT-1).
+    pub microsoft: Option<String>,
 }
 
 impl Default for Setup {
@@ -117,6 +119,7 @@ impl Default for Setup {
             store: Store::Memory,
             browser: true,
             github: true,
+            microsoft: None,
         }
     }
 }
@@ -227,6 +230,7 @@ impl Harness {
             keychain_service: "io.gatblau.ordin.test".to_owned(),
             secret_backend,
             github_app_client_id: setup.github.then(|| "Iv1.ordin-test".to_owned()),
+            microsoft_client_id: setup.microsoft.clone(),
             http: reqwest::Client::new(),
             browser: setup
                 .browser
