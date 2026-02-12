@@ -178,6 +178,9 @@ progress-show-what-happened = Show what happened
 progress-no-activity = Done — the agent reports no activity for this step
 progress-count-of = Items worked through: { $done } of { $total }
 progress-count-so-far = Actions taken so far: { $done }
+progress-count-percent = Items worked through: { $done } of { $total } · { $percent }%
+progress-running-for-seconds = Running for { $seconds } s
+progress-doing = Doing: { $line }
 progress-stop-note = Stop — files written so far are kept
 progress-every-week = Every week…
 

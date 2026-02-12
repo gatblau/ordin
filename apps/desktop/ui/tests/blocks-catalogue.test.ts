@@ -61,7 +61,7 @@ describe('screens-blocks.ftl', () => {
 
   it('holds the ids the blocks build at run time: estimate bands, progress words, titles', () => {
     for (const band of ['light', 'medium', 'heavy']) expect(defined(`block-estimate-${band}`, mine)).toBe(true);
-    for (const id of ['progress-now', 'progress-step-done', 'progress-step-now', 'progress-step-next', 'progress-step-skipped', 'progress-show-what-happened', 'progress-stop-note', 'progress-count-of', 'progress-count-so-far', 'progress-no-activity']) {
+    for (const id of ['progress-now', 'progress-step-done', 'progress-step-now', 'progress-step-next', 'progress-step-skipped', 'progress-show-what-happened', 'progress-stop-note', 'progress-count-of', 'progress-count-so-far', 'progress-no-activity', 'progress-count-percent', 'progress-running-for-seconds', 'progress-doing']) {
       expect(defined(id, mine), id).toBe(true);
     }
     for (const id of ['block-title-preview', 'block-title-document', 'block-title-changes', 'block-title-key-figures', 'block-title-offer', 'block-title-crew-plan']) expect(defined(id, mine), id).toBe(true);

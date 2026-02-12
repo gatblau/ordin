@@ -6,6 +6,7 @@
   // spec: ordin-desktop/components/ScreensModule#ADR-111
   // spec: ordin-desktop/components/ScreensModule#SM-PG-2
   // spec: ordin-desktop/components/ScreensModule#SM-PG-3
+  // spec: ordin-desktop/components/ScreensModule#SM-PG-4
   import { formatNumber } from '../../format/intl';
   import { t } from '../../i18n/fluent';
   import { stateMessageId } from '../../i18n/run-state';
@@ -56,13 +57,34 @@
   const symbol: Record<StepMark, string> = { done: '✓', now: '▶', next: '○', skipped: '↷' };
   const word = (mark: StepMark): string =>
     mark === 'done' ? t('progress-step-done') : mark === 'now' ? t('progress-step-now') : mark === 'skipped' ? t('progress-step-skipped') : t('progress-step-next');
+  // SM-PG-4: a known total above zero gives a whole percentage, never above 100.
   const countLine = $derived.by(() => {
     const c = run?.count;
     if (c === undefined || c === null) return null;
-    return c.total === undefined || c.total === null
-      ? t('progress-count-so-far', { done: formatNumber(c.done) })
-      : t('progress-count-of', { done: formatNumber(c.done), total: formatNumber(c.total) });
+    if (c.total === undefined || c.total === null || c.total <= 0) return t('progress-count-so-far', { done: formatNumber(c.done) });
+    const percent = Math.min(100, Math.floor((c.done * 100) / c.total));
+    return t('progress-count-percent', { done: formatNumber(c.done), total: formatNumber(c.total), percent: formatNumber(percent) });
   });
+
+  // SM-PG-4: elapsed from when the window first saw the run to its end, or to now, redrawn each second while running.
+  let now = $state(Date.now());
+  $effect(() => {
+    if (run?.state !== 'running') return;
+    now = Date.now();
+    const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+  const elapsed = $derived.by(() => {
+    const from = run?.startedAt === undefined ? NaN : Date.parse(run.startedAt);
+    if (Number.isNaN(from)) return null;
+    const to = run?.endedAt !== undefined ? Date.parse(run.endedAt) : now;
+    const seconds = Math.max(0, Math.floor((to - from) / 1000));
+    return seconds < 60
+      ? t('progress-running-for-seconds', { seconds: formatNumber(seconds) })
+      : t('progress-running-for', { minutes: formatNumber(Math.floor(seconds / 60)) });
+  });
+  // SM-PG-4: the newest progress line, while the run is working.
+  const doing = $derived(run?.state === 'running' ? (lines.at(-1) ?? null) : null);
 
   // SM-PG-3: Review opens the run's screen; on that screen it would open itself, so it is not drawn there.
   const runScreenKey = $derived(block.subject.kind === 'run' ? makeKey(SCREEN_IDS.run, block.subject.run_id) : block.subject.kind === 'crew_run' ? makeKey(SCREEN_IDS.crew, block.subject.crew_run_id) : null);
@@ -98,7 +120,14 @@
     {:else if runState !== undefined}
       <span class="state-label {stateTone(runState)}">{t(stateMessageId(runState))}</span>
     {/if}
+    {#if elapsed !== null}<span class="elapsed">{elapsed}</span>{/if}
   </p>
+  {#if steps.length > 0}
+    <div class="step-bar" aria-hidden="true">
+      {#each steps as step (step.id)}<span class="segment {step.mark}"></span>{/each}
+    </div>
+  {/if}
+  {#if doing !== null}<p class="doing">{t('progress-doing', { line: doing })}</p>{/if}
   {#if countLine !== null}<p class="count-line">{countLine}</p>{/if}
   {#if steps.length > 0}
     <ol class="steps">
@@ -142,6 +171,32 @@
   }
   .now {
     font-weight: 600;
+  }
+  .elapsed {
+    margin-inline-start: var(--space-sm);
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+  .step-bar {
+    display: flex;
+    gap: 3px;
+  }
+  .step-bar .segment {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-line-strong);
+  }
+  .step-bar .segment.done {
+    background: var(--color-done);
+  }
+  .step-bar .segment.now {
+    background: var(--color-accent);
+  }
+  .doing {
+    font-size: 13px;
+    color: var(--color-text-muted);
   }
   .count-line {
     font-size: 13px;

@@ -26,6 +26,8 @@ import type {
 } from '../service-api/types.gen';
 
 export const PROGRESS_LINES_KEPT = 200;
+/** The run states that end a run: its elapsed time stops there (SM-PG-4). */
+const RUN_ENDED: ReadonlySet<string> = new Set(['completed', 'failed', 'stopped_at_limit', 'cancelled', 'interrupted', 'abandoned', 'no_reply']);
 const SUPPORTED_MAJOR = 1;
 
 export type ProgressLine = { kind: 'line'; line: string } | { kind: 'plan_changed'; plan_version: number };
@@ -38,6 +40,10 @@ export interface RunView {
   count: ProgressCount | null;
   plan: { plan_version: number; steps: RunStep[] } | null;
   startUp: StartUpReportItem[];
+  /** When this window first saw the run, from its first event's time (SM-PG-4). */
+  startedAt?: string;
+  /** When the run reached a state that ends it (SM-PG-4). */
+  endedAt?: string;
 }
 export interface CrewView {
   round: number;
@@ -254,21 +260,21 @@ export class BackendState implements HasGroups {
     const e: ServiceEvent = env;
     switch (e.kind) {
       case 'run_state_changed':
-        this.#patchRun(e.run_id, (r) => ({ ...r, state: e.state }));
+        this.#patchRun(e.run_id, (r) => ({ ...r, state: e.state, endedAt: RUN_ENDED.has(e.state) ? (r.endedAt ?? env.at) : undefined }), env.at);
         return true;
       case 'run_progress':
         this.#patchRun(e.run_id, (r) => {
           const lines: ProgressLine[] = [...r.progressLines, { kind: 'line', line: e.progress.line }];
           const over = Math.max(0, lines.length - PROGRESS_LINES_KEPT);
           return { ...r, progressLines: lines.slice(over), folded: r.folded + over, count: e.progress.count ?? null };
-        });
+        }, env.at);
         return true;
       case 'plan_changed':
         this.#patchRun(e.run_id, (r) => ({
           ...r,
           plan: { plan_version: e.plan_version, steps: e.steps },
           progressLines: [...r.progressLines, { kind: 'plan_changed', plan_version: e.plan_version }],
-        }));
+        }), env.at);
         return true;
       case 'step_marked':
         this.#patchRun(e.run_id, (r) =>
@@ -281,6 +287,7 @@ export class BackendState implements HasGroups {
                 },
               }
             : r,
+          env.at,
         );
         return true;
       case 'start_up_report_ready':
@@ -355,9 +362,10 @@ export class BackendState implements HasGroups {
   }
 
   // Views are replaced, never mutated: a `SvelteMap` tracks `set`, not changes inside its values.
-  #patchRun(id: string, change: (run: RunView) => RunView): void {
+  #patchRun(id: string, change: (run: RunView) => RunView, at?: string): void {
     const current = this.runs.get(id) ?? { state: 'queued', progressLines: [], folded: 0, count: null, plan: null, startUp: [] };
-    this.runs.set(id, change(current));
+    const next = change(current);
+    this.runs.set(id, at !== undefined && next.startedAt === undefined ? { ...next, startedAt: at } : next);
   }
   #patchCrew(id: string, change: (crew: CrewView) => CrewView): void {
     this.crews.set(id, change(this.crews.get(id) ?? { round: 0, state: 'starting', startUp: [] }));
