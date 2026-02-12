@@ -1476,3 +1476,34 @@ impl Default for MemorySettings {
         }
     }
 }
+
+// spec: ordin-desktop/components/MemoryService#MEM-FE-1
+/// What `count_everything` and `forget_everything` act on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetTarget {
+    Workspace(WorkspaceId),
+    EveryWorkspace,
+}
+
+// spec: ordin-desktop/components/MemoryService#MEM-FE-2
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct EverythingCount {
+    pub workspaces: u32,
+    pub facts: u64,
+    pub everywhere: u64,
+    pub to_check: u64,
+}
+
+// spec: ordin-desktop/components/MemoryService#MEM-FE-3
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct EverythingForgotten {
+    /// The workspaces forgotten, in workspace-id order.
+    pub workspace_ids: Vec<WorkspaceId>,
+    pub workspaces: u32,
+    pub facts_removed: u64,
+    pub everywhere_removed: u64,
+    pub forgotten_at: Timestamp,
+}

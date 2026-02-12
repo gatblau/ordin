@@ -1067,6 +1067,18 @@ impl TeamKnowledgeService {
         .await
     }
 
+    // spec: ordin-desktop/components/TeamKnowledgeService#TK-FE-1
+    /// After everything Ordin remembered in `ws` was forgotten: the team's memory items are taken
+    /// again by a get started in the background. With no binding nothing is done.
+    pub async fn take_again(&self, ws: WorkspaceId) -> Result<(), TeamError> {
+        let pool = self.pool()?;
+        if store::binding(pool, ws).await?.is_none() {
+            return Ok(());
+        }
+        store::drop_memory_items(pool, ws).await?;
+        self.get(ws).await.map(|_| ())
+    }
+
     pub async fn share(&self, ws: WorkspaceId) -> Result<TeamKnowledgeStatus, TeamError> {
         self.share_refusals(ws).await?;
         self.start_long(ws, TeamBusy::Sharing, move |me| async move {

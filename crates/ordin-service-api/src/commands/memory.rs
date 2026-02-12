@@ -981,6 +981,60 @@ impl CommandInput for MemoryCorrectLinkInput {
     }
 }
 
+// spec: ordin-desktop/components/ServiceApi#SVC-FE-1
+/// What `memory.count_everything` and `memory.forget_everything` act on: `{ "workspace": W }` or
+/// `"every_workspace"`. Any other value is refused, so a missing or misspelt target never means
+/// every workspace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ForgetTarget {
+    Workspace(WorkspaceId),
+    EveryWorkspace,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct MemoryCountEverythingInput {
+    pub of: ForgetTarget,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct MemoryForgetEverythingInput {
+    pub of: ForgetTarget,
+}
+
+/// The numbers the **Forget everything** confirmation shows (MemoryService.md MEM-FE-2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct EverythingCount {
+    pub workspaces: u32,
+    pub facts: u64,
+    pub everywhere: u64,
+    pub to_check: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct EverythingForgotten {
+    pub workspaces: u32,
+    pub facts_removed: u64,
+    pub everywhere_removed: u64,
+    pub forgotten_at: Timestamp,
+}
+
+impl CommandInput for MemoryCountEverythingInput {
+    fn check(&mut self) -> Result<(), InputRejection> {
+        Ok(())
+    }
+}
+
+impl CommandInput for MemoryForgetEverythingInput {
+    fn check(&mut self) -> Result<(), InputRejection> {
+        Ok(())
+    }
+}
+
 impl CommandInput for MemoryThingCountInput {
     fn check(&mut self) -> Result<(), InputRejection> {
         rules::exactly_one(&self.workspace_id, &self.scope_id, "")
@@ -1168,6 +1222,28 @@ mod tests {
 
     fn invalid(at: &str) -> Option<(&'static str, String)> {
         Some(("SVC_INPUT_INVALID", at.to_owned()))
+    }
+
+    // spec: ordin-desktop/components/ServiceApi#SVC-FE-1
+    #[test]
+    fn forget_everything_targets() {
+        let ws = WorkspaceId::new().to_string();
+        for command in ["memory.count_everything", "memory.forget_everything"] {
+            assert!(crate::check_request(command, json!({ "of": { "workspace": ws } })).is_ok());
+            assert!(crate::check_request(command, json!({ "of": "every_workspace" })).is_ok());
+            for bad in [
+                json!({}),
+                json!({ "of": null }),
+                json!({ "of": "every" }),
+                json!({ "of": "workspace" }),
+                json!({ "of": { "workspace": "nope" } }),
+                json!({ "of": { "everywhere": ws } }),
+                json!({ "of": "every_workspace", "also": 1 }),
+            ] {
+                let refused = crate::check_request(command, bad.clone()).expect_err("refused");
+                assert_eq!(refused.code, "SVC_INPUT_INVALID", "{command} {bad}");
+            }
+        }
     }
 
     #[test]

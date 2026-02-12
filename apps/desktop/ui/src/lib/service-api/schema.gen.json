@@ -8204,6 +8204,67 @@
         }
       ]
     },
+    "EverythingCount": {
+      "description": "The numbers the **Forget everything** confirmation shows (MemoryService.md MEM-FE-2).",
+      "properties": {
+        "everywhere": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "facts": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to_check": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "workspaces": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "workspaces",
+        "facts",
+        "everywhere",
+        "to_check"
+      ],
+      "type": "object"
+    },
+    "EverythingForgotten": {
+      "properties": {
+        "everywhere_removed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "facts_removed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "forgotten_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workspaces": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "workspaces",
+        "facts_removed",
+        "everywhere_removed",
+        "forgotten_at"
+      ],
+      "type": "object"
+    },
     "ExpectationOutcome": {
       "enum": [
         "met",
@@ -9932,6 +9993,30 @@
         "summaries_removed"
       ],
       "type": "object"
+    },
+    "ForgetTarget": {
+      "description": "What `memory.count_everything` and `memory.forget_everything` act on: `{ \"workspace\": W }` or\n`\"every_workspace\"`. Any other value is refused, so a missing or misspelt target never means\nevery workspace.",
+      "oneOf": [
+        {
+          "enum": [
+            "every_workspace"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "workspace": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspace"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "FormField": {
       "oneOf": [
@@ -15381,6 +15466,18 @@
       ],
       "type": "object"
     },
+    "MemoryCountEverythingInput": {
+      "additionalProperties": false,
+      "properties": {
+        "of": {
+          "$ref": "#/$defs/ForgetTarget"
+        }
+      },
+      "required": [
+        "of"
+      ],
+      "type": "object"
+    },
     "MemoryDiagramInput": {
       "additionalProperties": false,
       "properties": {
@@ -15458,6 +15555,18 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetEverythingInput": {
+      "additionalProperties": false,
+      "properties": {
+        "of": {
+          "$ref": "#/$defs/ForgetTarget"
+        }
+      },
+      "required": [
+        "of"
       ],
       "type": "object"
     },
@@ -40400,6 +40509,32 @@
         "$ref": "#/$defs/ForgetCount"
       },
       "scope": "any"
+    },
+    {
+      "effect": "read",
+      "input": {
+        "$ref": "#/$defs/MemoryCountEverythingInput"
+      },
+      "ipc_name": "memory_count_everything",
+      "name": "memory.count_everything",
+      "rest_path": "/v1/memory/count_everything",
+      "result": {
+        "$ref": "#/$defs/EverythingCount"
+      },
+      "scope": "local"
+    },
+    {
+      "effect": "change",
+      "input": {
+        "$ref": "#/$defs/MemoryForgetEverythingInput"
+      },
+      "ipc_name": "memory_forget_everything",
+      "name": "memory.forget_everything",
+      "rest_path": "/v1/memory/forget_everything",
+      "result": {
+        "$ref": "#/$defs/EverythingForgotten"
+      },
+      "scope": "local"
     },
     {
       "effect": "read",

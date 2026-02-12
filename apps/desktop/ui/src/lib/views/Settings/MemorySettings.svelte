@@ -4,12 +4,19 @@
   // facts themselves are seen and changed on the memory page in the side tree.
   //
   // spec: ordin-desktop/components/ScreensModule#SM-NS-1
+  // spec: ordin-desktop/components/ScreensModule#SM-FE-1
   import { onMount } from 'svelte';
+
+  import { answers } from '../../backend/groups';
 
   import { t } from '../../i18n/fluent';
   import type { BackendState } from '../../store/backend-state.svelte';
   import { MEMORY_PAGE_SIZES } from '../../store/view-prefs';
+  import type { ServiceError } from '../../service-api/types.gen';
   import ErrorLine from '../ErrorLine.svelte';
+  import ForgetEverythingDialog from '../fixed/ForgetEverythingDialog.svelte';
+  import { ForgetEverything } from '../fixed/forget-everything.svelte';
+  import { appOrNull } from '../fixed/util';
   import {
     GROUP_BY,
     GROUP_BY_MESSAGE,
@@ -34,6 +41,26 @@
   const model = given ?? new MemorySettingsModel(backend.handle, prefs);
 
   onMount(() => void model.load());
+
+  // SM-FE-1.2: Forget everything in every workspace…, on this computer when the backend answers it.
+  const app = appOrNull();
+  const forgetOffered = $derived(backend.handle.kind === 'local' && answers(backend, 'memory.forget_everything'));
+  let forgetting = $state<ForgetEverything | null>(null);
+  let forgetError = $state<ServiceError | null>(null);
+
+  async function openForget(): Promise<void> {
+    forgetError = null;
+    const forget = new ForgetEverything(backend.handle, 'every_workspace', t('forget-everything-all-phrase'));
+    const error = await forget.open();
+    if (error !== null) forgetError = error;
+    else forgetting = forget;
+  }
+
+  function forgotten(facts: number): void {
+    forgetting = null;
+    app?.shell.announce(t('forget-everything-done', { facts }));
+    backend.memoryForgotten += 1;
+  }
 </script>
 
 <section class="memory-settings settings-section" aria-labelledby="settings-memory-heading">
@@ -117,6 +144,16 @@
         {/if}
       {/each}
     </div>
+  {/if}
+  {#if forgetOffered}
+    <div class="group" role="group" aria-labelledby="settings-memory-forget">
+      <h4 id="settings-memory-forget">{t('settings-memory-group-forget')}</h4>
+      <div><button type="button" class="danger" onclick={() => void openForget()}>{t('settings-memory-forget-all')}</button></div>
+      <ErrorLine error={forgetError} />
+    </div>
+  {/if}
+  {#if forgetting !== null}
+    <ForgetEverythingDialog model={forgetting} onforgotten={forgotten} oncancel={() => (forgetting = null)} />
   {/if}
   <ErrorLine error={model.error} onretry={() => (model.error?.code === 'DSK_PREFERENCES_WRITE_FAILED' ? model.retry() : void model.load())} />
 </section>

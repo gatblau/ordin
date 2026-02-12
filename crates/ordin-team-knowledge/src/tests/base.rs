@@ -1320,3 +1320,43 @@ async fn migration_step_4_keeps_every_row_of_step_3() {
         .unwrap_or_default();
     assert!(problems.is_empty());
 }
+
+// Feature: The team's facts are taken again (TK-FE-1)
+
+// Scenario: A team workspace gets its team's facts back
+#[tokio::test]
+async fn take_again_a_team_workspace_gets_its_teams_facts_back() {
+    let rig = Rig::new().await;
+    rig.on().await;
+    let priya = rig.colleague("priya-shah", "Priya Shah").await;
+    priya.on().await;
+    let e = entity("Kestrel");
+    priya.memory.add_entity(e.clone());
+    for n in 0..4 {
+        priya.memory.add(fact(&format!("Priya's fact {n}."), &e.id));
+    }
+    let p = priya.share().await.expect("share");
+    priya.approve(&p).await;
+    rig.check().await.expect("check");
+    rig.get().await.expect("get");
+    assert_eq!(rig.memory.facts().len(), 4);
+
+    // Everything Ordin remembered in W was forgotten.
+    {
+        let mut state = rig.memory.state.lock().unwrap();
+        state.facts.clear();
+        state.entities.clear();
+        state.relationships.clear();
+    }
+    rig.service.take_again(rig.ws).await.expect("take again");
+    rig.wait_idle().await;
+    assert_eq!(rig.memory.facts().len(), 4, "the 4 team facts are back");
+}
+
+// Scenario: Edge case — a workspace with no team
+#[tokio::test]
+async fn take_again_a_workspace_with_no_team_does_nothing() {
+    let rig = Rig::new().await;
+    rig.service.take_again(rig.ws).await.expect("nothing done");
+    assert!(rig.service.busy(rig.ws).is_none(), "no get started");
+}

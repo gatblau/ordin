@@ -5,9 +5,10 @@ use std::collections::BTreeSet;
 use ordin_service_api::*;
 use ordin_types::error_registry::{lookup, owns_prefix};
 
-/// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
+/// 452 rows (451, then setup.choose_harness, SVC-CHO-1), 453 with memory.thing rows, 455 with
+/// memory.count_everything and memory.forget_everything (SVC-FE-1); 475 with the twenty `minutes` rows (SVC-MIN-1,
 /// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 473 } else { 453 };
+const ROWS: usize = if cfg!(feature = "minutes") { 475 } else { 455 };
 
 #[test]
 fn every_code_is_registered_under_this_crate() {
@@ -89,8 +90,9 @@ fn budgets_follow_the_notes() {
     // (SVC-SSH-1); 435 with confluence.connect_token and confluence.connect_with_jira (SVC-CONF-TOKEN-1).
     // 453 with the eighteen interactive minutes rows (SVC-MIN-1). One more with setup.choose_harness
     // (SVC-CHO-1), and two with app.install_place and app.move_to_applications (SVC-MOVE-1). One fewer
-    // without ordin.prepare_start_fresh (SVC-NKP-1).
-    assert_eq!(others, if cfg!(feature = "minutes") { 455 } else { 437 });
+    // without ordin.prepare_start_fresh (SVC-NKP-1). Two more with memory.count_everything and
+    // memory.forget_everything (SVC-FE-1).
+    assert_eq!(others, if cfg!(feature = "minutes") { 457 } else { 439 });
 }
 
 #[test]

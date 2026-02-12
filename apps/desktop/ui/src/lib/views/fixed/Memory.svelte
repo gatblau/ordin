@@ -11,6 +11,8 @@
   // spec: ordin-desktop/components/ScreensModule#SM-SF-22
   // spec: ordin-desktop/components/ScreensModule#SM-SF-23
   // spec: ordin-desktop/components/ScreensModule#SM-SF-27
+  // spec: ordin-desktop/components/ScreensModule#SM-FE-1
+  // spec: ordin-desktop/components/ScreensModule#SM-FE-3
   import { onMount } from 'svelte';
 
   import { answers } from '../../backend/groups';
@@ -23,6 +25,8 @@
   import ErrorLine from '../ErrorLine.svelte';
   import AdoptControls from './AdoptControls.svelte';
   import FactLine from './FactLine.svelte';
+  import ForgetEverythingDialog from './ForgetEverythingDialog.svelte';
+  import { ForgetEverything } from './forget-everything.svelte';
   import {
     GROUP_BY,
     GROUP_BY_MESSAGE,
@@ -101,6 +105,42 @@
 
   /** **Show as diagram** is drawn while the backend answers `memory.diagram` (SM-SF-23). */
   const diagramOffered = $derived(c.diagramWired && answers(backend, 'memory.diagram'));
+
+  // SM-FE-1.1: the ⋯ beside the heading, on this computer only, never when embedded.
+  const forgetOffered = $derived(!embedded && workspaceId !== null && backend.handle.kind === 'local' && answers(backend, 'memory.forget_everything'));
+  const workspaceName = $derived(backend.workspaces.find((w) => w.id === workspaceId)?.name ?? '');
+  let menuOpen = $state(false);
+  let forgetting = $state<ForgetEverything | null>(null);
+  let forgetError = $state<ServiceError | null>(null);
+
+  async function openForget(): Promise<void> {
+    menuOpen = false;
+    forgetError = null;
+    const model = new ForgetEverything(backend.handle, { workspace: workspaceId ?? '' }, workspaceName);
+    const error = await model.open();
+    if (error !== null) forgetError = error;
+    else forgetting = model;
+  }
+
+  function forgotten(facts: number): void {
+    forgetting = null;
+    app?.shell.announce(t('forget-everything-done', { facts }));
+    backend.memoryForgotten += 1;
+  }
+
+  // SM-FE-3: memory forgotten here or from Settings reads this workspace's memory again.
+  let forgottenSeen = backend.memoryForgotten;
+  $effect(() => {
+    const now = backend.memoryForgotten;
+    if (now === forgottenSeen) return;
+    forgottenSeen = now;
+    void c.load();
+    void c.loadThings();
+  });
+
+  function focusFirst(node: HTMLElement): void {
+    node.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }
 
   onMount(() => {
     if (answers(backend, 'team_knowledge.status')) void team.load();
@@ -270,7 +310,25 @@
 {/snippet}
 
 <section class="memory" aria-labelledby={embedded ? undefined : 'memory-heading'}>
-  {#if !embedded}<h2 id="memory-heading" tabindex="-1" data-region-focus>{t('tree-memory')}</h2>{/if}
+  {#if !embedded}
+    <div class="heading tree-line">
+      <h2 id="memory-heading" tabindex="-1" data-region-focus>{t('tree-memory')}</h2>
+      {#if forgetOffered}
+        <span class="tree-actions shown">
+          <button type="button" class="tree-action" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={t('more-actions-for', { name: t('tree-memory') })} title={t('more-actions-tip')} onclick={() => (menuOpen = !menuOpen)}><Icon name="more" /></button>
+        </span>
+        {#if menuOpen}
+          <div role="menu" tabindex="-1" class="tree-menu-list" aria-label={t('tree-node-menu', { name: t('tree-memory') })} use:focusFirst onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); menuOpen = false; } }}>
+            <button type="button" role="menuitem" class="danger" onclick={() => void openForget()}><Icon name="remove" />{t('memory-forget-workspace')}</button>
+          </div>
+        {/if}
+      {/if}
+    </div>
+    <ErrorLine error={forgetError} />
+  {/if}
+  {#if forgetting !== null}
+    <ForgetEverythingDialog model={forgetting} name={workspaceName} onforgotten={forgotten} oncancel={() => (forgetting = null)} />
+  {/if}
 
   <TeamPanel {backend} workspaceId={workspaceId ?? ''} onopenchecked={() => (c.toCheckDrawn ? (c.tab = 'to_check') : (c.tab = 'facts'))} />
 
@@ -882,6 +940,17 @@
 </section>
 
 <style>
+  /* SM-FE-1.1: the heading and its ⋯, as an agent's page draws them (SM-AG-8). */
+  .heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    position: relative;
+  }
+  .heading h2 {
+    flex: 1;
+    margin: 0;
+  }
   /* Real tabs, not a row of buttons (amended January 2026; user decision; Approved by the user January
      2026): words on the pane's line, the shown tab underlined in the accent colour. */
   .memory-tabs {

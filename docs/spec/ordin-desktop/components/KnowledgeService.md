@@ -3078,3 +3078,34 @@ Feature: The screens hear when pages change (KS-PC-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Pages are indexed again after memory is forgotten (KS-FE-1) (plan 10 Phase 10; Approved)
+
+> **Status:** Approved by the user 2026-02-12. Source: plan 10 Phase 10 ("knowledge pages stay and their passages are indexed again straight after"). Counterparts: MemoryService.md MEM-FE-1 to MEM-FE-4, ServiceApi.md SVC-FE-1. Evidence read: `crates/ordin-knowledge/src/sql/sqlite_v1.sql:18-21` and `sqlite_v5.sql:19-21` (the index columns of `knowledge_pages` and `knowledge_read_pages`), `sqlite_v7.sql:5-6` (the same reset done once for every page), `crates/ordin-knowledge/src/pages.rs` (`wake_indexer`).
+
+- **KS-FE-1 `index_again(workspace_id)`.** Desktop only (`desktop_only`). In one transaction: `UPDATE knowledge_pages SET memory_indexed_version = NULL, memory_index_attempts = 0, memory_next_attempt_at = NULL WHERE workspace_id = ?1 AND state <> 'removed'`, and `UPDATE knowledge_read_pages SET memory_indexed_version = NULL, memory_index_attempts = 0, memory_next_attempt_at = NULL WHERE workspace_id = ?1`. Then `wake_indexer()`. It returns the number of pages marked. It writes no file and changes no page; the indexer's existing pass then writes each page's passages and facts again. Journal `knowledge_pages_to_index_again { workspace_id, pages }`.
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| Not the desktop | the existing `desktop_only` refusal | Nothing marked |
+| The store cannot be written | the existing store error | Nothing marked; the pages are indexed again the next time each changes |
+
+```gherkin
+Feature: Pages are indexed again (KS-FE-1)
+
+  Scenario: Every page of the workspace is indexed again
+    Given workspace W has the pages "Rates" and "Budget", both indexed, and a removed page "Old"
+    When index_again(W) is called
+    Then it returns 2
+    And after the next index pass both pages are indexed at their current version
+    And "Old" is not indexed
+
+  Scenario: Edge case — another workspace is untouched
+    Given workspace V has the indexed page "Plan"
+    When index_again(W) is called
+    Then "Plan" keeps its indexed version
+```
+
+### Gaps
+
+None.

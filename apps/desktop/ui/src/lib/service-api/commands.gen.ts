@@ -119,6 +119,8 @@ import type {
   EmailDraft,
   EmailGrant,
   EmailLink,
+  EverythingCount,
+  EverythingForgotten,
   ExternalAction,
   FactHistoryView,
   FactPage,
@@ -292,11 +294,13 @@ import type {
   MemoryConfirmCitationInput,
   MemoryCorrectInput,
   MemoryCorrectLinkInput,
+  MemoryCountEverythingInput,
   MemoryDiagramInput,
   MemoryDiscardHeldInput,
   MemoryFactHistoryInput,
   MemoryFactOriginsInput,
   MemoryForgetCountInput,
+  MemoryForgetEverythingInput,
   MemoryForgetInput,
   MemoryForgetLinkInput,
   MemoryForgetThingInput,
@@ -920,12 +924,14 @@ export type Commands = {
   "memory.confirm_citation": { input: MemoryConfirmCitationInput; result: Done; scope: "any"; effect: "change" };
   "memory.correct": { input: MemoryCorrectInput; result: FactView; scope: "any"; effect: "change" };
   "memory.correct_link": { input: MemoryCorrectLinkInput; result: LinkView; scope: "any"; effect: "change" };
+  "memory.count_everything": { input: MemoryCountEverythingInput; result: EverythingCount; scope: "local"; effect: "read" };
   "memory.diagram": { input: MemoryDiagramInput; result: DiagramView; scope: "any"; effect: "read" };
   "memory.discard_held": { input: MemoryDiscardHeldInput; result: Done; scope: "any"; effect: "change" };
   "memory.fact_history": { input: MemoryFactHistoryInput; result: FactHistoryView; scope: "any"; effect: "read" };
   "memory.fact_origins": { input: MemoryFactOriginsInput; result: OriginsView; scope: "any"; effect: "read" };
   "memory.forget": { input: MemoryForgetInput; result: ForgetReceipt; scope: "any"; effect: "change" };
   "memory.forget_count": { input: MemoryForgetCountInput; result: ForgetCount; scope: "any"; effect: "read" };
+  "memory.forget_everything": { input: MemoryForgetEverythingInput; result: EverythingForgotten; scope: "local"; effect: "change" };
   "memory.forget_link": { input: MemoryForgetLinkInput; result: LinkForgetReceipt; scope: "any"; effect: "change" };
   "memory.forget_thing": { input: MemoryForgetThingInput; result: ThingForgetReceipt; scope: "any"; effect: "change" };
   "memory.get": { input: MemoryGetInput; result: MemoryGetResult; scope: "any"; effect: "read" };
@@ -1376,12 +1382,14 @@ export const IPC_NAMES: Record<keyof Commands, string> = {
   "memory.confirm_citation": "memory_confirm_citation",
   "memory.correct": "memory_correct",
   "memory.correct_link": "memory_correct_link",
+  "memory.count_everything": "memory_count_everything",
   "memory.diagram": "memory_diagram",
   "memory.discard_held": "memory_discard_held",
   "memory.fact_history": "memory_fact_history",
   "memory.fact_origins": "memory_fact_origins",
   "memory.forget": "memory_forget",
   "memory.forget_count": "memory_forget_count",
+  "memory.forget_everything": "memory_forget_everything",
   "memory.forget_link": "memory_forget_link",
   "memory.forget_thing": "memory_forget_thing",
   "memory.get": "memory_get",

@@ -6,6 +6,7 @@ mod acceptance;
 mod agentic;
 mod behaviour;
 mod error_table;
+mod forget_everything;
 mod held;
 mod knowledge_agents;
 #[path = "../../tests/support/models.rs"]

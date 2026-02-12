@@ -7379,3 +7379,76 @@ Feature: Knowledge pages in the tree (SM-KT-1 to SM-KT-3)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Forget everything, for one workspace or every workspace (SM-FE-1 to SM-FE-3) (plan 10 Phase 10; Approved)
+
+> **Status:** Approved by the user 2026-02-12. Source: the user's request of 2026-02-11 ("there should be a way to clear the whole memory graph"; per workspace and for all workspaces); user decision of 2026-02-12 (facts remembered everywhere go with their workspace, and the confirmation counts them). HLD 11 §4 (actions in menus; one main action per screen), UX-A87 (an icon-only ⋯ beside a screen's heading). Counterparts: ServiceApi.md SVC-FE-1, MemoryService.md MEM-FE-1 to MEM-FE-4. Evidence read: `apps/desktop/ui/src/lib/views/fixed/Memory.svelte:273` (the heading; no ⋯ menu today), `apps/desktop/ui/src/lib/views/fixed/Agents.svelte:120-123` and SM-AG-8 (a ⋯ menu beside a page's heading), `crates/ordin-localisation/catalogues/en-GB/screens-settings.ftl:47` (Settings › Memory, `settings-section-what-ordin-remembers`), `:576-598` (its groups), `apps/desktop/ui/src/lib/backend/backend.ts` (`COMMAND_TIMEOUT_MS`, the 10-second command deadline; `LONG_DEADLINES_MS`, the commands given a longer one).
+
+- **SM-FE-1 Where it is offered.**
+  1. The Memory screen of a workspace gains a ⋯ menu beside its heading (as SM-AG-8 draws one), drawn only for the local backend when it answers `memory.forget_everything`; its one item is **Forget everything in this workspace…** (`memory-forget-workspace`). It is not drawn when the screen is embedded.
+  2. Settings › Memory gains, after its last group, the group `settings-memory-group-forget` with one button **Forget everything in every workspace…** (`settings-memory-forget-all`), under the same condition.
+- **SM-FE-2 The confirmation.** Choosing either item sends `memory.count_everything` with `{ "of": { "workspace": W } }` or `{ "of": "every_workspace" }`, then opens a dialog:
+  1. Title `forget-everything-title-workspace` (with the workspace's name) or `forget-everything-title-all`.
+  2. When `facts` and `to_check` are both 0: `forget-everything-nothing` and one button, **Close**; nothing else.
+  3. Otherwise: `forget-everything-body` with `facts`; `forget-everything-to-check` with `to_check` when it is above 0; `forget-everything-everywhere` with `everywhere` when it is above 0; then `forget-everything-keeps`.
+  4. A text field labelled `forget-everything-type-name` (with the workspace's name) or `forget-everything-type-all` (with `forget-everything-all-phrase`). **Forget everything** (`forget-everything-confirm`, the dialog's danger button) is enabled only while the field, trimmed, equals the workspace's name or `forget-everything-all-phrase`, ignoring case. **Cancel** has the focus when the dialog opens; Escape cancels.
+  5. **Forget everything** sends `memory.forget_everything` with the same target and a deadline of 60 seconds: the command's entry in `LONG_DEADLINES_MS`, which overrides `COMMAND_TIMEOUT_MS` for the commands it names. While it runs both buttons are disabled.
+  6. A failure keeps the dialog open with the error line under the field (with **Try again** when the error carries it); the field keeps what was typed.
+- **SM-FE-3 After forgetting.** The dialog closes; `forget-everything-done` with `facts_removed` is announced; an open Memory screen of a forgotten workspace reads its memory again (as it does when it opens). Nothing else changes on screen.
+
+| Id | Text |
+|---|---|
+| `memory-forget-workspace` | Forget everything in this workspace… |
+| `settings-memory-group-forget` | Forget |
+| `settings-memory-forget-all` | Forget everything in every workspace… |
+| `forget-everything-title-workspace` | Forget everything in { $name }? |
+| `forget-everything-title-all` | Forget everything in every workspace? |
+| `forget-everything-nothing` | Ordin remembers nothing here yet. |
+| `forget-everything-body` | Ordin forgets { $facts -> [one] the one fact *[other] all { $facts } facts } it remembers. |
+| `forget-everything-to-check` | { $count -> [one] The fact waiting for you to check goes too. *[other] The { $count } facts waiting for you to check go too. } |
+| `forget-everything-everywhere` | { $count -> [one] This includes 1 fact you chose to remember everywhere; it leaves your other workspaces too. *[other] This includes { $count } facts you chose to remember everywhere; they leave your other workspaces too. } |
+| `forget-everything-keeps` | Knowledge pages, link words and your memory settings stay. Ordin reads the pages again straight after. This cannot be undone. |
+| `forget-everything-type-name` | Type { $name } to confirm |
+| `forget-everything-type-all` | Type “{ $phrase }” to confirm |
+| `forget-everything-all-phrase` | every workspace |
+| `forget-everything-confirm` | Forget everything |
+| `forget-everything-done` | { $facts -> [one] Forgot 1 fact. *[other] Forgot { $facts } facts. } |
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| `memory.count_everything` fails | as returned | No dialog; the error line under the menu's owner (the Memory heading, or the Settings group) |
+| `memory.forget_everything` fails or passes its deadline | as returned, or `UI_COMMAND_TIMEOUT` | The dialog stays open with the error line; forgetting again finishes what is left (MEM-FE-3) |
+
+```gherkin
+Feature: Forget everything (SM-FE-1 to SM-FE-3)
+
+  Scenario: Forgetting one workspace after typing its name
+    Given the Memory screen of "Q3 supplier review" is open, and memory.count_everything answers 12 facts, 2 everywhere, 0 to check
+    When the person chooses Forget everything in this workspace… from the ⋯ menu
+    Then the dialog says Ordin forgets all 12 facts and that 2 were remembered everywhere
+    And Forget everything is disabled
+    When the person types "q3 supplier review"
+    Then Forget everything is enabled
+    When the person presses Forget everything
+    Then memory.forget_everything is sent with {"of": {"workspace": W}}
+    And "Forgot 12 facts." is announced
+
+  Scenario: Every workspace from Settings
+    Given Settings › Memory is open
+    When the person chooses Forget everything in every workspace… and types "every workspace" and confirms
+    Then memory.forget_everything is sent with {"of": "every_workspace"}
+
+  Scenario: Edge case — nothing to forget
+    Given memory.count_everything answers 0 facts and 0 to check
+    When the person chooses Forget everything in this workspace…
+    Then the dialog says "Ordin remembers nothing here yet." with Close only
+
+  Scenario: Error — the forgetting fails
+    Given memory.forget_everything fails with MEM_DELETE_UNVERIFIED
+    When the person confirms
+    Then the dialog stays open with the error line and the typed name
+```
+
+### Gaps
+
+None.

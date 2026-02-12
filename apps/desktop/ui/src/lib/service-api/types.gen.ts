@@ -2043,6 +2043,21 @@ export type EstimateBasis = ({
   total_bytes: number;
 });
 
+/** The numbers the **Forget everything** confirmation shows (MemoryService.md MEM-FE-2). */
+export interface EverythingCount {
+  everywhere: number;
+  facts: number;
+  to_check: number;
+  workspaces: number;
+}
+
+export interface EverythingForgotten {
+  everywhere_removed: number;
+  facts_removed: number;
+  forgotten_at: Timestamp;
+  workspaces: number;
+}
+
 export type ExpectationOutcome = "met" | "not_met";
 
 /** A deterministic rehearsal expectation; closed set, as the Checker spec defines it (amended January 2026, decision 80: C-32). */
@@ -2475,6 +2490,11 @@ export interface ForgetReceipt {
   /** Always serialised; 0 when none (ADR-111). */
   summaries_removed: number;
 }
+
+/** What `memory.count_everything` and `memory.forget_everything` act on: `{ "workspace": W }` or `"every_workspace"`. Any other value is refused, so a missing or misspelt target never means every workspace. */
+export type ForgetTarget = ("every_workspace" | {
+  workspace: string;
+});
 
 export type FormField = {
   /** Set when Ordin filled the field from the conversation or the workspace. */
@@ -3969,6 +3989,10 @@ export interface MemoryCorrectLinkInput {
   to: MemoryThingId;
 }
 
+export interface MemoryCountEverythingInput {
+  of: ForgetTarget;
+}
+
 export interface MemoryDiagramInput {
   centre?: (MemoryThingId | null);
   workspace_id: string;
@@ -3990,6 +4014,10 @@ export interface MemoryFactOriginsInput {
 
 export interface MemoryForgetCountInput {
   id: string;
+}
+
+export interface MemoryForgetEverythingInput {
+  of: ForgetTarget;
 }
 
 /** `{ id }`, the input of `memory.forget`. */

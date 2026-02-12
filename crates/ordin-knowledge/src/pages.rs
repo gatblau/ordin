@@ -950,6 +950,44 @@ impl KnowledgeService {
     }
 
     /// E-1 (with V): to the system's bin.
+    // spec: ordin-desktop/components/KnowledgeService#KS-FE-1
+    /// After everything Ordin remembered in a workspace was forgotten: every page of the workspace,
+    /// and every page read from a folder, is marked not indexed so the indexer's next pass writes its
+    /// passages and facts again. No file and no page changes. Returns the number of pages marked.
+    pub async fn index_again(&self, workspace_id: WorkspaceId) -> Result<u64, KnowledgeError> {
+        self.desktop_only()?;
+        let pool = self.pool()?;
+        let mut tx = pool.begin().await?;
+        let own = sqlx::query(
+            "UPDATE knowledge_pages SET memory_indexed_version = NULL, memory_index_attempts = 0, \
+             memory_next_attempt_at = NULL WHERE workspace_id = ?1 AND state <> 'removed'",
+        )
+        .bind(workspace_id.to_string())
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        let read = sqlx::query(
+            "UPDATE knowledge_read_pages SET memory_indexed_version = NULL, memory_index_attempts = 0, \
+             memory_next_attempt_at = NULL WHERE workspace_id = ?1",
+        )
+        .bind(workspace_id.to_string())
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        tx.commit().await?;
+        let pages = own + read;
+        self.wake_indexer();
+        self.journal(
+            "pages_to_index_again",
+            Some(workspace_id),
+            None,
+            "A workspace's knowledge pages are indexed again after its memory was forgotten.",
+            json!({ "workspace_id": workspace_id, "pages": pages }),
+        )
+        .await;
+        Ok(pages)
+    }
+
     pub async fn remove_page(&self, page_id: KnowledgePageId) -> Result<(), KnowledgeError> {
         self.desktop_only()?;
         let _guard = self.write_lock.lock().await;

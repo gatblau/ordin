@@ -1078,3 +1078,29 @@ publish-folder-sent = Publishing { $name } waits for your approval.
 # The file dialog of minutes.import (OrdinDesktop.md DSK-MIN-2).
 minutes-import-title = Choose a meeting transcript or recording
 minutes-import-filter = Transcripts and recordings
+# SM-FE-1 to SM-FE-3 (amendment 2026-02-12; Approved by the user): forget everything, for one workspace or every workspace.
+memory-forget-workspace = Forget everything in this workspace…
+forget-everything-title-workspace = Forget everything in { $name }?
+forget-everything-title-all = Forget everything in every workspace?
+forget-everything-nothing = Ordin remembers nothing here yet.
+forget-everything-body = Ordin forgets { $facts ->
+    [one] the one fact
+   *[other] all { $facts } facts
+ } it remembers.
+forget-everything-to-check = { $count ->
+    [one] The fact waiting for you to check goes too.
+   *[other] The { $count } facts waiting for you to check go too.
+ }
+forget-everything-everywhere = { $count ->
+    [one] This includes 1 fact you chose to remember everywhere; it leaves your other workspaces too.
+   *[other] This includes { $count } facts you chose to remember everywhere; they leave your other workspaces too.
+ }
+forget-everything-keeps = Knowledge pages, link words and your memory settings stay. Ordin reads the pages again straight after. This cannot be undone.
+forget-everything-type-name = Type { $name } to confirm
+forget-everything-type-all = Type “{ $phrase }” to confirm
+forget-everything-all-phrase = every workspace
+forget-everything-confirm = Forget everything
+forget-everything-done = { $facts ->
+    [one] Forgot 1 fact.
+   *[other] Forgot { $facts } facts.
+ }

@@ -376,6 +376,22 @@ pub(crate) async fn drop_record(
     Ok(())
 }
 
+// spec: ordin-desktop/components/TeamKnowledgeService#TK-FE-1
+/// The memory items taken for `ws` are dropped, so the next get takes them again; pages stay.
+pub(crate) async fn drop_memory_items(
+    pool: &SqlitePool,
+    ws: WorkspaceId,
+) -> Result<u64, TeamError> {
+    let done = sqlx::query(
+        "DELETE FROM team_knowledge_items WHERE workspace_id = ?1 \
+         AND kind IN ('fact','entity','source','relationship')",
+    )
+    .bind(ws.to_string())
+    .execute(pool)
+    .await?;
+    Ok(done.rows_affected())
+}
+
 // ---- problems ----
 
 pub(crate) async fn problems(

@@ -449,6 +449,8 @@ service_catalogue! {
     memory forget_thing memory_forget_thing => ::ordin_service_api::commands::memory::MemoryForgetThingInput => ::ordin_service_api::commands::memory::ThingForgetReceipt, Any, Change, Interactive;
     memory same_as memory_same_as => ::ordin_service_api::commands::memory::MemorySameAsInput => ::ordin_service_api::commands::memory::ThingView, Any, Change, Interactive;
     memory forget_count memory_forget_count => ::ordin_service_api::commands::memory::MemoryForgetCountInput => ::ordin_service_api::commands::memory::ForgetCount, Any, Read, Interactive;
+    memory count_everything memory_count_everything => ::ordin_service_api::commands::memory::MemoryCountEverythingInput => ::ordin_service_api::commands::memory::EverythingCount, Local, Read, Interactive;
+    memory forget_everything memory_forget_everything => ::ordin_service_api::commands::memory::MemoryForgetEverythingInput => ::ordin_service_api::commands::memory::EverythingForgotten, Local, Change, Interactive;
     knowledge_agents list knowledge_agents_list => ::ordin_service_api::commands::knowledge_agents::KnowledgeAgentsListInput => ::ordin_service_api::commands::knowledge_agents::KnowledgeAgentsListResult, Any, Read, Interactive;
     knowledge_agents add knowledge_agents_add => ::ordin_service_api::commands::knowledge_agents::KnowledgeAgentsAddInput => ::ordin_service_api::commands::knowledge_agents::KnowledgeAgentsAddResult, Any, Change, Interactive;
     knowledge_agents remove knowledge_agents_remove => ::ordin_service_api::commands::knowledge_agents::KnowledgeAgentsRemoveInput => ::ordin_service_api::Done, Any, Change, Interactive;

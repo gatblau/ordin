@@ -17,7 +17,7 @@ use support::*;
 
 /// 452 rows (451, then setup.choose_harness, SVC-CHO-1); 472 with the twenty `minutes` rows (SVC-MIN-1,
 /// SVC-MIN-3).
-const ROWS: usize = if cfg!(feature = "minutes") { 473 } else { 453 };
+const ROWS: usize = if cfg!(feature = "minutes") { 475 } else { 455 };
 
 fn approval_press() -> Value {
     json!({"card_ref": "q8Zt3VxN0pLk2mRb7sYw1A", "decision": "approve"})

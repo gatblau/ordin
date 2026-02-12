@@ -693,3 +693,6 @@ settings-agents-effort-medium = Medium
 settings-agents-effort-high = High
 settings-agents-effort-xhigh = Very high
 settings-agents-effort-max = Highest
+# SM-FE-1.2 (amendment 2026-02-12; Approved by the user).
+settings-memory-group-forget = Forget
+settings-memory-forget-all = Forget everything in every workspace…

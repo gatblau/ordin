@@ -15,9 +15,10 @@ use crate::config::TENANT;
 use crate::db::q;
 use crate::error::{is_not_found, map_call_error, MemoryError};
 use crate::model::{
-    FactHistoryView, FactOrigin, FactPage, FactState, FactView, ForgetCount, ForgetReceipt,
-    MemoryKind, MemoryPlace, MemoryUsedView, ObjectInput, OriginItem, OriginState, OriginsView,
-    RememberReceipt, RememberedBy, RememberedInRun, RememberedItem, WiderUsed,
+    EverythingCount, EverythingForgotten, FactHistoryView, FactOrigin, FactPage, FactState,
+    FactView, ForgetCount, ForgetReceipt, ForgetTarget, MemoryKind, MemoryPlace, MemoryUsedView,
+    ObjectInput, OriginItem, OriginState, OriginsView, RememberReceipt, RememberedBy,
+    RememberedInRun, RememberedItem, WiderUsed,
 };
 use crate::remember::{sha256_hex, RowSeed, Write};
 use crate::service::{new_correlation_id, store_error_of, Inner, MemoryService};
@@ -1143,6 +1144,175 @@ impl MemoryService {
             rows_removed,
             digest: proof.digest,
         })
+    }
+}
+
+impl MemoryService {
+    // spec: ordin-desktop/components/MemoryService#MEM-FE-1
+    /// The workspaces a target names, in workspace-id order; refused unless this is the desktop.
+    async fn forget_targets(&self, target: ForgetTarget) -> Result<Vec<WorkspaceId>, MemoryError> {
+        let inner = &self.inner;
+        inner.gate()?;
+        if !matches!(inner.program, crate::config::ProgramKind::Desktop) {
+            return Err(MemoryError::not_supported());
+        }
+        let mut ids = match target {
+            ForgetTarget::Workspace(w) => vec![w.0],
+            ForgetTarget::EveryWorkspace => {
+                let rows = inner
+                    .db
+                    .all(q("SELECT DISTINCT workspace_id FROM memory_fact_refs \
+                            WHERE workspace_id IS NOT NULL \
+                            UNION SELECT DISTINCT workspace_id FROM memory_recalls \
+                            WHERE workspace_id IS NOT NULL"))
+                    .await?;
+                rows.iter()
+                    .map(|r| r.uuid("workspace_id"))
+                    .collect::<Result<Vec<_>, _>>()?
+            }
+        };
+        ids.sort();
+        ids.dedup();
+        Ok(ids.into_iter().map(WorkspaceId).collect())
+    }
+
+    // spec: ordin-desktop/components/MemoryService#MEM-FE-2
+    async fn count_workspace(&self, w: WorkspaceId) -> Result<EverythingCount, MemoryError> {
+        let db = &self.inner.db;
+        let n = |sql: &str| q(sql.to_owned()).uuid(w.0);
+        Ok(EverythingCount {
+            workspaces: 1,
+            facts: store::count(
+                db,
+                n("SELECT COUNT(*) AS n FROM memory_fact_refs \
+                 WHERE workspace_id = $1 AND state = 'kept'"),
+            )
+            .await?,
+            everywhere: store::count(
+                db,
+                n("SELECT COUNT(*) AS n FROM memory_fact_refs \
+                   WHERE workspace_id = $1 AND state = 'kept' AND everywhere = $2")
+                .boolean(true),
+            )
+            .await?,
+            to_check: store::count(
+                db,
+                n("SELECT COUNT(*) AS n FROM memory_fact_refs \
+                 WHERE workspace_id = $1 AND state = 'pending'"),
+            )
+            .await?,
+        })
+    }
+
+    // spec: ordin-desktop/components/MemoryService#MEM-FE-2
+    /// What `forget_everything(target)` would remove. Reads this service's rows only.
+    pub async fn count_everything(
+        &self,
+        target: ForgetTarget,
+    ) -> Result<EverythingCount, MemoryError> {
+        let mut total = EverythingCount::default();
+        for w in self.forget_targets(target).await? {
+            let c = self.count_workspace(w).await?;
+            total.workspaces += 1;
+            total.facts += c.facts;
+            total.everywhere += c.everywhere;
+            total.to_check += c.to_check;
+        }
+        Ok(total)
+    }
+
+    // spec: ordin-desktop/components/MemoryService#MEM-FE-3
+    // spec: ordin-desktop/components/MemoryService#MEM-FE-4
+    /// Everything Ordin remembered in each workspace of `target`, in workspace-id order. A workspace
+    /// finished before a failure stays forgotten; forgetting again finishes the rest. Facts remembered
+    /// everywhere that were kept from a workspace go with it. Link words and settings stay.
+    pub async fn forget_everything(
+        &self,
+        target: ForgetTarget,
+    ) -> Result<EverythingForgotten, MemoryError> {
+        let inner = &self.inner;
+        let ids = self.forget_targets(target).await?;
+        let mut out = EverythingForgotten {
+            workspace_ids: Vec::with_capacity(ids.len()),
+            workspaces: 0,
+            facts_removed: 0,
+            everywhere_removed: 0,
+            forgotten_at: Timestamp::now(),
+        };
+        for w in ids {
+            let before = self.count_workspace(w).await?;
+            let place = store::scope_key(MemoryPlace::Workspace(w));
+            let proof = memory::types::ports::ScopeErasure::erase_scope(
+                inner.storage.as_ref(),
+                TENANT,
+                &place,
+            )
+            .await
+            .map_err(store_error_of)?;
+            let of_w = "SELECT id FROM memory_fact_refs WHERE workspace_id = $1";
+            let mut tx = inner.db.begin().await?;
+            tx.exec(q("DELETE FROM memory_recalls WHERE workspace_id = $1").uuid(w.0))
+                .await?;
+            tx.exec(q("DELETE FROM memory_consolidations WHERE workspace_id = $1").uuid(w.0))
+                .await?;
+            tx.exec(
+                q(format!(
+                    "DELETE FROM memory_made_from WHERE fact_ref IN ({of_w}) \
+                     OR origin_ref IN ({})",
+                    of_w.replace("$1", "$2")
+                ))
+                .uuid(w.0)
+                .uuid(w.0),
+            )
+            .await?;
+            tx.exec(
+                q("UPDATE memory_fact_refs SET replaces_id = NULL WHERE workspace_id = $1")
+                    .uuid(w.0),
+            )
+            .await?;
+            tx.exec(q("DELETE FROM memory_fact_refs WHERE workspace_id = $1").uuid(w.0))
+                .await?;
+            tx.exec(q("DELETE FROM memory_thing_topics WHERE place_key = $1").text(place.clone()))
+                .await?;
+            tx.exec(q("DELETE FROM memory_topic_hints WHERE place_key = $1").text(place.clone()))
+                .await?;
+            tx.commit().await?;
+            let left = store::count(
+                &inner.db,
+                q("SELECT COUNT(*) AS n FROM memory_fact_refs WHERE workspace_id = $1").uuid(w.0),
+            )
+            .await?;
+            if left > 0 {
+                return Err(MemoryError::delete_unverified());
+            }
+            inner
+                .journal(
+                    "workspace_forgotten",
+                    None,
+                    None,
+                    Some(w),
+                    "The person forgot everything Ordin remembered in a workspace.",
+                    json!({
+                        "workspace_id": w.to_string(),
+                        "facts": before.facts,
+                        "everywhere": before.everywhere,
+                        "digest": proof.digest,
+                    }),
+                )
+                .await;
+            tracing::info!(
+                target: "ordin::memory",
+                workspace_id = w.to_string().as_str(),
+                facts = before.facts,
+                "memory.workspace_forgotten"
+            );
+            out.workspace_ids.push(w);
+            out.workspaces += 1;
+            out.facts_removed += before.facts;
+            out.everywhere_removed += before.everywhere;
+        }
+        out.forgotten_at = Timestamp::now();
+        Ok(out)
     }
 }
 

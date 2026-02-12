@@ -222,6 +222,51 @@ impl DesktopServiceApi {
         }
     }
 
+    /// The wire's `ForgetTarget` as the Memory Service's (SVC-FE-1).
+    fn forget_target(
+        &self,
+        of: ordin_service_api::commands::memory::ForgetTarget,
+    ) -> ordin_memory_service::ForgetTarget {
+        use ordin_service_api::commands::memory::ForgetTarget as Wire;
+        match of {
+            Wire::Workspace(w) => ordin_memory_service::ForgetTarget::Workspace(w),
+            Wire::EveryWorkspace => ordin_memory_service::ForgetTarget::EveryWorkspace,
+        }
+    }
+
+    // spec: ordin-desktop/components/ServiceApi#SVC-FE-1
+    /// For each workspace forgotten: its knowledge pages are indexed again (KS-FE-1) and its team's
+    /// facts are taken again (TK-FE-1), in the background, so the reply is not held by either.
+    fn after_forgetting(&self, workspaces: &[WorkspaceId]) {
+        let knowledge = self.modules.knowledge.clone();
+        #[cfg(feature = "team-knowledge")]
+        let team = self.modules.team_knowledge.clone();
+        let workspaces = workspaces.to_vec();
+        tokio::spawn(async move {
+            for w in workspaces {
+                if let Some(knowledge) = &knowledge {
+                    if let Err(e) = knowledge.index_again(w).await {
+                        tracing::warn!(
+                            component = "service_api",
+                            code = ordin_types::CodedError::code(&e),
+                            "memory.forget_everything.index_again_failed"
+                        );
+                    }
+                }
+                #[cfg(feature = "team-knowledge")]
+                if let Some(team) = &team {
+                    if let Err(e) = team.take_again(w).await {
+                        tracing::warn!(
+                            component = "service_api",
+                            code = ordin_types::CodedError::code(&e),
+                            "memory.forget_everything.take_again_failed"
+                        );
+                    }
+                }
+            }
+        });
+    }
+
     /// One value in its serde form, for a result the owner returns unwrapped.
     fn value<A: Serialize>(&self, value: A) -> Result<serde_json::Value, ServiceError> {
         serde_json::to_value(value).map_err(|_| self.refuse(INTERNAL, None))
@@ -751,6 +796,34 @@ macro_rules! answer {
             .await
             .map_err(|e| $api.module_error(e))?;
         $api.restate(out)
+    }};
+    // spec: ordin-desktop/components/ServiceApi#SVC-FE-1
+    ($api:expr, $ctx:expr, $input:expr, memory_count_everything) => {{
+        let _ = $ctx;
+        let memory = $api.handle(&$api.modules.memory)?;
+        let target = $api.forget_target($input.of);
+        let out = memory
+            .count_everything(target)
+            .await
+            .map_err(|e| $api.module_error(e))?;
+        $api.restate(out)
+    }};
+    // spec: ordin-desktop/components/ServiceApi#SVC-FE-1
+    ($api:expr, $ctx:expr, $input:expr, memory_forget_everything) => {{
+        let _ = $ctx;
+        let memory = $api.handle(&$api.modules.memory)?;
+        let target = $api.forget_target($input.of);
+        let out = memory
+            .forget_everything(target)
+            .await
+            .map_err(|e| $api.module_error(e))?;
+        $api.after_forgetting(&out.workspace_ids);
+        Ok(ordin_service_api::commands::memory::EverythingForgotten {
+            workspaces: out.workspaces,
+            facts_removed: out.facts_removed,
+            everywhere_removed: out.everywhere_removed,
+            forgotten_at: out.forgotten_at,
+        })
     }};
     ($api:expr, $ctx:expr, $input:expr, memory_same_as) => {{
         let _ = $ctx;

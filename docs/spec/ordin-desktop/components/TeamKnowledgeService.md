@@ -2630,3 +2630,34 @@ Feature: Team Knowledge Service — a team workspace (ADR-121)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — The team's facts are taken again after memory is forgotten (TK-FE-1) (plan 10 Phase 10; Approved)
+
+> **Status:** Approved by the user 2026-02-12. Source: plan 10 Phase 10; the effect of MemoryService.md MEM-FE-3, which erases a team workspace's copies of its team's facts with the rest of `ws:<W>`. Counterparts: MemoryService.md MEM-FE-1 to MEM-FE-4, ServiceApi.md SVC-FE-1. Evidence read: `crates/ordin-team-knowledge/src/sql/sqlite_v1.sql:26-36` (`team_knowledge_items`, one row per item taken, by `blob`), `crates/ordin-team-knowledge/src/service.rs:1054-1068` (`check_now`, `get`), `crates/ordin-memory-service/src/team.rs:398-401` (a team file's facts are written under `ws:<W>`). No production call imports a read folder's facts into memory today (`read_folder: None` in `crates/ordin-team-knowledge/src/sync.rs:548`, `:563`), so other teams' folders need nothing here; their pages are re-indexed by KnowledgeService.md KS-FE-1.
+
+- **TK-FE-1 `take_again(workspace_id)`.** When W has a binding: `DELETE FROM team_knowledge_items WHERE workspace_id = ?1 AND kind IN ('fact','entity','source','relationship')` (rows of kind `page` stay, as pages were not forgotten), then `get(W)` as **Get your team's memory and knowledge pages** starts it, in the background. The team's facts are then taken as new items, through the same checks as any get. With no binding it does nothing and returns. What the person shared with the team is not changed or withdrawn: the team folder keeps it, and it comes back with the get.
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| W has no binding | — | Nothing done |
+| `get` cannot start (the folder is unreachable, a get already runs) | as `get` returns it | The rows are deleted; the next scheduled check takes the facts again |
+
+```gherkin
+Feature: The team's facts are taken again (TK-FE-1)
+
+  Scenario: A team workspace gets its team's facts back
+    Given team workspace W took 4 facts from its team folder
+    And everything Ordin remembered in W was forgotten
+    When take_again(W) is called
+    Then a get starts for W
+    And after it the 4 team facts are in W's memory
+
+  Scenario: Edge case — a workspace with no team
+    Given workspace V has no binding
+    When take_again(V) is called
+    Then nothing is done
+```
+
+### Gaps
+
+None.

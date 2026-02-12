@@ -142,6 +142,9 @@ export class BackendState implements HasGroups {
   setupRevision = $state(0);
   needsYouRevision = $state(0);
   workspaceRevisions = new SvelteMap<string, number>();
+  // spec: ordin-desktop/components/ScreensModule#SM-FE-3
+  /** Raised each time memory is forgotten from any screen; an open Memory screen then reads its memory again. */
+  memoryForgotten = $state(0);
 
   #diagnostics: DiagnosticSink | undefined;
   #expanded: () => string[];

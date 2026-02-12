@@ -3777,3 +3777,37 @@ Feature: The event knowledge_pages_changed (SVC-PC-1)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — `memory.count_everything` and `memory.forget_everything` (SVC-FE-1) (plan 10 Phase 10; Approved)
+
+> **Status:** Approved by the user 2026-02-12. Source: the user's request of 2026-02-11 (forget everything, per workspace and for all workspaces); user decision of 2026-02-12 (facts remembered everywhere go with their workspace). Counterparts: MemoryService.md MEM-FE-1 to MEM-FE-4, KnowledgeService.md KS-FE-1, TeamKnowledgeService.md TK-FE-1, ScreensModule.md SM-FE-1 to SM-FE-3. Evidence read: `crates/ordin-service-api/src/catalogue/rows.rs:448-449` (`memory.thing_count`, `memory.forget_thing`), `apps/desktop/src/service_api.rs:743-754` (how a memory command is answered), `crates/ordin-service-api/tests/registry.rs:10` (473 and 453 rows).
+
+- **SVC-FE-1 Two commands.**
+
+| Command | Input | Result | Scope, effect, budget |
+|---|---|---|---|
+| `memory.count_everything` | `{ "of": ForgetTarget }` | `EverythingCount { workspaces, facts, everywhere, to_check }` | Local, Read, Interactive |
+| `memory.forget_everything` | `{ "of": ForgetTarget }` | `EverythingForgotten { workspaces, facts_removed, everywhere_removed, forgotten_at }` | Local, Change, Interactive |
+
+  `ForgetTarget` is `{ "workspace": WorkspaceId }` or the string `"every_workspace"`; any other value is refused `SVC_INPUT_INVALID`, so a missing or misspelt target can never mean every workspace. A named workspace that does not exist is refused as the other memory commands refuse it (`memory_place`). `memory.forget_everything` is answered by MemoryService `forget_everything`; then, for each workspace it forgot, the program starts KnowledgeService `index_again(W)` and TeamKnowledgeService `take_again(W)` in the background, without waiting, so the reply is not held by the indexing. No event is added: `workspace_changed` has its named emitters (SA-CLOSE-03), and the screen that sent the command reads memory again itself (ScreensModule.md SM-FE-3). The catalogue holds **475 commands** with the `minutes` switch and 455 without. Generated `types.gen.ts` and `schema.gen.json` carry the four types.
+
+```gherkin
+Feature: Forget everything commands (SVC-FE-1)
+
+  Scenario: A target names one workspace
+    When memory.forget_everything is sent with {"of": {"workspace": W}}
+    Then MemoryService forget_everything runs for W only
+    And index_again(W) and take_again(W) are started
+
+  Scenario: Error — a missing target is refused
+    When memory.forget_everything is sent with {}
+    Then the reply is an error with the code SVC_INPUT_INVALID
+    And nothing is forgotten
+
+  Scenario: The catalogue grows by two
+    Then the catalogue holds 475 commands with the minutes switch and 455 without
+```
+
+### Gaps
+
+None.

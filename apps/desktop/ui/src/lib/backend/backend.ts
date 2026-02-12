@@ -138,6 +138,10 @@ function failure(code: string): CommandOutcome<never> {
   return { kind: 'error', error: { code, message: '' } };
 }
 
+// spec: ordin-desktop/components/ScreensModule#SM-FE-2
+/** Commands given a longer deadline than `COMMAND_TIMEOUT_MS`: forgetting every workspace erases each in turn. */
+export const LONG_DEADLINES_MS: ReadonlyMap<string, number> = new Map([['memory.forget_everything', 60_000]]);
+
 export function createHandle(options: HandleOptions): BackendHandle {
   const timeoutMs = options.timeoutMs ?? COMMAND_TIMEOUT_MS;
   const newId = options.newRequestId ?? (() => newRequestId());
@@ -161,7 +165,7 @@ export function createHandle(options: HandleOptions): BackendHandle {
           : Promise.race([
               sent,
               new Promise<'timeout'>((resolve) => {
-                timer = setTimeout(() => resolve('timeout'), timeoutMs);
+                timer = setTimeout(() => resolve('timeout'), LONG_DEADLINES_MS.get(command) ?? timeoutMs);
               }),
             ]);
       try {

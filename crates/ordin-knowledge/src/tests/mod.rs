@@ -10,6 +10,7 @@ pub(crate) mod logs;
 pub(crate) mod rig;
 
 mod errors;
+mod forget;
 mod links;
 mod okf;
 mod pages;

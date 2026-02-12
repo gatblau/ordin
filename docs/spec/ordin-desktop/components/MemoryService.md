@@ -4141,3 +4141,58 @@ Feature: Settings › Memory, enforced here (MEM-SET-1 to MEM-SET-5)
 ### Gaps
 
 None.
+
+## Amendment 2026-02-12 — Forget everything, for one workspace or every workspace (MEM-FE-1 to MEM-FE-4) (plan 10 Phase 10; Approved)
+
+> **Status:** Approved by the user 2026-02-12. Source: the user's request of 2026-02-11 ("there should be a way to clear the whole memory graph"; both per workspace and for all workspaces); user decision of 2026-02-12: facts remembered everywhere that were kept from the workspace are forgotten with it, and the confirmation counts them (option A). Counterparts: ServiceApi.md SVC-FE-1, ScreensModule.md SM-FE-1 to SM-FE-3, KnowledgeService.md KS-FE-1, TeamKnowledgeService.md TK-FE-1. Evidence read: `crates/ordin-memory-service/src/person.rs:1046-1140` (`count_scope`, `erase_scope`: the store's `ScopeErasure::erase_scope`, then this service's rows, then a re-count), `crates/ordin-memory-service/src/store.rs:17-22` (`scope_key`: `ws:<W>`), `person.rs:548-575` (`remember_everywhere` keeps the row's `scope_key` and sets `everywhere`), `crates/ordin-memory-service/src/team.rs:398-401` (a team file's facts are written under `ws:<W>`), `memory/src/store/sql/mod.rs:985` (`SCOPE_ERASURE_SET`: facts, entities, names, relationships, sources, quarantine, jobs, grants, dead letters, audit), the tables in `crates/ordin-memory-service/src/sql/sqlite_*.sql`.
+
+- **MEM-FE-1 What one workspace holds.** `count_everything(target)` and `forget_everything(target)` take `ForgetTarget = Workspace(WorkspaceId) | EveryWorkspace`. `EveryWorkspace` is every workspace id with at least one row in `memory_fact_refs.workspace_id`, plus every workspace id named by `memory_recalls.workspace_id`, each once. Both are refused with `MEM_NOT_SUPPORTED` unless the program is the desktop (`ProgramKind::Desktop`); a personal server and an agent profile are refused. A conversation's own memory (`MemoryPlace::Scope`) is not a target: it has `erase_scope`.
+- **MEM-FE-2 The count.** `count_everything` returns `EverythingCount { workspaces: u32, facts: u64, everywhere: u64, to_check: u64 }`, summed over the target's workspaces, from `memory_fact_refs` rows with that `workspace_id`: `facts` the rows in state `kept`; `everywhere` the `kept` rows with `everywhere = 1`; `to_check` the rows in state `pending`. It reads this service's rows only and makes no store call.
+- **MEM-FE-3 The forgetting.** For each workspace W of the target, in workspace-id order:
+  1. `ScopeErasure::erase_scope(TENANT, "ws:<W>")` — the store's facts, links, things, sources, held writes (quarantine), queued jobs and audit rows of `ws:<W>`, in one transaction that re-counts before committing; a `PartialDelete` is `MEM_DELETE_UNVERIFIED` and stops here.
+  2. In one transaction of this service's database: `DELETE FROM memory_recalls WHERE workspace_id = W` (its items and wider rows cascade); `DELETE FROM memory_consolidations WHERE workspace_id = W`; `DELETE FROM memory_made_from` whose `fact_ref` or `origin_ref` is a row of W; `UPDATE memory_fact_refs SET replaces_id = NULL WHERE workspace_id = W`; `DELETE FROM memory_fact_refs WHERE workspace_id = W` (confirmed citations cascade); `DELETE FROM memory_thing_topics` and `DELETE FROM memory_topic_hints` `WHERE place_key = 'ws:<W>'`.
+  3. A re-count of `memory_fact_refs` for W; any row left → `MEM_DELETE_UNVERIFIED`.
+  4. Journal `memory_workspace_forgotten { workspace_id: W, facts, everywhere, digest }` (counts from MEM-FE-2 taken before step 1, `digest` the store proof's), summary "The person forgot everything Ordin remembered in a workspace."; log `memory.workspace_forgotten` (`workspace_id`, `facts`) at info.
+  Kept as they are: `memory_terms` of `ws:<W>` (the workspace's link words), the memory settings, and every other workspace's rows. A workspace finished before a failure stays forgotten; the call returns the failure and the person can forget again, which finishes the rest. The result is `EverythingForgotten { workspaces: u32, facts_removed: u64, everywhere_removed: u64, forgotten_at: Timestamp }`.
+- **MEM-FE-4 Facts remembered everywhere go with their workspace.** A `kept` row with `everywhere = 1` whose `workspace_id` is W is erased with W (user decision, option A): it is stored under `ws:<W>`, and the store's scope erasure cannot keep part of a scope. MEM-FE-2's `everywhere` count is what the confirmation shows.
+
+| Condition | Error code | Behaviour |
+|---|---|---|
+| Not the desktop program | `MEM_NOT_SUPPORTED` | Nothing forgotten |
+| The store leaves rows, or rows of W remain after step 2 | `MEM_DELETE_UNVERIFIED` | Workspaces before W stay forgotten; W and those after are as they were or partly erased; forgetting again completes them |
+| The store cannot be reached | the existing store error mapping (`store_error_of`) | As above |
+
+```gherkin
+Feature: Forget everything in a workspace (MEM-FE-1 to MEM-FE-4)
+
+  Scenario: One workspace is emptied and another is untouched
+    Given workspace A has 3 kept facts, one of them remembered everywhere, and 1 fact to check
+    And workspace B has 2 kept facts
+    When count_everything(Workspace A) is called
+    Then it returns 1 workspace, 3 facts, 1 everywhere, 1 to check
+    When forget_everything(Workspace A) is called
+    Then A has no facts, no held writes and no recalls
+    And B still has 2 kept facts
+    And the fact remembered everywhere is no longer found from B
+    And the journal holds memory_workspace_forgotten for A
+
+  Scenario: The workspace's link words stay
+    Given workspace A has the link word "supplies"
+    When forget_everything(Workspace A) is called
+    Then the link word "supplies" of A is still listed
+
+  Scenario: Every workspace
+    Given workspaces A and B each have kept facts
+    When forget_everything(EveryWorkspace) is called
+    Then it returns 2 workspaces
+    And neither A nor B has a fact
+
+  Scenario: Error — not the desktop
+    Given the program is a personal server
+    When forget_everything(Workspace A) is called
+    Then the call fails with MEM_NOT_SUPPORTED
+```
+
+### Gaps
+
+None.
