@@ -506,7 +506,15 @@ fn code_macro(children: &[Node]) -> String {
 
 fn cell_text(node: &Node) -> String {
     match node {
-        Node::Element { children, .. } => inline(children).replace('|', "\\|").replace('\n', " "),
+        // Confluence wraps a cell's text in paragraphs (and may hold lists): its blocks are read, then
+        // joined onto the one line a Markdown table cell has.
+        Node::Element { children, .. } => blocks(children)
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .replace('|', "\\|"),
         Node::Text(text) => markdown_text(text),
     }
 }
@@ -516,7 +524,7 @@ fn table(children: &[Node]) -> String {
     for node in children {
         if let Node::Element { name, children, .. } = node {
             match name.as_str() {
-                "tbody" => rows.extend(
+                "thead" | "tbody" => rows.extend(
                     children
                         .iter()
                         .filter(|n| matches!(n, Node::Element { name, .. } if name == "tr")),
@@ -604,7 +612,11 @@ fn task_list(children: &[Node]) -> String {
             }
         }
         let marker = if done { "- [x] " } else { "- [ ] " };
-        lines.push(format!("{marker}{}", indent(&body, "  ")).trim_end().to_owned());
+        lines.push(
+            format!("{marker}{}", indent(&body, "  "))
+                .trim_end()
+                .to_owned(),
+        );
     }
     lines.join("\n")
 }
@@ -783,7 +795,10 @@ mod tests {
                     <ac:task-body>Send the <strong>rates</strong></ac:task-body></ac:task>\
                     <ac:task><ac:task-id>2</ac:task-id><ac:task-status>incomplete</ac:task-status>\
                     <ac:task-body><p>Sign</p></ac:task-body></ac:task></ac:task-list><p>after</p>";
-        assert_eq!(markdown(page), "- [x] Send the **rates**\n- [ ] Sign\n\nafter\n");
+        assert_eq!(
+            markdown(page),
+            "- [x] Send the **rates**\n- [ ] Sign\n\nafter\n"
+        );
     }
 
     #[test]
@@ -805,6 +820,16 @@ mod tests {
             out,
             "<ul><li>[x] a</li><li>b</li></ul><ol><li>c</li></ol><ac:task-list><ac:task><ac:task-id>1</ac:task-id>\
              <ac:task-status>incomplete</ac:task-status><ac:task-body>d</ac:task-body></ac:task></ac:task-list>"
+        );
+    }
+
+    #[test]
+    fn a_table_with_paragraphs_in_its_cells_reads_as_a_table() {
+        let page = "<table><colgroup><col/></colgroup><tbody><tr><th><p><strong>Item</strong></p></th><th><p>Rate</p></th></tr>\
+                    <tr><td><p>Day</p><p>rate</p></td><td><p>£640 | net</p></td></tr></tbody></table>";
+        assert_eq!(
+            markdown(page),
+            "| **Item** | Rate |\n| --- | --- |\n| Day rate | £640 \\| net |\n"
         );
     }
 
