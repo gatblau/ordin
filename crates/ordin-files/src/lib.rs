@@ -38,7 +38,10 @@ mod tests;
 use std::time::Duration;
 
 pub use attribution::AgentWriteTarget;
-pub use documents::{DocumentTools, DOC_MAX_TEXT_BYTES, DOC_PART_CHARS};
+pub use documents::{
+    DocumentArgumentProblem, DocumentCall, DocumentFailure, DocumentPart, DocumentReader,
+    DOC_MAX_TEXT_BYTES, DOC_PART_CHARS,
+};
 pub use error::{FileError, ALL_CODES};
 pub use ordin_journal::{MigrationStep, ModuleMigrations};
 pub use ordin_types::domain::places::{

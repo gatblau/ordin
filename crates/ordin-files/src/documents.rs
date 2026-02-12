@@ -1,30 +1,24 @@
-//! The `documents` server: `read_document`, the text of a document an agent may read
-//! (FileService.md SA-FS-DOC-1 to SA-FS-DOC-5). It reads the file in place and changes nothing.
+//! `read_document`'s reading: the text of a document an agent may read (FileService.md SA-FS-DOC-1
+//! to SA-FS-DOC-6). It reads the file in place and changes nothing. The File Service has no edge to
+//! the MCP Front (2B-2 D4): the Agent Loader wraps [`DocumentReader`] as the `documents` server.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant, SystemTime};
 
-use async_trait::async_trait;
-use ordin_mcp_front::{
-    ArgumentProblem, ServerName, ServerSpec, SessionGrant, ToolCallContext, ToolFailure, ToolKey,
-    ToolOutput, ToolProvider, ToolSpec,
-};
 use ordin_rules::PathAccessRequest;
 use ordin_types::domain::places::FolderAccess;
 use ordin_types::wire::rules::Verdict;
-use ordin_types::RunId;
+use ordin_types::{AgentInstanceId, RunId, WorkspaceId};
 use serde_json::{json, Value};
+use tokio_util::sync::CancellationToken;
 
 use crate::extract::{document_text, is_document_kind};
 use crate::paths::kind_of;
 use crate::service::FileService;
 use crate::INDEX_MAX_SOURCE_BYTES;
 
-const PROVIDER_ID: &str = "file-service-documents";
-pub(crate) const DOC_SERVER: &str = "documents";
-const READ_DOCUMENT: &str = "read_document";
 /// Characters per part: below the MCP Front's 12,000-character trim, so a part arrives whole.
 pub const DOC_PART_CHARS: usize = 10_000;
 /// The most text kept of one document.
@@ -41,26 +35,58 @@ struct Held {
     text: Arc<Vec<char>>,
 }
 
-/// The provider of the `documents` server (SA-FS-DOC-1).
+/// The reading behind `read_document` (SA-FS-DOC-1), wrapped as a tool by the Agent Loader.
 // spec: ordin-desktop/components/FileService#SA-FS-DOC-1
-pub struct DocumentTools {
+pub struct DocumentReader {
     files: Weak<FileService>,
     held: Mutex<HashMap<RunId, Held>>,
 }
 
+/// One call's session facts, copied by the caller from the tool call.
+#[derive(Debug, Clone)]
+pub struct DocumentCall {
+    pub run_id: RunId,
+    pub workspace_id: WorkspaceId,
+    pub agent_instance_id: AgentInstanceId,
+    pub deadline: Instant,
+    pub cancel: CancellationToken,
+}
+
+/// One part of a document's text and where to read on (SA-FS-DOC-4).
+#[derive(Debug, Clone)]
+pub struct DocumentPart {
+    pub text: String,
+    pub structured: Option<Value>,
+}
+
+/// A refused reading: the code, the sentence for the agent, and whether to try again.
+#[derive(Debug, Clone)]
+pub struct DocumentFailure {
+    pub code: String,
+    pub message: String,
+    pub retryable: bool,
+}
+
+/// An argument that is not well formed: its JSON pointer and why.
+#[derive(Debug, Clone)]
+pub struct DocumentArgumentProblem {
+    pub at: String,
+    pub reason: String,
+}
+
 impl FileService {
-    /// The `documents` server's provider, registered with the MCP Front by the program.
+    /// The reading behind `read_document`, for the Agent Loader to serve.
     // spec: ordin-desktop/components/FileService#SA-FS-DOC-1
-    pub fn document_tool_provider(&self) -> Arc<dyn ToolProvider> {
-        Arc::new(DocumentTools {
+    pub fn document_reader(&self) -> Arc<DocumentReader> {
+        Arc::new(DocumentReader {
             files: self.me.clone(),
             held: Mutex::new(HashMap::new()),
         })
     }
 }
 
-fn failure(code: &str, message: &str, retryable: bool) -> ToolFailure {
-    ToolFailure {
+fn failure(code: &str, message: &str, retryable: bool) -> DocumentFailure {
+    DocumentFailure {
         code: code.to_owned(),
         message: message.to_owned(),
         retryable,
@@ -105,8 +131,8 @@ fn place_target(text: &str) -> Option<Result<Target, &'static str>> {
     Some(Ok(Target::Place(id, path.to_owned())))
 }
 
-fn parse(arguments: &Value) -> Result<Args, ArgumentProblem> {
-    let problem = |at: &str, reason: &str| ArgumentProblem {
+fn parse(arguments: &Value) -> Result<Args, DocumentArgumentProblem> {
+    let problem = |at: &str, reason: &str| DocumentArgumentProblem {
         at: at.to_owned(),
         reason: reason.to_owned(),
     };
@@ -146,10 +172,10 @@ fn parse(arguments: &Value) -> Result<Args, ArgumentProblem> {
 
 /// SA-FS-DOC-4: the part of `text` from `from`, with the line saying how to read on.
 // spec: ordin-desktop/components/FileService#SA-FS-DOC-4
-fn part(text: &[char], from: usize) -> ToolOutput {
+fn part(text: &[char], from: usize) -> DocumentPart {
     let total = text.len();
     if from >= total {
-        return ToolOutput {
+        return DocumentPart {
             text: format!("[No more text: the document has {total} characters.]"),
             structured: Some(json!({"characters": total, "from": from, "next": null})),
         };
@@ -162,14 +188,35 @@ fn part(text: &[char], from: usize) -> ToolOutput {
             "\n\n[More text follows: call read_document again with from: {next}. The document has {total} characters.]"
         ));
     }
-    ToolOutput {
+    DocumentPart {
         text: out,
         structured: Some(json!({"characters": total, "from": from, "next": next})),
     }
 }
 
-impl DocumentTools {
-    fn files(&self) -> Result<Arc<FileService>, ToolFailure> {
+impl DocumentReader {
+    /// SA-FS-DOC-1: the arguments `read_document` takes, checked before the call.
+    pub fn check(arguments: &Value) -> Result<(), DocumentArgumentProblem> {
+        parse(arguments).map(|_| ())
+    }
+
+    /// SA-FS-DOC-3 and SA-FS-DOC-4: the part of the document the arguments name.
+    pub async fn read(
+        &self,
+        call: &DocumentCall,
+        arguments: &Value,
+    ) -> Result<DocumentPart, DocumentFailure> {
+        let args =
+            parse(arguments).map_err(|p| failure("MCP_ARGUMENTS_INVALID", &p.reason, false))?;
+        self.read_args(call, args).await
+    }
+
+    /// The session ended: the text held for it is dropped.
+    pub fn session_closed(&self, run_id: RunId) {
+        crate::service::lock(&self.held).remove(&run_id);
+    }
+
+    fn files(&self) -> Result<Arc<FileService>, DocumentFailure> {
         self.files.upgrade().ok_or_else(|| {
             failure(
                 "FILE_DOC_UNREADABLE",
@@ -181,7 +228,11 @@ impl DocumentTools {
 
     /// SA-FS-DOC-3 steps 1 to 6, then SA-FS-DOC-4.
     // spec: ordin-desktop/components/FileService#SA-FS-DOC-3
-    async fn read(&self, ctx: &ToolCallContext, args: Args) -> Result<ToolOutput, ToolFailure> {
+    async fn read_args(
+        &self,
+        ctx: &DocumentCall,
+        args: Args,
+    ) -> Result<DocumentPart, DocumentFailure> {
         let files = self.files()?;
         // 1. The real file, symbolic links resolved, so the check below sees where it is.
         let given = match &args.target {
@@ -282,10 +333,10 @@ impl DocumentTools {
     async fn extract(
         &self,
         files: &FileService,
-        ctx: &ToolCallContext,
+        ctx: &DocumentCall,
         path: PathBuf,
         kind: String,
-    ) -> Result<Vec<char>, ToolFailure> {
+    ) -> Result<Vec<char>, DocumentFailure> {
         let unreadable = || {
             failure(
                 "FILE_DOC_UNREADABLE",
@@ -336,83 +387,6 @@ impl DocumentTools {
         }
         crate::log::document_read(ctx.run_id, started.elapsed());
         Ok(text.chars().collect())
-    }
-}
-
-#[async_trait]
-impl ToolProvider for DocumentTools {
-    fn provider_id(&self) -> &'static str {
-        PROVIDER_ID
-    }
-
-    fn servers(&self) -> Vec<ServerSpec> {
-        let Ok(name) = ServerName::new(DOC_SERVER) else {
-            return Vec::new();
-        };
-        vec![ServerSpec {
-            name,
-            tools: vec![ToolSpec {
-                name: READ_DOCUMENT.to_owned(),
-                description: "Read the text of a PDF, Word, PowerPoint, Excel, Markdown or text file, in parts."
-                    .to_owned(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string", "description": "The file's absolute path, or place:<place id>:<path> as on the Attached line."},
-                        "from": {"type": "integer", "minimum": 0, "description": "The character to start at; 0 for the first part."}
-                    },
-                    "required": ["path"],
-                    "additionalProperties": false
-                }),
-                argument_form: "read_document(path: \"<absolute path> | place:<place id>:<path>\", from: <0, or the next offset given>)"
-                    .to_owned(),
-                sandbox_callable: true,
-                plain: "Reads the text of documents in the folders you allow.".to_owned(),
-            }],
-        }]
-    }
-
-    // spec: ordin-desktop/components/FileService#SA-FS-DOC-1
-    async fn offer(&self, _grant: &SessionGrant) -> Result<Vec<ToolKey>, ToolFailure> {
-        let Ok(server) = ServerName::new(DOC_SERVER) else {
-            return Ok(Vec::new());
-        };
-        Ok(vec![ToolKey {
-            server,
-            tool: READ_DOCUMENT.to_owned(),
-        }])
-    }
-
-    fn check_arguments(&self, key: &ToolKey, arguments: &Value) -> Result<(), ArgumentProblem> {
-        if key.tool != READ_DOCUMENT {
-            return Err(ArgumentProblem {
-                at: String::new(),
-                reason: "unknown tool".to_owned(),
-            });
-        }
-        parse(arguments).map(|_| ())
-    }
-
-    async fn call(
-        &self,
-        ctx: ToolCallContext,
-        key: &ToolKey,
-        arguments: Value,
-    ) -> Result<ToolOutput, ToolFailure> {
-        if key.tool != READ_DOCUMENT {
-            return Err(failure(
-                "MCP_TOOL_NOT_OFFERED",
-                "This tool is not offered to this session.",
-                false,
-            ));
-        }
-        let args =
-            parse(&arguments).map_err(|p| failure("MCP_ARGUMENTS_INVALID", &p.reason, false))?;
-        self.read(&ctx, args).await
-    }
-
-    async fn session_closed(&self, run_id: RunId) {
-        crate::service::lock(&self.held).remove(&run_id);
     }
 }
 

@@ -7222,3 +7222,26 @@ Feature: SharePoint through a folder OneDrive syncs (SM-AW-6)
     When the picker answers no folder
     Then nothing is sent and the step stays drawn
 ```
+
+## Amendment 2026-02-12 — The question to move ordin (SM-FS-14) (plan 08 Phase 19; user decision; Approved by the user February 2026)
+
+- **SM-FS-14 Move ordin to your Applications folder?** On macOS, when `app.install_place` answers `installed: false`, first start draws one panel before anything else of SM-FS (before the assistant question of SM-FS-10 and before the checks): the heading `setup-move-title` ("Move ordin to your Applications folder?"), the line `setup-move-line` ("It goes in the Applications folder in your home folder. No administrator is needed."), the one main action **Move ordin** (`setup-move-do`) and **Not now** (`setup-move-later`). **Move ordin** sends `app.move_to_applications {}` and draws `setup-move-moving` ("Moving ordin…", `role="status"`) while it waits; the program then quits by itself. A refusal is drawn with `ErrorLine` under the main action, with **Try again** when retryable, and **Not now** stays. **Not now** carries on with first start; the question is drawn again at the next start while ordin is not installed. A backend that does not answer `app.install_place`, and every other platform, draws nothing new. Words in `screens-setup.ftl` (en-GB). UX: one main action in words (11 §4).
+
+```gherkin
+Feature: The question to move ordin (SM-FS-14)
+
+  Scenario: Happy path — the person moves ordin
+    Given app.install_place answers installed false
+    When first start is drawn
+    Then "Move ordin to your Applications folder?" is drawn before the checks
+    When the person presses Move ordin
+    Then app.move_to_applications is sent and "Moving ordin…" is drawn
+
+  Scenario: Edge case — not now
+    When the person presses Not now
+    Then first start carries on and nothing is sent
+
+  Scenario: Error path — the copy fails
+    Given app.move_to_applications answers DSK_MOVE_COPY_FAILED
+    Then its sentence is drawn with Try again, and Not now stays
+```

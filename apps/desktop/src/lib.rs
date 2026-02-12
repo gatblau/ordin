@@ -7,6 +7,7 @@ pub mod bundled;
 mod confluence_preview;
 pub mod core;
 pub mod dashboard_export;
+pub mod document_tools;
 pub mod error;
 pub mod groups;
 pub mod hosts;

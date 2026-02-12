@@ -3562,7 +3562,7 @@ None.
 
 > **Status:** Approved by the user, February 2026. Source: FileService.md SA-FS-DOC-1. Every section above stays in force.
 
-- **DSK-REC-50** Right after row 3.22 (File Service), and so before `McpFront::start`, the program registers `files.document_tool_provider()` with the MCP Front (`Provider::Files`, step 3 with DSK-UP-6). It is the first provider registered: the providers before the MCP Front starts are, in order, the File Service, the Sandbox (when built), the Memory Service, the Craft Toolkit, Projects, Knowledge and the Ordin Host.
+- **DSK-REC-50** Right after row 3.22 (File Service), and so before `McpFront::start`, the program registers `document_tool_provider(&files)` (`apps/desktop/src/document_tools.rs`, over `files.document_reader()`; amended 2026-02-12, FileService.md SA-FS-DOC-1) with the MCP Front (`Provider::Files`, step 3 with DSK-UP-6). It is the first provider registered: the providers before the MCP Front starts are, in order, the File Service, the Sandbox (when built), the Memory Service, the Craft Toolkit, Projects, Knowledge and the Ordin Host.
 
 ```gherkin
 Feature: The documents server is registered (DSK-REC-50)
@@ -3570,6 +3570,42 @@ Feature: The documents server is registered (DSK-REC-50)
   Scenario: Happy path
     When the desktop core starts
     Then the File Service's provider is registered with the MCP Front before any other
+```
+
+### Gaps
+
+None.
+
+## Amendment February 2026 — ordin moves itself to the person's Applications folder (DSK-MOVE-1 to DSK-MOVE-4) (amended February 2026, plan 08 Phase 19; user decision; Approved by the user February 2026)
+
+Plan 08 Phase 19 (user decision 2026-02-11, "Ordin should move itself to ~/Applications on first start, with the DMG saying so instead of showing the /Applications link"): copying ordin into `/Applications` asks for an administrator's password on a Mac without administrator rights. macOS only; on Windows and Linux every command below answers as if ordin were installed and changes nothing.
+
+- **DSK-MOVE-1 Is ordin installed?** `app.install_place {}` answers `{ installed: bool, target: String }`. `installed` is true when `install_folder(current_exe())` (`apps/desktop/src/install_kind.rs`), canonicalised, equals `/Applications` or `$HOME/Applications`, canonicalised; false otherwise (a mounted disk image, `~/Downloads`, a translocated copy under `/private/var/folders`, anywhere else). `target` is `$HOME/Applications/<product name>.app`. The rule is a pure function of the two paths and `$HOME`, unit-tested.
+- **DSK-MOVE-2 Move.** `app.move_to_applications {}`, refused with `DSK_MOVE_NOT_NEEDED` when `installed` is true. Otherwise: create `$HOME/Applications` when missing; when `target` exists, move it to the Bin (`NSFileManager trashItemAtURL`); copy the running bundle to `target` with `/usr/bin/ditto <bundle> <target>`; remove `com.apple.quarantine` from the copy only (`/usr/bin/xattr -dr com.apple.quarantine <target>`); start the copy with `/usr/bin/open -n <target>`; answer `{ moved: true }`; then the program quits within 2 seconds, through the ordinary shutdown (DSK-REC). No step runs with administrator rights. Each tool runs with a 120-second limit and its output is not logged; each step logs `move.<step>` with `outcome` and, on failure, the exit code.
+- **DSK-MOVE-3 Errors.** A folder that cannot be made, an older copy that cannot be moved to the Bin, or `ditto` failing → `DSK_MOVE_COPY_FAILED` (retryable; any partial copy is removed); `open` failing → `DSK_MOVE_START_FAILED` (not retryable; the copy stays, the running ordin carries on). Nothing is changed outside `$HOME/Applications`. Both codes, and `DSK_MOVE_NOT_NEEDED`, go in the Error Table and ErrorHandling.md's registry, with en-GB sentences in `errors-desktop.ftl`.
+- **DSK-MOVE-4 Updates.** Updates go on replacing the bundle where it lives (DSK-UP-15: `~/Applications` is a per-user install), with no administrator.
+
+```gherkin
+Feature: ordin moves itself to the person's Applications folder (DSK-MOVE-1 to DSK-MOVE-4)
+
+  Scenario: Happy path — opened from the disk image
+    Given ordin runs from /Volumes/ordin/ordin.app
+    When the person presses Move ordin
+    Then ~/Applications/ordin.app is a copy without the quarantine attribute
+    And the copy is started and the running ordin quits
+
+  Scenario: Edge case — already in the person's Applications folder
+    Given ordin runs from ~/Applications/ordin.app
+    Then app.install_place answers installed true and nothing is asked
+
+  Scenario: Edge case — an older copy is there
+    Given ~/Applications/ordin.app exists and ordin runs from ~/Downloads/ordin.app
+    When the person presses Move ordin
+    Then the older copy is in the Bin and the new one replaces it
+
+  Scenario: Error path — the copy fails
+    Given ditto exits with an error
+    Then the answer is DSK_MOVE_COPY_FAILED and no partial copy is left
 ```
 
 ### Gaps

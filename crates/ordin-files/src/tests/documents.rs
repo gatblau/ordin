@@ -5,25 +5,23 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use ordin_mcp_front::{
-    CallVia, ProgressSink, ServerName, ToolCallContext, ToolCaller, ToolFailure, ToolKey,
-    ToolOutput, ToolProvider,
-};
 use ordin_rules::{GrantedPlace, InstanceRuleSet};
 use ordin_types::domain::agents::Authority;
 use ordin_types::domain::places::{FolderAccess, Grantee};
-use ordin_types::{AgentInstanceId, RunId, ToolRequestId, WorkspaceId};
+use ordin_types::{AgentInstanceId, RunId, WorkspaceId};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
 use super::support::*;
-use crate::{PlaceKind, DOC_PART_CHARS};
+use crate::{
+    DocumentCall, DocumentFailure, DocumentPart, DocumentReader, PlaceKind, DOC_PART_CHARS,
+};
 
 const BROWSER_PDF: &[u8] = include_bytes!("../../tests/fixtures/browser-printed.pdf");
 
 struct Rig {
     fx: Fixture,
-    provider: std::sync::Arc<dyn ToolProvider>,
+    provider: std::sync::Arc<DocumentReader>,
     agent: AgentInstanceId,
     workspace: WorkspaceId,
     agent_folder: PathBuf,
@@ -69,7 +67,7 @@ async fn rig() -> Rig {
             access: FolderAccess::Read,
         }],
     );
-    let provider = fx.service.document_tool_provider();
+    let provider = fx.service.document_reader();
     Rig {
         fx,
         provider,
@@ -81,29 +79,14 @@ async fn rig() -> Rig {
     }
 }
 
-fn key() -> ToolKey {
-    ToolKey {
-        server: ServerName::new("documents").unwrap(),
-        tool: "read_document".to_owned(),
-    }
-}
-
 impl Rig {
-    fn context(&self, run_id: RunId) -> ToolCallContext {
-        ToolCallContext {
+    fn context(&self, run_id: RunId) -> DocumentCall {
+        DocumentCall {
             run_id,
             workspace_id: self.workspace,
             agent_instance_id: self.agent,
-            caller: ToolCaller::Agent,
-            scope_id: None,
-            coding_task_id: None,
-            call_id: ToolRequestId::new(),
-            correlation_id: "test".to_owned(),
             deadline: Instant::now() + Duration::from_secs(60),
             cancel: CancellationToken::new(),
-            progress: ProgressSink::detached(),
-            only_needed_parts: false,
-            via: CallVia::Harness,
         }
     }
 
@@ -112,22 +95,18 @@ impl Rig {
         run_id: RunId,
         path: &Path,
         from: u64,
-    ) -> Result<ToolOutput, ToolFailure> {
+    ) -> Result<DocumentPart, DocumentFailure> {
         let arguments = json!({"path": path, "from": from});
-        self.provider
-            .check_arguments(&key(), &arguments)
-            .expect("well-formed");
-        self.provider
-            .call(self.context(run_id), &key(), arguments)
-            .await
+        DocumentReader::check(&arguments).expect("well-formed");
+        self.provider.read(&self.context(run_id), &arguments).await
     }
 
-    async fn read(&self, path: &Path) -> Result<ToolOutput, ToolFailure> {
+    async fn read(&self, path: &Path) -> Result<DocumentPart, DocumentFailure> {
         self.read_at(RunId::new(), path, 0).await
     }
 }
 
-fn code(outcome: Result<ToolOutput, ToolFailure>) -> String {
+fn code(outcome: Result<DocumentPart, DocumentFailure>) -> String {
     outcome.expect_err("a failure").code
 }
 
@@ -267,13 +246,8 @@ async fn error_rows() {
 
 // spec: ordin-desktop/components/FileService#SA-FS-DOC-1
 #[tokio::test]
-async fn the_tool_is_offered_and_a_relative_path_is_refused_before_the_call() {
-    let r = rig().await;
-    assert_eq!(r.provider.servers()[0].tools[0].name, "read_document");
-    let problem = r
-        .provider
-        .check_arguments(&key(), &json!({"path": "Agent-Platform.pdf"}))
-        .unwrap_err();
+async fn a_relative_path_is_refused_before_the_call() {
+    let problem = DocumentReader::check(&json!({"path": "Agent-Platform.pdf"})).unwrap_err();
     assert_eq!(problem.at, "/path");
 }
 
@@ -284,12 +258,10 @@ async fn happy_path_a_place_reference_from_the_attached_line_is_read() {
     r.fx.put(&r.allowed, "specs/Agent-Platform.pdf", BROWSER_PDF);
     let reference = format!("place:{}:specs/Agent-Platform.pdf", r.allowed.id);
     let arguments = json!({"path": reference});
-    r.provider
-        .check_arguments(&key(), &arguments)
-        .expect("well-formed");
+    DocumentReader::check(&arguments).expect("well-formed");
     let out = r
         .provider
-        .call(r.context(RunId::new()), &key(), arguments)
+        .read(&r.context(RunId::new()), &arguments)
         .await
         .expect("read");
     assert!(out.text.contains("Session supervisor"), "{}", out.text);
@@ -301,15 +273,9 @@ async fn error_a_place_reference_to_a_folder_not_allowed_is_refused() {
     let r = rig().await;
     r.fx.put(&r.other, "secret.pdf", BROWSER_PDF);
     let arguments = json!({"path": format!("place:{}:secret.pdf", r.other.id)});
-    let out = r
-        .provider
-        .call(r.context(RunId::new()), &key(), arguments)
-        .await;
+    let out = r.provider.read(&r.context(RunId::new()), &arguments).await;
     assert_eq!(code(out), "FILE_NOT_GRANTED");
     let unknown = json!({"path": format!("place:{}:a.pdf", ordin_types::PlaceId::new())});
-    let out = r
-        .provider
-        .call(r.context(RunId::new()), &key(), unknown)
-        .await;
+    let out = r.provider.read(&r.context(RunId::new()), &unknown).await;
     assert_eq!(code(out), "FILE_NOT_FOUND");
 }

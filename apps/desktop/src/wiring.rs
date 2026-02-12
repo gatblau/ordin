@@ -1639,10 +1639,13 @@ impl ModuleRunner {
     // spec: ordin-desktop/components/OrdinDesktop#DSK-REC-31
     fn register_provider(&mut self, provider: Provider) -> Result<(), StartError> {
         let (row, tools) = match provider {
-            Provider::Files => (
-                Row::Files,
-                earlier(&self.modules.files, Row::Files)?.document_tool_provider(),
-            ),
+            Provider::Files => {
+                let files = earlier(&self.modules.files, Row::Files)?;
+                (
+                    Row::Files,
+                    crate::document_tools::document_tool_provider(&files),
+                )
+            }
             #[cfg(feature = "sandbox")]
             Provider::Sandbox => (
                 Row::Sandbox,

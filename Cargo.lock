@@ -6397,7 +6397,6 @@ dependencies = [
  "ordin-agent-folders",
  "ordin-approval",
  "ordin-journal",
- "ordin-mcp-front",
  "ordin-organisation-profile",
  "ordin-rules",
  "ordin-types",
