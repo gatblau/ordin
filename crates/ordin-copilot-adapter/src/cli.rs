@@ -1417,10 +1417,14 @@ mod tests {
         /// Installs ordin's own line format for this thread until the guard drops.
         fn install(&self) -> tracing::subscriber::DefaultGuard {
             let writer = self.clone();
-            tracing::subscriber::set_default(ordin_types::log::subscriber(
+            let guard = tracing::subscriber::set_default(ordin_types::log::subscriber(
                 move || writer.clone(),
                 tracing::Level::INFO,
-            ))
+            ));
+            // A log line first reached on a thread with no subscriber is cached as unheard for
+            // every thread; asking again makes this test's subscriber hear it.
+            tracing::callsite::rebuild_interest_cache();
+            guard
         }
         fn text(&self) -> String {
             String::from_utf8(lock(&self.0).clone()).expect("utf-8")
